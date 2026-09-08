@@ -151,7 +151,10 @@ struct ContentView: View {
                     )
                 
                 mainLayout
-                    .frame(height: vm.notchState == .open ? openNotchContentHeight : nil)
+                    .frame(
+                        height: vm.notchState == .open ? openNotchContentHeight : nil,
+                        alignment: .top
+                    )
                     .conditionalModifier(true) { view in
                         let openAnimation = Animation.spring(response: 0.42, dampingFraction: 0.8, blendDuration: 0)
                         let closeAnimation = Animation.spring(response: 0.45, dampingFraction: 1.0, blendDuration: 0)
@@ -164,6 +167,10 @@ struct ContentView: View {
                             .animation(
                                 .spring(response: 0.46, dampingFraction: 0.82, blendDuration: 0),
                                 value: showsBigScreenMirror
+                            )
+                            .animation(
+                                .spring(response: 0.46, dampingFraction: 0.82, blendDuration: 0),
+                                value: openNotchContentHeight
                             )
                     }
                     .contentShape(Rectangle())
@@ -435,7 +442,7 @@ struct ContentView: View {
     /// big-screen mirror up front, but the notch itself only stretches down
     /// once the mirror is actually showing.
     private var openNotchContentHeight: CGFloat {
-        defaultOpenNotchSize.height
+        openNotchHeight(for: coordinator.currentView)
             + (showsBigScreenMirror
                ? mirrorBigScreenHeight.clamped(to: mirrorBigScreenHeightRange) + 8
                : 0)
