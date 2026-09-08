@@ -40,11 +40,25 @@ class VornyxNotchWindow: NSPanel {
         hasShadow = false
     }
     
-    override var canBecomeKey: Bool {
-        false
+    /// Set while something in the notch needs the keyboard - today, the AI
+    /// chat composer.
+    ///
+    /// The notch is a non-activating panel that deliberately never takes focus,
+    /// so a text field inside it can never receive a keystroke. Because the
+    /// panel is non-activating it can hold key status *without* activating the
+    /// app, so the app you were using stays frontmost while you type here.
+    /// Opt-in, and only for as long as the input is on screen.
+    var acceptsKeyboardInput: Bool = false {
+        didSet {
+            guard acceptsKeyboardInput != oldValue else { return }
+            if acceptsKeyboardInput {
+                makeKey()
+            } else if isKeyWindow {
+                resignKey()
+            }
+        }
     }
-    
-    override var canBecomeMain: Bool {
-        false
-    }
+
+    override var canBecomeKey: Bool { acceptsKeyboardInput }
+    override var canBecomeMain: Bool { false }
 }

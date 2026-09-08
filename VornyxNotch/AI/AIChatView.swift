@@ -12,6 +12,8 @@ struct AIChatView: View {
     @EnvironmentObject var vm: VornyxViewModel
     @StateObject private var chat = AIChatManager.shared
     @FocusState private var composerFocused: Bool
+    /// Balances begin/endInteraction so the counter can't drift.
+    @State private var holdingNotch = false
 
     var body: some View {
         VStack(spacing: 8) {
@@ -23,7 +25,40 @@ struct AIChatView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .onAppear { composerFocused = chat.hasAPIKey }
+        .onAppear {
+            guard chat.hasAPIKey else { return }
+            VornyxNotchSkyLightWindow.setKeyboardInputEnabled(true)
+            // The window has to be able to take key status before the field can
+            // claim focus, so ask for focus on the next runloop pass.
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(80))
+                composerFocused = true
+            }
+        }
+        .onDisappear {
+            VornyxNotchSkyLightWindow.setKeyboardInputEnabled(false)
+            releaseNotch()
+        }
+        .onChange(of: composerFocused) { _, focused in
+            // Don't let the notch slide shut mid-sentence when the pointer
+            // wanders off.
+            focused ? holdNotch() : releaseNotch()
+        }
+        .onExitCommand {
+            composerFocused = false
+        }
+    }
+
+    private func holdNotch() {
+        guard !holdingNotch else { return }
+        holdingNotch = true
+        SharingStateManager.shared.beginInteraction()
+    }
+
+    private func releaseNotch() {
+        guard holdingNotch else { return }
+        holdingNotch = false
+        SharingStateManager.shared.endInteraction()
     }
 
     private var missingKeyNotice: some View {
