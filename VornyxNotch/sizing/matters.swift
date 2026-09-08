@@ -28,11 +28,17 @@ var configuredHomeNotchWidth: CGFloat {
 /// Width of the open notch for a given tab. Only the home page follows the
 /// width setting - the shelf and calendar keep the full width, because
 /// shrinking them would squeeze content that needs the room.
+/// The dashboard holds a month, a shortcut grid and a chat side by side, so it
+/// widens the notch while it is open and hands the width back on the way out.
+let dashboardNotchWidth: CGFloat = 900
+
 func openNotchWidth(for view: NotchViews) -> CGFloat {
     switch view {
     case .home:
         return configuredHomeNotchWidth
-    case .shelf, .clipboard, .dashboard:
+    case .dashboard:
+        return dashboardNotchWidth
+    case .shelf, .clipboard:
         return defaultOpenNotchSize.width
     }
 }
@@ -51,8 +57,11 @@ var mirrorBigScreenReservedHeight: CGFloat {
 /// Size the window has to be: wide enough for the widest tab, and tall enough
 /// for the big-screen mirror if that mode is on.
 var openNotchSize: CGSize {
+    // The window has to be able to hold the widest tab, so it is sized for the
+    // dashboard even while a narrower tab is showing. It is transparent
+    // outside the notch shape, so the extra width costs nothing visually.
     .init(
-        width: max(configuredHomeNotchWidth, defaultOpenNotchSize.width),
+        width: max(configuredHomeNotchWidth, defaultOpenNotchSize.width, dashboardNotchWidth),
         height: defaultOpenNotchSize.height + mirrorBigScreenReservedHeight
     )
 }

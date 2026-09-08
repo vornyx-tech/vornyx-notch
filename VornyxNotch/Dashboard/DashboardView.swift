@@ -12,13 +12,19 @@ struct DashboardView: View {
     @EnvironmentObject var vm: VornyxViewModel
     @Default(.aiEnabled) private var aiEnabled
 
-    private let calendarWidth: CGFloat = 186
-    private let shortcutsWidth: CGFloat = 176
+    @State private var selectedDate = Date()
+
+    private let gridWidth: CGFloat = 168
+    private let agendaWidth: CGFloat = 150
+    private let shortcutsWidth: CGFloat = 190
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            MonthCalendarView()
-                .frame(width: calendarWidth)
+            MonthCalendarView(selectedDate: $selectedDate)
+                .frame(width: gridWidth)
+
+            DayAgendaView(date: selectedDate)
+                .frame(width: agendaWidth)
 
             divider
 
