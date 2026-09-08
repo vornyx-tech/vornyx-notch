@@ -327,11 +327,11 @@ class VornyxViewCoordinator: ObservableObject {
         if Defaults[.shelfEnabled] {
             tabs.append(.shelf)
         }
-        if Defaults[.showCalendar] && Defaults[.calendarAsSeparateTab] {
-            tabs.append(.calendar)
-        }
         if Defaults[.clipboardEnabled] {
             tabs.append(.clipboard)
+        }
+        if Defaults[.showCalendar] && Defaults[.calendarAsSeparateTab] {
+            tabs.append(.calendar)
         }
         if Defaults[.aiEnabled] {
             tabs.append(.ai)

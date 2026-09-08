@@ -96,7 +96,7 @@ struct AIChatView: View {
                     ForEach(chat.messages) { message in
                         bubble(message).id(message.id)
                     }
-                    if chat.isThinking {
+                    if chat.isThinking && !chat.isStreaming {
                         ThinkingDots()
                             .id("thinking")
                     }

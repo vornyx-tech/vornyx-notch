@@ -16,7 +16,10 @@ struct VornyxHeader: View {
     var body: some View {
         HStack(spacing: 0) {
             HStack {
-                if (!tvm.isEmpty || coordinator.alwaysShowTabs) && Defaults[.shelfEnabled] {
+                // Show the pill whenever there is more than one tab in it -
+                // the shelf may be off while the clipboard is on.
+                if tabs.count > 1 && (!tvm.isEmpty || coordinator.alwaysShowTabs
+                                      || !Defaults[.shelfEnabled]) {
                     TabSelectionView()
                 } else if vm.notchState == .open {
                     EmptyView()
@@ -44,9 +47,6 @@ struct VornyxHeader: View {
                     } else {
                         if Defaults[.showCalendar] && Defaults[.calendarAsSeparateTab] {
                             tabIconButton(icon: "calendar", target: .calendar)
-                        }
-                        if Defaults[.clipboardEnabled] {
-                            tabIconButton(icon: "doc.on.clipboard", target: .clipboard)
                         }
                         if Defaults[.aiEnabled] {
                             tabIconButton(icon: "sparkles", target: .ai)

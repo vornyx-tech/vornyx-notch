@@ -185,6 +185,7 @@ private struct HorizontalSwipeMonitor: NSViewRepresentable {
         private let threshold: CGFloat
         var action: (PanDirection) -> Void
         private var monitor: Any?
+        private weak var hostView: NSView?
         private var accumulated: CGFloat = 0
         /// One page per gesture: latched until the fingers lift.
         private var fired = false
@@ -197,11 +198,23 @@ private struct HorizontalSwipeMonitor: NSViewRepresentable {
 
         func installMonitor(on view: NSView) {
             removeMonitor()
+            hostView = view
             monitor = NSEvent.addLocalMonitorForEvents(matching: [.scrollWheel]) { [weak self, weak view] event in
                 guard let self, event.window === view?.window else { return event }
                 self.handleScroll(event)
                 return event
             }
+        }
+
+        /// True when the pointer is over the strip this gesture belongs to.
+        ///
+        /// The monitor sees every scroll in the window, so without this a
+        /// sideways scroll inside the notch content - the clipboard row, for
+        /// instance - would page the tabs at the same time as scrolling itself.
+        private func pointerIsOverHost(_ event: NSEvent) -> Bool {
+            guard let hostView, hostView.window != nil else { return false }
+            let frameInWindow = hostView.convert(hostView.bounds, to: nil)
+            return frameInWindow.contains(event.locationInWindow)
         }
 
         func removeMonitor() {
@@ -221,6 +234,11 @@ private struct HorizontalSwipeMonitor: NSViewRepresentable {
 
         private func handleScroll(_ event: NSEvent) {
             if event.phase == .ended || event.phase == .cancelled || event.momentumPhase == .ended {
+                reset()
+                return
+            }
+
+            guard pointerIsOverHost(event) else {
                 reset()
                 return
             }
