@@ -144,8 +144,9 @@ enum AlbumArtStyle {
         static let bobPeriod: Double = 5.9
         static let shimmerPeriod: Double = 2.9
 
-        /// The glow moves slowly, so it does not need a high frame rate.
-        static let frameRate: Double = 20
+        /// The glow moves slowly, so it does not need a high frame rate, and
+        /// each frame re-blurs a full-size image - the expensive part.
+        static let frameRate: Double = 12
     }
 }
 
