@@ -1,0 +1,12 @@
+{
+  "images" : [
+    {
+      "filename" : "VornyxNotch icon.png",
+      "idiom" : "universal"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}
