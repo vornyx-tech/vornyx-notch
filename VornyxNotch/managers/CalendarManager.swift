@@ -178,6 +178,19 @@ class CalendarManager: ObservableObject {
         return Calendar.current.startOfDay(for: date)
     }
 
+    /// Events across the whole visible month, for the dots under the grid.
+    /// `events` stays the selected day's list; this is a separate, wider fetch.
+    @Published var monthEvents: [EventModel] = []
+
+    func updateVisibleMonth(_ date: Date) async {
+        guard let interval = Calendar.current.dateInterval(of: .month, for: date) else { return }
+        monthEvents = await calendarService.events(
+            from: interval.start,
+            to: interval.end,
+            calendars: selectedCalendars.map { $0.id }
+        )
+    }
+
     func updateCurrentDate(_ date: Date) async {
         currentWeekStartDate = Calendar.current.startOfDay(for: date)
         await updateEvents()

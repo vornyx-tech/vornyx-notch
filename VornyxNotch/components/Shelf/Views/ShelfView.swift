@@ -59,13 +59,24 @@ struct ShelfView: View {
     }
 
     var panel: some View {
+        // A permanent dashed outline reads as unfinished, and spends the
+        // "you can drop here" signal before there is anything to drop. At rest
+        // this is a plain surface; the dashes appear only while a drag is over
+        // it, which is the moment they actually mean something.
         RoundedRectangle(cornerRadius: innerPanelCornerRadius, style: .continuous)
-            .stroke(
-                vm.dragDetectorTargeting
-                    ? Color.accentColor.opacity(0.9)
-                    : Color.white.opacity(0.1),
-                style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [10])
+            .fill(.white.opacity(vm.dragDetectorTargeting ? 0.10 : 0.05))
+            .overlay(
+                RoundedRectangle(cornerRadius: innerPanelCornerRadius, style: .continuous)
+                    .strokeBorder(
+                        vm.dragDetectorTargeting
+                            ? Color.effectiveAccent.opacity(0.95)
+                            : Color.white.opacity(0.08),
+                        style: vm.dragDetectorTargeting
+                            ? StrokeStyle(lineWidth: 2, lineCap: .round, dash: [7, 5])
+                            : StrokeStyle(lineWidth: 1)
+                    )
             )
+            .animation(.smooth(duration: 0.18), value: vm.dragDetectorTargeting)
             .overlay {
                 content
                     .padding()

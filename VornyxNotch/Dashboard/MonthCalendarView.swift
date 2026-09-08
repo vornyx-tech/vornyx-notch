@@ -6,27 +6,27 @@
 import Defaults
 import SwiftUI
 
-/// A plain month grid: weekday initials across the top, the current month's
-/// days in bold, the days either side of it dimmed, today in a filled circle.
+/// A compact month grid: weekday initials across the top, the current month's
+/// days in bold, neighbouring days dimmed, today in a filled circle, and a dot
+/// under any day that has something on it.
 ///
-/// Only ever the current month - the notch is a glance surface, not a place to
-/// plan next March.
+/// Only ever the current month - the notch is a glance surface, not somewhere
+/// to plan next March.
 struct MonthCalendarView: View {
     @ObservedObject private var calendarManager = CalendarManager.shared
-
-    var showsEventDots: Bool = true
+    @Binding var selectedDate: Date
 
     @State private var today = Date()
     private let clock = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
 
     private var calendar: Calendar {
         var calendar = Calendar.current
-        // Weeks run Monday-first, matching the M T W T F S S header.
+        // Monday-first, matching the M T W T F S S header.
         calendar.firstWeekday = 2
         return calendar
     }
 
-    /// Six weeks of days, so the grid never changes height month to month.
+    /// Always six week rows, so the grid never changes height month to month.
     private var days: [Date] {
         let calendar = calendar
         guard
@@ -48,29 +48,39 @@ struct MonthCalendarView: View {
         return Array(symbols[first...] + symbols[..<first])
     }
 
-    /// Days in the visible month that have something scheduled.
-    private var daysWithEvents: Set<Int> {
-        guard showsEventDots else { return [] }
-        return Set(
-            calendarManager.events
+    /// Day-of-month numbers in the visible month that have events.
+    private var busyDays: Set<Int> {
+        Set(
+            calendarManager.monthEvents
                 .filter { calendar.isDate($0.start, equalTo: today, toGranularity: .month) }
                 .map { calendar.component(.day, from: $0.start) }
         )
     }
 
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 2), count: 7)
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 1), count: 7)
 
     var body: some View {
-        VStack(spacing: 4) {
-            LazyVGrid(columns: columns, spacing: 2) {
+        VStack(spacing: 3) {
+            HStack {
+                Text(today, format: .dateTime.month(.wide))
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.white)
+                Text(today, format: .dateTime.year())
+                    .font(.system(size: 11, weight: .light))
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 0)
+            }
+            .padding(.bottom, 1)
+
+            LazyVGrid(columns: columns, spacing: 1) {
                 ForEach(Array(weekdaySymbols.enumerated()), id: \.offset) { _, symbol in
                     Text(symbol)
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.system(size: 9, weight: .medium))
                         .foregroundStyle(.tertiary)
                 }
             }
 
-            LazyVGrid(columns: columns, spacing: 3) {
+            LazyVGrid(columns: columns, spacing: 1) {
                 ForEach(days, id: \.self) { day in
                     dayCell(day)
                 }
@@ -82,39 +92,136 @@ struct MonthCalendarView: View {
         }
         .onAppear {
             today = .now
-            Task { await calendarManager.updateCurrentDate(.now) }
+            Task { await calendarManager.updateVisibleMonth(.now) }
         }
     }
 
     @ViewBuilder
     private func dayCell(_ day: Date) -> some View {
         let isToday = calendar.isDateInToday(day)
+        let isSelected = calendar.isDate(day, inSameDayAs: selectedDate)
         let inMonth = calendar.isDate(day, equalTo: today, toGranularity: .month)
         let number = calendar.component(.day, from: day)
-        let hasEvents = inMonth && daysWithEvents.contains(number)
+        let busy = inMonth && busyDays.contains(number)
 
-        ZStack {
-            if isToday {
-                Circle()
-                    .fill(Color.effectiveAccent)
-                    .frame(width: 20, height: 20)
+        Button {
+            withAnimation(.smooth(duration: 0.15)) { selectedDate = day }
+        } label: {
+            ZStack {
+                if isToday {
+                    Circle().fill(Color.effectiveAccent)
+                } else if isSelected {
+                    Circle().strokeBorder(Color.effectiveAccent.opacity(0.8), lineWidth: 1.5)
+                }
+
+                Text("\(number)")
+                    .font(.system(size: 10, weight: isToday ? .bold : (inMonth ? .medium : .regular)))
+                    .foregroundStyle(
+                        isToday ? .white : (inMonth ? Color.white : Color.white.opacity(0.25))
+                    )
+                    .monospacedDigit()
+            }
+            .frame(width: 18, height: 18)
+            .overlay(alignment: .bottom) {
+                if busy && !isToday {
+                    Circle()
+                        .fill(Color.effectiveAccent.opacity(0.9))
+                        .frame(width: 3, height: 3)
+                        .offset(y: 3)
+                }
+            }
+            .frame(height: 21)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// The selected day's events, beside the grid.
+struct DayAgendaView: View {
+    @ObservedObject private var calendarManager = CalendarManager.shared
+    @Environment(\.openURL) private var openURL
+    let date: Date
+
+    private var events: [EventModel] {
+        calendarManager.events.filter { event in
+            if event.isCompletedReminder && Defaults[.hideCompletedReminders] { return false }
+            if event.isAllDay && Defaults[.hideAllDayEvents] { return false }
+            return true
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 4) {
+                Text(date, format: .dateTime.weekday(.abbreviated).day().month(.abbreviated))
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.white)
+                Spacer(minLength: 0)
+                if !events.isEmpty {
+                    Text("\(events.count)")
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
             }
 
-            Text("\(number)")
-                .font(.system(size: 11, weight: isToday ? .bold : (inMonth ? .medium : .regular)))
-                .foregroundStyle(
-                    isToday ? .white : (inMonth ? Color.white : Color.white.opacity(0.28))
-                )
-                .monospacedDigit()
-        }
-        .frame(height: 20)
-        .overlay(alignment: .bottom) {
-            if hasEvents && !isToday {
-                Circle()
-                    .fill(Color.effectiveAccent.opacity(0.9))
-                    .frame(width: 3, height: 3)
-                    .offset(y: 2)
+            if events.isEmpty {
+                HStack(spacing: 4) {
+                    Image(systemName: "checkmark.circle")
+                        .font(.system(size: 9))
+                    Text("Nothing scheduled")
+                        .font(.system(size: 10))
+                }
+                .foregroundStyle(.secondary)
+                .padding(.top, 2)
+                Spacer(minLength: 0)
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 3) {
+                        ForEach(events) { event in
+                            row(event)
+                        }
+                    }
+                }
+                .scrollIndicators(.never)
             }
         }
+        .onChange(of: date) {
+            Task { await calendarManager.updateCurrentDate(date) }
+        }
+        .onAppear {
+            Task { await calendarManager.updateCurrentDate(date) }
+        }
+    }
+
+    private func row(_ event: EventModel) -> some View {
+        Button {
+            if let url = event.calendarAppURL() { openURL(url) }
+        } label: {
+            HStack(alignment: .top, spacing: 5) {
+                Capsule()
+                    .fill(event.accentColor)
+                    .frame(width: 2.5)
+                    .frame(maxHeight: .infinity)
+
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(event.title)
+                        .font(.system(size: 10.5, weight: .medium))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                    Text(event.isAllDay
+                         ? "All-day"
+                         : event.start.formatted(date: .omitted, time: .shortened))
+                        .font(.system(size: 9))
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.vertical, 2)
+            .opacity(event.eventStatus == .ended ? 0.45 : 1)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }

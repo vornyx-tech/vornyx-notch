@@ -17,7 +17,7 @@ struct TabButton: View {
     let onClick: () -> Void
 
     /// Matches the optical height of the SF Symbols in the same pill.
-    private let artworkHeight: CGFloat = 13
+    private let artworkHeight: CGFloat = 14
 
     var body: some View {
         Button(action: onClick) {
@@ -32,7 +32,7 @@ struct TabButton: View {
                         .frame(height: artworkHeight)
                 }
             }
-            .padding(.horizontal, 15)
+            .padding(.horizontal, 11)
             .contentShape(Capsule())
         }
         .buttonStyle(PlainButtonStyle())

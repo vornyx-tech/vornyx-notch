@@ -25,7 +25,7 @@ struct VornyxHeader: View {
                     EmptyView()
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(width: sideWidth, alignment: .leading)
             .opacity(vm.notchState == .closed ? 0 : 1)
             .blur(radius: vm.notchState == .closed ? 20 : 0)
             .zIndex(2)
@@ -97,7 +97,7 @@ struct VornyxHeader: View {
                 }
             }
             .font(.system(.headline, design: .rounded))
-            .frame(maxWidth: .infinity, alignment: .trailing)
+            .frame(width: sideWidth, alignment: .trailing)
             .opacity(vm.notchState == .closed ? 0 : 1)
             .blur(radius: vm.notchState == .closed ? 20 : 0)
             .zIndex(2)
@@ -109,6 +109,20 @@ struct VornyxHeader: View {
             guard vm.notchState == .open else { return }
             coordinator.stepTab(by: direction == .right ? 1 : -1)
         }
+    }
+
+    /// Space available either side of the physical notch.
+    ///
+    /// The middle of the header is reserved for the real notch cut-out. Letting
+    /// the two icon groups share the remaining width with maxWidth: .infinity
+    /// meant that once they outgrew it they spilled inwards, putting icons
+    /// underneath the cut-out where they cannot be seen or clicked.
+    private var sideWidth: CGFloat {
+        let outerInset = Defaults[.cornerRadiusScaling]
+            ? cornerRadiusInsets.opened.top
+            : cornerRadiusInsets.opened.bottom
+        let content = openNotchWidth(for: coordinator.currentView) - 2 * outerInset - 24
+        return max(70, (content - vm.closedNotchSize.width) / 2)
     }
 
     /// A trailing header icon that switches the notch to `target`, and back to

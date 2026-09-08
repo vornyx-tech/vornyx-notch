@@ -19,6 +19,36 @@ struct ClipboardItem: Identifiable, Codable, Equatable {
         text.trimmingCharacters(in: .whitespacesAndNewlines)
             .replacingOccurrences(of: "\n", with: " ")
     }
+
+    /// What the entry looks like, so a card can label itself.
+    enum Kind {
+        case link(String)
+        case code
+        case number
+        case text
+    }
+
+    var kind: Kind {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if trimmed.lowercased().hasPrefix("http"),
+           let url = URL(string: trimmed), let host = url.host() {
+            return .link(host)
+        }
+        if !trimmed.isEmpty, trimmed.count < 40,
+           trimmed.allSatisfy({ $0.isNumber || "+-() .".contains($0) }) {
+            return .number
+        }
+        let codeMarkers = ["{", "}", "();", "=>", "func ", "def ", "const ", "import ", "</"]
+        if codeMarkers.contains(where: trimmed.contains) {
+            return .code
+        }
+        return .text
+    }
+
+    var lineCount: Int {
+        text.split(separator: "\n", omittingEmptySubsequences: false).count
+    }
 }
 
 /// Watches the general pasteboard and keeps a short history of text copies.

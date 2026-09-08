@@ -42,19 +42,19 @@ struct FileShareView: View {
     private var dropArea: some View {
         ZStack {
             RoundedRectangle(cornerRadius: innerPanelCornerRadius, style: .continuous)
-                .fill(
-                    LinearGradient(colors: [Color.black.opacity(0.35), Color.black.opacity(0.20)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                )
+                .fill(.white.opacity(vm.dropZoneTargeting ? 0.10 : 0.05))
                 .overlay(
                     RoundedRectangle(cornerRadius: innerPanelCornerRadius, style: .continuous)
-                        .stroke(
+                        .strokeBorder(
                             vm.dropZoneTargeting
-                                ? Color.accentColor.opacity(0.9)
-                                : Color.white.opacity(0.1),
-                            style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [10])
+                                ? Color.effectiveAccent.opacity(0.95)
+                                : Color.white.opacity(0.08),
+                            style: vm.dropZoneTargeting
+                                ? StrokeStyle(lineWidth: 2, lineCap: .round, dash: [7, 5])
+                                : StrokeStyle(lineWidth: 1)
                         )
                 )
-                .shadow(color: Color.black.opacity(0.6), radius: 6, x: 0, y: 2)
+                .animation(.smooth(duration: 0.18), value: vm.dropZoneTargeting)
 
             // Content
             VStack(spacing: 5) {
