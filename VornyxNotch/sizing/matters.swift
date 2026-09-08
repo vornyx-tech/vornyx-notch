@@ -116,6 +116,32 @@ enum AlbumArtStyle {
     static let appIconCornerRadius: CGFloat = 7
     /// Size of that badge.
     static let appIconSize: CGFloat = 30
+
+    /// Tuning for the living glow behind the artwork. Also code-only.
+    enum Glow {
+        static let blur: CGFloat = 40
+        static let baseScale: (x: CGFloat, y: CGFloat) = (1.3, 1.4)
+        static let baseRotation: Double = 92
+        static let baseOpacity: Double = 0.5
+
+        /// How far each property wanders from its resting value.
+        static let scaleSwing: CGFloat = 0.07
+        static let rotationSwing: Double = 6
+        static let driftRadius: CGFloat = 6
+        static let opacitySwing: Double = 0.10
+
+        /// Seconds per cycle. Deliberately not multiples of one another, so
+        /// the combined motion takes minutes to repeat and never reads as a
+        /// loop.
+        static let breathePeriod: Double = 3.7
+        static let rotatePeriod: Double = 6.1
+        static let swayPeriod: Double = 4.3
+        static let bobPeriod: Double = 5.9
+        static let shimmerPeriod: Double = 2.9
+
+        /// The glow moves slowly, so it does not need a high frame rate.
+        static let frameRate: Double = 20
+    }
 }
 
 enum MusicPlayerImageSizes {
