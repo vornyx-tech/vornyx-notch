@@ -5,6 +5,7 @@
 //  Created by Hugo Persson on 2024-08-25.
 //
 
+import Defaults
 import SwiftUI
 
 struct TabModel: Identifiable {
@@ -14,10 +15,19 @@ struct TabModel: Identifiable {
     let view: NotchViews
 }
 
-let tabs = [
-    TabModel(label: "Home", icon: "house.fill", view: .home),
-    TabModel(label: "Shelf", icon: "tray.fill", view: .shelf)
-]
+/// The pill of tabs on the left of the header. Ordered the same way
+/// `VornyxViewCoordinator.orderedTabs` is, so swiping matches what you see.
+@MainActor
+var tabs: [TabModel] {
+    var tabs = [TabModel(label: "Home", icon: "house.fill", view: .home)]
+    if Defaults[.shelfEnabled] {
+        tabs.append(TabModel(label: "Shelf", icon: "tray.fill", view: .shelf))
+    }
+    if Defaults[.clipboardEnabled] {
+        tabs.append(TabModel(label: "Clipboard", icon: "doc.on.clipboard.fill", view: .clipboard))
+    }
+    return tabs
+}
 
 struct TabSelectionView: View {
     @ObservedObject var coordinator = VornyxViewCoordinator.shared

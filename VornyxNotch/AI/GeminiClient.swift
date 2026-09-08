@@ -31,13 +31,60 @@ struct GeminiClient {
 
     private static let endpoint = "https://generativelanguage.googleapis.com/v1beta/models"
 
-    func send(history: [AIChatMessage]) async throws -> String {
+    /// Streams the reply token by token via server-sent events.
+    ///
+    /// `generateContent` only answers once the whole reply is composed, which
+    /// on a long answer means staring at nothing for several seconds. This
+    /// hands back each chunk as it arrives, so text starts appearing almost
+    /// immediately even though total time is unchanged.
+    func stream(
+        history: [AIChatMessage],
+        onDelta: @escaping @MainActor (String) -> Void
+    ) async throws {
         guard let key = KeychainStore.geminiAPIKey else { throw GeminiError.missingAPIKey }
 
-        guard let url = URL(string: "\(Self.endpoint)/\(model):generateContent") else {
+        guard let url = URL(string: "\(Self.endpoint)/\(model):streamGenerateContent?alt=sse") else {
             throw GeminiError.badResponse(status: 0, message: "Bad model name.")
         }
 
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+        request.setValue(key, forHTTPHeaderField: "x-goog-api-key")
+        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody(for: history))
+        request.timeoutInterval = 120
+
+        let (bytes, response) = try await URLSession.shared.bytes(for: request)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+
+        guard (200..<300).contains(status) else {
+            // The error body arrives down the same stream; collect it so the
+            // user sees Gemini's own message rather than a bare status code.
+            var body = Data()
+            for try await byte in bytes { body.append(byte) }
+            throw GeminiError.badResponse(status: status, message: Self.errorMessage(from: body))
+        }
+
+        var received = false
+        for try await line in bytes.lines {
+            try Task.checkCancellation()
+            guard line.hasPrefix("data:") else { continue }
+
+            let payload = line.dropFirst("data:".count).trimmingCharacters(in: .whitespaces)
+            guard payload != "[DONE]", !payload.isEmpty else { continue }
+
+            guard let chunk = Self.firstText(from: Data(payload.utf8)), !chunk.isEmpty else {
+                continue
+            }
+            received = true
+            await onDelta(chunk)
+        }
+
+        if !received { throw GeminiError.emptyReply }
+    }
+
+    private func requestBody(for history: [AIChatMessage]) -> [String: Any] {
         var body: [String: Any] = [
             "contents": history.filter { !$0.isError }.map { message in
                 [
@@ -49,12 +96,21 @@ struct GeminiClient {
         if !systemPrompt.isEmpty {
             body["systemInstruction"] = ["parts": [["text": systemPrompt]]]
         }
+        return body
+    }
+
+    func send(history: [AIChatMessage]) async throws -> String {
+        guard let key = KeychainStore.geminiAPIKey else { throw GeminiError.missingAPIKey }
+
+        guard let url = URL(string: "\(Self.endpoint)/\(model):generateContent") else {
+            throw GeminiError.badResponse(status: 0, message: "Bad model name.")
+        }
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(key, forHTTPHeaderField: "x-goog-api-key")
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody(for: history))
         request.timeoutInterval = 60
 
         let (data, response) = try await URLSession.shared.data(for: request)

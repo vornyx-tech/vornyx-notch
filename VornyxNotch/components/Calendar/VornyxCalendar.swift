@@ -2,443 +2,480 @@
 //  VornyxCalendar.swift
 //  VornyxNotch
 //
-//  Created by Harsh Vardhan  Goswami  on 08/09/24.
-//
 
 import Defaults
 import SwiftUI
 
-struct Config: Equatable {
-    //    var count: Int = 10  // 3 days past + today + 7 days future
-    var past: Int = 7
-    var future: Int = 14
-    var steps: Int = 1  // Each step is one day
-    var spacing: CGFloat = 0
-    var showsText: Bool = true
-    var offset: Int = 2  // Number of dates to the left of the selected date
+// MARK: - Shared helpers
+
+enum CalendarStyle {
+    /// The narrow slot beside the player on the home page.
+    case compact
+    /// The full width of the notch, as its own tab.
+    case expanded
 }
 
-struct WheelPicker: View {
-    @EnvironmentObject var vm: VornyxViewModel
-    @Binding var selectedDate: Date
-    @State private var scrollPosition: Int?
-    @State private var haptics: Bool = false
-    @State private var byClick: Bool = false
-    let config: Config
+extension EventModel {
+    var accentColor: Color { Color(calendar.color) }
+
+    var isCompletedReminder: Bool {
+        if case .reminder(let completed) = type { return completed }
+        return false
+    }
+}
+
+/// Applies the user's event filters in one place.
+func visibleEvents(_ events: [EventModel]) -> [EventModel] {
+    events.filter { event in
+        if event.isCompletedReminder && Defaults[.hideCompletedReminders] { return false }
+        if event.isAllDay && Defaults[.hideAllDayEvents] { return false }
+        return true
+    }
+}
+
+// MARK: - Day timeline
+
+/// A horizontal ribbon of the day with events laid out at their real times.
+///
+/// The notch is wide and short, which is the wrong shape for a scrolling list
+/// but exactly the right shape for a timeline: a whole day fits across it and
+/// the shape of your afternoon is readable at a glance.
+struct DayTimeline: View {
+    let events: [EventModel]
+    let date: Date
+    let now: Date
+    var height: CGFloat = 26
+    var showsHourLabels: Bool = true
+
+    private var timed: [EventModel] { events.filter { !$0.isAllDay } }
+
+    /// The window the ribbon spans. Anchored to a normal working day, then
+    /// widened so nothing ever falls off the ends.
+    private var bounds: (start: Date, end: Date) {
+        let cal = Calendar.current
+        let startOfDay = cal.startOfDay(for: date)
+        var start = cal.date(byAdding: .hour, value: 8, to: startOfDay) ?? startOfDay
+        var end = cal.date(byAdding: .hour, value: 20, to: startOfDay) ?? startOfDay
+
+        for event in timed {
+            start = min(start, event.start)
+            end = max(end, event.end)
+        }
+        if cal.isDate(now, inSameDayAs: date) {
+            start = min(start, now)
+            end = max(end, now)
+        }
+        if end <= start { end = start.addingTimeInterval(3600) }
+        return (start, end)
+    }
+
+    private func fraction(of instant: Date) -> CGFloat {
+        let (start, end) = bounds
+        let span = end.timeIntervalSince(start)
+        guard span > 0 else { return 0 }
+        return CGFloat(instant.timeIntervalSince(start) / span).clamped(to: 0...1)
+    }
+
+    /// Hour ticks, thinned out so labels never collide on a narrow ribbon.
+    private func ticks(for width: CGFloat) -> [Date] {
+        let cal = Calendar.current
+        let (start, end) = bounds
+        let hours = max(1, Int(end.timeIntervalSince(start) / 3600))
+        let step = max(1, Int(ceil(Double(hours) / max(1, Double(Int(width / 46))))))
+
+        var result: [Date] = []
+        var cursor = cal.date(bySetting: .minute, value: 0, of: start) ?? start
+        if cursor < start { cursor = cursor.addingTimeInterval(3600) }
+        while cursor <= end {
+            result.append(cursor)
+            cursor = cal.date(byAdding: .hour, value: step, to: cursor) ?? end.addingTimeInterval(1)
+        }
+        return result
+    }
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: config.spacing) {
-                let spacerNum = config.offset
-                let dateCount = totalDateItems()
-                let totalItems = dateCount + 2 * spacerNum
-                ForEach(0..<totalItems, id: \.self) { index in
-                    if index < spacerNum || index >= spacerNum + dateCount {
-                        // Leading/trailing spacers sized to match a date cell
-                        Spacer()
-                            .frame(width: 24, height: 24)
-                            .id(index)
-                    } else {
-                        let date = dateForItemIndex(index: index, spacerNum: spacerNum)
-                        let isSelected = Calendar.current.isDate(date, inSameDayAs: selectedDate)
-                        dateButton(date: date, isSelected: isSelected, id: index) {
-                            selectedDate = date
-                            byClick = true
-                            withAnimation {
-                                scrollPosition = index
-                            }
-                            if Defaults[.enableHaptics] {
-                                haptics.toggle()
-                            }
+        GeometryReader { geo in
+            let width = geo.size.width
+
+            ZStack(alignment: .topLeading) {
+                RoundedRectangle(cornerRadius: height / 3, style: .continuous)
+                    .fill(.white.opacity(0.05))
+
+                ForEach(ticks(for: width), id: \.self) { tick in
+                    Rectangle()
+                        .fill(.white.opacity(0.07))
+                        .frame(width: 1, height: height)
+                        .offset(x: fraction(of: tick) * width)
+                }
+
+                ForEach(timed) { event in
+                    let x = fraction(of: event.start) * width
+                    let w = max(3, (fraction(of: event.end) - fraction(of: event.start)) * width)
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .fill(event.accentColor.opacity(event.eventStatus == .ended ? 0.35 : 0.9))
+                        .frame(width: w, height: height - 8)
+                        .offset(x: x, y: 4)
+                        .help("\(event.title) · \(event.start.formatted(date: .omitted, time: .shortened))")
+                }
+
+                if Calendar.current.isDate(now, inSameDayAs: date) {
+                    NowMarker(height: height)
+                        .offset(x: fraction(of: now) * width - 1)
+                }
+            }
+            .frame(height: height)
+            .overlay(alignment: .bottomLeading) {
+                if showsHourLabels {
+                    ZStack(alignment: .topLeading) {
+                        ForEach(ticks(for: width), id: \.self) { tick in
+                            Text(tick, format: .dateTime.hour())
+                                .font(.system(size: 8))
+                                .foregroundStyle(.tertiary)
+                                .fixedSize()
+                                .offset(x: fraction(of: tick) * width + 2, y: height + 2)
                         }
                     }
                 }
             }
-            .frame(height: 50)
-            .scrollTargetLayout()
         }
-        .scrollIndicators(.never)
-        .scrollPosition(id: $scrollPosition, anchor: .center)
-        .scrollTargetBehavior(.viewAligned)  // Ensures scroll view snaps the centered view
-        .safeAreaPadding(.horizontal)
-        .sensoryFeedback(.alignment, trigger: haptics)
-        .onChange(of: scrollPosition) { oldValue, newValue in
-            if !byClick {
-                handleScrollChange(newValue: newValue, config: config)
-            } else {
-                byClick = false
-            }
-        }
-        .onAppear {
-            scrollToToday(config: config)
-        }
-        // When parent updates the bound selectedDate (e.g., view reopen), center the wheel on it
-        .onChange(of: selectedDate) { _, newValue in
-            let targetIndex = indexForDate(newValue)
-            if scrollPosition != targetIndex {
-                byClick = true
-                withAnimation {
-                    scrollPosition = targetIndex
-                }
-            }
-        }
+        .frame(height: showsHourLabels ? height + 14 : height)
     }
+}
 
-    private func dateButton(
-        date: Date, isSelected: Bool, id: Int, onClick: @escaping () -> Void
-    ) -> some View {
-        let isToday = Calendar.current.isDateInToday(date)
-        return Button(action: onClick) {
-            VStack(spacing: 8) {
-                dayText(date: dateToString(for: date), isToday: isToday, isSelected: isSelected)
-                dateCircle(date: date, isToday: isToday, isSelected: isSelected)
-            }
-            .padding(.vertical, 4)
-            .padding(.horizontal, 4)
-            .background(isSelected ? Color.effectiveAccentBackground : Color.clear)
-            .cornerRadius(8)
-        }
-        .buttonStyle(PlainButtonStyle())
-        .id(id)
-    }
+private struct NowMarker: View {
+    let height: CGFloat
+    @State private var pulse = false
 
-    private func dayText(date: String, isToday: Bool, isSelected: Bool) -> some View {
-        Text(date)
-            .font(.caption)
-            .foregroundColor(isSelected ? .white : Color(white: 0.65))
-    }
-
-    private func dateCircle(date: Date, isToday: Bool, isSelected: Bool) -> some View {
-        ZStack {
+    var body: some View {
+        ZStack(alignment: .top) {
+            Capsule()
+                .fill(Color.effectiveAccent)
+                .frame(width: 2, height: height)
             Circle()
-                .fill(isToday ? Color.effectiveAccent : .clear)
-                .frame(width: 20, height: 20)
-                .overlay(
-                    Circle()
-                        .stroke(Color.gray.opacity(0.3), lineWidth: 0)
-                )
-            Text("\(date.date)")
-                .font(.body)
-                .fontWeight(.medium)
-                .foregroundColor(isSelected ? .white : Color(white: isToday ? 0.9 : 0.65))
-        }
-    }
-
-    func handleScrollChange(newValue: Int?, config: Config) {
-        guard let newIndex = newValue else { return }
-        let spacerNum = config.offset
-        let dateCount = totalDateItems()
-        guard (spacerNum..<(spacerNum + dateCount)).contains(newIndex) else { return }
-        let date = dateForItemIndex(index: newIndex, spacerNum: spacerNum)
-        if !Calendar.current.isDate(date, inSameDayAs: selectedDate) {
-            selectedDate = date
-            if Defaults[.enableHaptics] {
-                haptics.toggle()
-            }
-        }
-    }
-
-    private func scrollToToday(config: Config) {
-        let today = Date()
-        byClick = true
-        scrollPosition = indexForDate(today)
-        selectedDate = today
-    }
-
-    // MARK: - Index/Date mapping with steps and spacers
-    private func indexForDate(_ date: Date) -> Int {
-        let spacerNum = config.offset
-        let cal = Calendar.current
-        let today = cal.startOfDay(for: Date())
-        let startDate = cal.startOfDay(for: cal.date(byAdding: .day, value: -config.past, to: today) ?? today)
-        let target = cal.startOfDay(for: date)
-        let days = cal.dateComponents([.day], from: startDate, to: target).day ?? 0
-        let stepIndex = max(0, min(days / max(config.steps, 1), totalDateItems() - 1))
-        return spacerNum + stepIndex
-    }
-
-    private func dateForItemIndex(index: Int, spacerNum: Int) -> Date {
-        let cal = Calendar.current
-        let today = cal.startOfDay(for: Date())
-        let startDate = cal.date(byAdding: .day, value: -config.past, to: today) ?? today
-        let stepIndex = index - spacerNum
-        return cal.date(byAdding: .day, value: stepIndex * max(config.steps, 1), to: startDate) ?? today
-    }
-
-    private func totalDateItems() -> Int {
-        let range = config.past + config.future
-        let step = max(config.steps, 1)
-        return Int(ceil(Double(range) / Double(step))) + 1
-    }
-
-    private func dateToString(for date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "E"
-        return formatter.string(from: date)
-    }
-}
-
-struct CalendarView: View {
-    @EnvironmentObject var vm: VornyxViewModel
-    @ObservedObject private var calendarManager = CalendarManager.shared
-    @State private var selectedDate = Date()
-
-    var body: some View {
-        VStack(spacing: 0) {
-            HStack(alignment: .top, spacing: 8) {
-                VStack(alignment: .leading) {
-                    Text(selectedDate.formatted(.dateTime.month(.abbreviated)))
-                        .font(.title3)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.white)
-                    Text(selectedDate.formatted(.dateTime.year()))
-                        .font(.title3)
-                        .fontWeight(.light)
-                        .foregroundColor(Color(white: 0.65))
-                }
-
-                ZStack(alignment: .top) {
-                    WheelPicker(selectedDate: $selectedDate, config: Config())
-                    HStack(alignment: .top) {
-                        LinearGradient(
-                            colors: [Color.black, .clear], startPoint: .leading, endPoint: .trailing
-                        )
-                        .frame(width: 20)
-                        Spacer()
-                        LinearGradient(
-                            colors: [.clear, Color.black], startPoint: .leading, endPoint: .trailing
-                        )
-                        .frame(width: 20)
-                    }
-                }
-            }
-
-            let filteredEvents = EventListView.filteredEvents(
-                events: calendarManager.events
-            )
-            if filteredEvents.isEmpty {
-                EmptyEventsView(selectedDate: selectedDate)
-                Spacer(minLength: 0)
-            } else {
-                EventListView(events: calendarManager.events)
-            }
-        }
-        .listRowBackground(Color.clear)
-        .frame(height: 120)
-        .onChange(of: selectedDate) {
-            Task {
-                await calendarManager.updateCurrentDate(selectedDate)
-            }
-        }
-        .onChange(of: vm.notchState) { _, _ in
-            Task {
-                await calendarManager.updateCurrentDate(Date.now)
-                selectedDate = Date.now
-            }
+                .fill(Color.effectiveAccent)
+                .frame(width: 5, height: 5)
+                .offset(y: -2)
+                .shadow(color: Color.effectiveAccent.opacity(0.9), radius: pulse ? 4 : 1)
         }
         .onAppear {
-            Task {
-                await calendarManager.updateCurrentDate(Date.now)
-                selectedDate = Date.now
+            withAnimation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true)) {
+                pulse = true
             }
         }
     }
 }
 
-struct EmptyEventsView: View {
-    let selectedDate: Date
-    
+// MARK: - Pieces
+
+/// The date, big, on the left.
+private struct DateBadge: View {
+    let date: Date
+    var compact: Bool = false
+
     var body: some View {
-        VStack {
-            Image(systemName: "calendar.badge.checkmark")
-                .font(.title)
-                .foregroundColor(Color(white: 0.65))
-            Text(Calendar.current.isDateInToday(selectedDate) ? "No events today" : "No events")
-                .font(.subheadline)
-                .foregroundColor(.white)
-            Text("Enjoy your free time!")
-                .font(.caption)
-                .foregroundColor(Color(white: 0.65))
+        VStack(alignment: .leading, spacing: -2) {
+            Text(date, format: .dateTime.weekday(.abbreviated))
+                .font(.system(size: compact ? 9 : 10, weight: .semibold))
+                .foregroundStyle(Color.effectiveAccent)
+                .textCase(.uppercase)
+            Text(date, format: .dateTime.day())
+                .font(.system(size: compact ? 26 : 34, weight: .light, design: .rounded))
+                .foregroundStyle(.white)
+                .monospacedDigit()
+            Text(date, format: .dateTime.month(.abbreviated))
+                .font(.system(size: compact ? 9 : 10, weight: .medium))
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
         }
+        .fixedSize()
     }
 }
 
-struct EventListView: View {
+/// One event as a coloured row: bar, title, time.
+private struct EventRow: View {
     @Environment(\.openURL) private var openURL
     @ObservedObject private var calendarManager = CalendarManager.shared
-    let events: [EventModel]
-    @Default(.autoScrollToNextEvent) private var autoScrollToNextEvent
-    @Default(.showFullEventTitles) private var showFullEventTitles
-
-
-    static func filteredEvents(events: [EventModel]) -> [EventModel] {
-        events.filter { event in
-            if event.type.isReminder {
-                if case .reminder(let completed) = event.type {
-                    return !completed || !Defaults[.hideCompletedReminders]
-                }
-            }
-            // Filter out all-day events if setting is enabled
-            if event.isAllDay && Defaults[.hideAllDayEvents] {
-                return false
-            }
-            return true
-        }
-    }
-
-    private var filteredEvents: [EventModel] {
-        Self.filteredEvents(events: events)
-    }
-
-    private func scrollToRelevantEvent(proxy: ScrollViewProxy) {
-        let now = Date()
-        // Determine a single target using preferred search order:
-        // 1) first non-all-day upcoming/in-progress event
-        // 2) first all-day event
-        // 3) last event (fallback)
-        let nonAllDayUpcoming = filteredEvents.first(where: { !$0.isAllDay && $0.end > now })
-        let firstAllDay = filteredEvents.first(where: { $0.isAllDay })
-        let lastEvent = filteredEvents.last
-        guard let target = nonAllDayUpcoming ?? firstAllDay ?? lastEvent else { return }
-
-        Task { @MainActor in
-            withTransaction(Transaction(animation: nil)) {
-                proxy.scrollTo(target.id, anchor: .top)
-            }
-        }
-    }
+    let event: EventModel
+    var compact: Bool = false
 
     var body: some View {
-        ScrollViewReader { proxy in
-            List {
-                ForEach(filteredEvents) { event in
-                    Button(action: {
-                        if let url = event.calendarAppURL() {
-                            openURL(url)
-                        }
-                    }) {
-                        eventRow(event)
-                    }
-                    .id(event.id)
-                    .padding(.leading, -5)
-                    .buttonStyle(PlainButtonStyle())
-                    .listRowSeparator(.automatic)
-                    .listRowSeparatorTint(.gray.opacity(0.2))
-                    .listRowBackground(Color.clear)
-                }
-            }
-            .listStyle(.plain)
-            .scrollIndicators(.never)
-            .scrollContentBackground(.hidden)
-            .background(Color.clear)
-            .onAppear {
-                scrollToRelevantEvent(proxy: proxy)
-            }
-            .onChange(of: filteredEvents) { _, _ in
-                scrollToRelevantEvent(proxy: proxy)
-            }
-        }
-        Spacer(minLength: 0)
-    }
-
-    private func eventRow(_ event: EventModel) -> some View {
-        if event.type.isReminder {
-            let isCompleted: Bool
-            if case .reminder(let completed) = event.type {
-                isCompleted = completed
-            } else {
-                isCompleted = false
-            }
-            return AnyView(
-                HStack(spacing: 8) {
+        Button {
+            if let url = event.calendarAppURL() { openURL(url) }
+        } label: {
+            HStack(spacing: 6) {
+                if event.type.isReminder {
                     ReminderToggle(
                         isOn: Binding(
-                            get: { isCompleted },
-                            set: { newValue in
+                            get: { event.isCompletedReminder },
+                            set: { done in
                                 Task {
                                     await calendarManager.setReminderCompleted(
-                                        reminderID: event.id, completed: newValue
-                                    )
+                                        reminderID: event.id, completed: done)
                                 }
                             }
                         ),
-                        color: Color(event.calendar.color)
+                        color: event.accentColor
                     )
-                    .opacity(1.0)  // Ensure the toggle is always fully opaque
-                    HStack {
-                        Text(event.title)
-                            .font(.callout)
-                            .foregroundColor(.white)
-                            .lineLimit(showFullEventTitles ? nil : 1)
-                        Spacer(minLength: 0)
-                        VStack(alignment: .trailing, spacing: 4) {
-                            if event.isAllDay {
-                                Text("All-day")
-                                    .font(.caption)
-                                    .fontWeight(.medium)
-                                    .foregroundColor(.white)
-                                    .lineLimit(1)
-                            } else {
-                                Text(event.start, style: .time)
-                                    .foregroundColor(.white)
-                                    .font(.caption)
+                } else {
+                    Capsule()
+                        .fill(event.accentColor)
+                        .frame(width: 3)
+                        .frame(maxHeight: .infinity)
+                }
+
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(event.title)
+                        .font(.system(size: compact ? 11 : 12, weight: .medium))
+                        .foregroundStyle(.white)
+                        .lineLimit(Defaults[.showFullEventTitles] ? 2 : 1)
+                    Text(timeLabel)
+                        .font(.system(size: compact ? 9 : 10))
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.vertical, 3)
+            .opacity(event.isCompletedReminder || event.eventStatus == .ended ? 0.45 : 1)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var timeLabel: String {
+        if event.isAllDay { return "All-day" }
+        let start = event.start.formatted(date: .omitted, time: .shortened)
+        if event.type.isReminder { return start }
+        return "\(start) – \(event.end.formatted(date: .omitted, time: .shortened))"
+    }
+}
+
+/// "In 25 min · Standup" - the single most useful line on the whole view.
+private struct UpNext: View {
+    let event: EventModel?
+    let now: Date
+    var compact: Bool = false
+
+    var body: some View {
+        HStack(spacing: 6) {
+            if let event {
+                Circle()
+                    .fill(event.accentColor)
+                    .frame(width: 6, height: 6)
+                Text(relative(to: event))
+                    .font(.system(size: compact ? 10 : 11, weight: .semibold))
+                    .foregroundStyle(Color.effectiveAccent)
+                Text(event.title)
+                    .font(.system(size: compact ? 10 : 11))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+            } else {
+                Image(systemName: "checkmark.circle")
+                    .font(.system(size: compact ? 9 : 10))
+                    .foregroundStyle(.secondary)
+                Text("Nothing left today")
+                    .font(.system(size: compact ? 10 : 11))
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func relative(to event: EventModel) -> String {
+        if event.eventStatus == .inProgress { return "Now" }
+        let minutes = Int(event.start.timeIntervalSince(now) / 60)
+        if minutes < 1 { return "Now" }
+        if minutes < 60 { return "in \(minutes)m" }
+        let hours = minutes / 60
+        if hours < 24 { return minutes % 60 == 0 ? "in \(hours)h" : "in \(hours)h \(minutes % 60)m" }
+        return event.start.formatted(date: .omitted, time: .shortened)
+    }
+}
+
+/// A week of days you can jump between, in the expanded layout.
+private struct WeekStrip: View {
+    @Binding var selectedDate: Date
+    let today: Date
+
+    private var days: [Date] {
+        let cal = Calendar.current
+        let start = cal.date(
+            from: cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: selectedDate)
+        ) ?? selectedDate
+        return (0..<7).compactMap { cal.date(byAdding: .day, value: $0, to: start) }
+    }
+
+    var body: some View {
+        HStack(spacing: 3) {
+            ForEach(days, id: \.self) { day in
+                let isSelected = Calendar.current.isDate(day, inSameDayAs: selectedDate)
+                let isToday = Calendar.current.isDate(day, inSameDayAs: today)
+
+                Button {
+                    withAnimation(.smooth(duration: 0.2)) { selectedDate = day }
+                } label: {
+                    VStack(spacing: 1) {
+                        Text(day, format: .dateTime.weekday(.narrow))
+                            .font(.system(size: 8, weight: .medium))
+                            .foregroundStyle(.secondary)
+                        Text(day, format: .dateTime.day())
+                            .font(.system(size: 11, weight: isToday ? .bold : .regular))
+                            .foregroundStyle(isSelected ? .black : (isToday ? Color.effectiveAccent : .white))
+                            .monospacedDigit()
+                    }
+                    .frame(width: 22, height: 30)
+                    .background(
+                        RoundedRectangle(cornerRadius: 7, style: .continuous)
+                            .fill(isSelected ? Color.effectiveAccent : .white.opacity(0.06))
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+}
+
+// MARK: - Calendar
+
+struct CalendarView: View {
+    var style: CalendarStyle = .compact
+
+    @EnvironmentObject var vm: VornyxViewModel
+    @ObservedObject private var calendarManager = CalendarManager.shared
+    @State private var selectedDate = Date()
+    @State private var now = Date()
+
+    /// One tick a minute keeps the now-marker and the countdown honest without
+    /// redrawing the notch constantly.
+    private let clock = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
+
+    private var events: [EventModel] { visibleEvents(calendarManager.events) }
+    private var allDay: [EventModel] { events.filter(\.isAllDay) }
+
+    private var upNext: EventModel? {
+        events.first { !$0.isAllDay && $0.end > now && !$0.isCompletedReminder }
+            ?? events.first { !$0.isAllDay && !$0.isCompletedReminder }
+    }
+
+    var body: some View {
+        Group {
+            switch style {
+            case .compact: compactLayout
+            case .expanded: expandedLayout
+            }
+        }
+        .onReceive(clock) { now = $0 }
+        .onChange(of: selectedDate) {
+            Task { await calendarManager.updateCurrentDate(selectedDate) }
+        }
+        .onChange(of: vm.notchState) { _, _ in reset() }
+        .onAppear { reset() }
+    }
+
+    private func reset() {
+        now = .now
+        selectedDate = .now
+        Task { await calendarManager.updateCurrentDate(.now) }
+    }
+
+    // MARK: Compact
+
+    private var compactLayout: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(alignment: .top, spacing: 8) {
+                DateBadge(date: selectedDate, compact: true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(eventSummary)
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(.secondary)
+                    UpNext(event: upNext, now: now, compact: true)
+                }
+            }
+
+            DayTimeline(
+                events: events, date: selectedDate, now: now,
+                height: 14, showsHourLabels: false
+            )
+
+            if let next = upNext {
+                EventRow(event: next, compact: true)
+            } else if let first = events.first {
+                EventRow(event: first, compact: true)
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    // MARK: Expanded
+
+    private var expandedLayout: some View {
+        HStack(alignment: .top, spacing: 14) {
+            VStack(alignment: .leading, spacing: 8) {
+                DateBadge(date: selectedDate)
+                Spacer(minLength: 0)
+                WeekStrip(selectedDate: $selectedDate, today: now)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 8) {
+                    Text(eventSummary)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.secondary)
+                    Spacer(minLength: 0)
+                    UpNext(event: upNext, now: now)
+                        .frame(maxWidth: 240, alignment: .trailing)
+                }
+
+                DayTimeline(events: events, date: selectedDate, now: now)
+
+                if !allDay.isEmpty {
+                    HStack(spacing: 4) {
+                        ForEach(allDay.prefix(3)) { event in
+                            Text(event.title)
+                                .font(.system(size: 9, weight: .medium))
+                                .lineLimit(1)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(
+                                    Capsule().fill(event.accentColor.opacity(0.28))
+                                )
+                                .foregroundStyle(.white)
+                        }
+                    }
+                }
+
+                if events.isEmpty {
+                    emptyState
+                } else {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 1) {
+                            ForEach(events.filter { !$0.isAllDay }) { event in
+                                EventRow(event: event)
                             }
                         }
                     }
-                    .opacity(
-                        isCompleted
-                            ? 0.4
-                            : event.start < Date.now && Calendar.current.isDateInToday(event.start)
-                                ? 0.6 : 1.0
-                    )
+                    .scrollIndicators(.never)
                 }
-                .padding(.vertical, 4)
-            )
-        } else {
-            return AnyView(
-                HStack(alignment: .top, spacing: 4) {
-                    Rectangle()
-                        .fill(Color(event.calendar.color))
-                        .frame(width: 3)
-                        .cornerRadius(1.5)
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(event.title)
-                            .font(.callout)
-                            .fontWeight(.medium)
-                            .foregroundColor(.white)
-                            .lineLimit(showFullEventTitles ? nil : 2)
-
-                        if let location = event.location, !location.isEmpty {
-                            Text(location)
-                                .font(.caption)
-                                .foregroundColor(Color(white: 0.65))
-                                .lineLimit(1)
-                        }
-                    }
-                    Spacer(minLength: 0)
-                    VStack(alignment: .trailing, spacing: 4) {
-                        if event.isAllDay {
-                            Text("All-day")
-                                .font(.caption)
-                                .fontWeight(.medium)
-                                .foregroundColor(.white)
-                                .lineLimit(1)
-                        } else {
-                            Text(event.start, style: .time)
-                                .foregroundColor(.white)
-                            Text(event.end, style: .time)
-                                .foregroundColor(Color(white: 0.65))
-                        }
-                    }
-                    .font(.caption)
-                    .frame(minWidth: 44, alignment: .trailing)
-                }
-                .opacity(
-                    event.eventStatus == .ended && Calendar.current.isDateInToday(event.start)
-                        ? 0.6 : 1.0)
-            )
+            }
         }
+    }
+
+    private var emptyState: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "calendar.badge.checkmark")
+                .foregroundStyle(Color.effectiveAccent)
+            Text(Calendar.current.isDateInToday(selectedDate)
+                 ? "Nothing scheduled today" : "Nothing scheduled")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+            Spacer(minLength: 0)
+        }
+        .frame(maxHeight: .infinity, alignment: .center)
+    }
+
+    private var eventSummary: String {
+        let count = events.count
+        if count == 0 { return "Free" }
+        return count == 1 ? "1 event" : "\(count) events"
     }
 }
 
@@ -447,36 +484,22 @@ struct ReminderToggle: View {
     var color: Color
 
     var body: some View {
-        Button(action: {
+        Button {
             isOn.toggle()
-        }) {
+        } label: {
             ZStack {
-                // Outer ring
                 Circle()
                     .strokeBorder(color, lineWidth: 2)
-                    .frame(width: 14, height: 14)
-                // Inner fill
+                    .frame(width: 12, height: 12)
                 if isOn {
-                    Circle()
-                        .fill(color)
-                        .frame(width: 8, height: 8)
+                    Circle().fill(color).frame(width: 6, height: 6)
                 }
-                Circle()
-                    .fill(Color.black.opacity(0.001))
-                    .frame(width: 14, height: 14)
+                Circle().fill(Color.black.opacity(0.001)).frame(width: 14, height: 14)
             }
         }
-        .buttonStyle(PlainButtonStyle())
-        .padding(0)
+        .buttonStyle(.plain)
         .accessibilityLabel(isOn ? "Mark as incomplete" : "Mark as complete")
     }
-}
-
-#Preview {
-    CalendarView()
-        .frame(width: 215, height: 130)
-        .background(.black)
-        .environmentObject(VornyxViewModel())
 }
 
 // MARK: - Calendar tab
@@ -487,7 +510,7 @@ struct NotchCalendarView: View {
     @EnvironmentObject var vm: VornyxViewModel
 
     var body: some View {
-        CalendarView()
+        CalendarView(style: .expanded)
             .environmentObject(vm)
             .onHover { isHovering in
                 vm.isHoveringCalendar = isHovering
@@ -495,4 +518,11 @@ struct NotchCalendarView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .transition(.opacity)
     }
+}
+
+#Preview {
+    CalendarView(style: .expanded)
+        .frame(width: 600, height: 160)
+        .background(.black)
+        .environmentObject(VornyxViewModel())
 }
