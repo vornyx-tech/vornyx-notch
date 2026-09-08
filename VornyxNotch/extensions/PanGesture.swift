@@ -143,3 +143,109 @@ private struct ScrollMonitor: NSViewRepresentable {
         }
     }
 }
+
+// MARK: - Horizontal swipe
+
+extension View {
+    /// A two-finger horizontal swipe. Driven purely by scroll events, so unlike
+    /// `panGesture` it sits behind buttons without swallowing their taps -
+    /// which matters in the notch header, where the free space between the
+    /// icons is the natural place to swipe.
+    func horizontalSwipe(
+        threshold: CGFloat = 30,
+        action: @escaping (PanDirection) -> Void
+    ) -> some View {
+        background(HorizontalSwipeMonitor(threshold: threshold, action: action))
+    }
+}
+
+private struct HorizontalSwipeMonitor: NSViewRepresentable {
+    let threshold: CGFloat
+    let action: (PanDirection) -> Void
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        context.coordinator.installMonitor(on: view)
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        context.coordinator.action = action
+    }
+
+    static func dismantleNSView(_ nsView: NSView, coordinator: Coordinator) {
+        coordinator.removeMonitor()
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(threshold: threshold, action: action)
+    }
+
+    @MainActor final class Coordinator: NSObject {
+        private let threshold: CGFloat
+        var action: (PanDirection) -> Void
+        private var monitor: Any?
+        private var accumulated: CGFloat = 0
+        /// One page per gesture: latched until the fingers lift.
+        private var fired = false
+        private var idleTask: Task<Void, Never>?
+
+        init(threshold: CGFloat, action: @escaping (PanDirection) -> Void) {
+            self.threshold = threshold
+            self.action = action
+        }
+
+        func installMonitor(on view: NSView) {
+            removeMonitor()
+            monitor = NSEvent.addLocalMonitorForEvents(matching: [.scrollWheel]) { [weak self, weak view] event in
+                guard let self, event.window === view?.window else { return event }
+                self.handleScroll(event)
+                return event
+            }
+        }
+
+        func removeMonitor() {
+            if let monitor {
+                NSEvent.removeMonitor(monitor)
+                self.monitor = nil
+            }
+            idleTask?.cancel()
+            idleTask = nil
+            reset()
+        }
+
+        private func reset() {
+            accumulated = 0
+            fired = false
+        }
+
+        private func handleScroll(_ event: NSEvent) {
+            if event.phase == .ended || event.phase == .cancelled || event.momentumPhase == .ended {
+                reset()
+                return
+            }
+
+            let dx = event.scrollingDeltaX
+            let dy = event.scrollingDeltaY
+            // Ignore anything that is mostly a vertical scroll: the notch already
+            // uses up/down swipes to open and close.
+            guard abs(dx) >= 1.5 * abs(dy) else { return }
+
+            let scale: CGFloat = event.hasPreciseScrollingDeltas ? 1 : 8
+            accumulated += dx * scale
+
+            // Restart the gesture if it idles, so a second flick pages again.
+            idleTask?.cancel()
+            idleTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .milliseconds(250))
+                guard !Task.isCancelled else { return }
+                self?.reset()
+            }
+
+            guard !fired, abs(accumulated) >= threshold else { return }
+            fired = true
+            // Natural scrolling: swiping content left reveals the page to its right.
+            action(accumulated < 0 ? .right : .left)
+        }
+    }
+}

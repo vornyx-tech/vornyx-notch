@@ -136,3 +136,47 @@ struct NotchCameraView: View {
             .onDisappear { vm.setCameraPreview(active: false) }
     }
 }
+
+// MARK: - Big screen mirror
+
+/// A wide mirror panel that stretches the notch downwards, below whatever tab
+/// is open. Unlike `CameraPreviewView` this fills the panel rather than forcing
+/// a square, so the preview keeps the camera's own aspect via `resizeAspectFill`.
+struct BigScreenMirrorView: View {
+    @EnvironmentObject var vm: VornyxViewModel
+    @ObservedObject var webcamManager: WebcamManager
+    let height: CGFloat
+
+    private var cornerRadius: CGFloat {
+        Defaults[.cornerRadiusScaling] ? 16 : MusicPlayerImageSizes.cornerRadiusInset.closed
+    }
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(Color(red: 18 / 255, green: 18 / 255, blue: 18 / 255))
+                .strokeBorder(.white.opacity(0.05), lineWidth: 1)
+
+            if let previewLayer = webcamManager.previewLayer, webcamManager.isSessionRunning {
+                CameraPreviewLayerView(previewLayer: previewLayer)
+                    .scaleEffect(x: -1, y: 1)
+                    .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                    .transition(.opacity)
+            } else {
+                VStack(spacing: 8) {
+                    Image(systemName: webcamManager.authorizationStatus == .denied
+                          ? "exclamationmark.triangle" : "web.camera")
+                        .font(.system(size: 34))
+                        .foregroundStyle(.gray)
+                    Text(webcamManager.authorizationStatus == .denied ? "Access Denied" : "Mirror")
+                        .font(.caption)
+                        .foregroundStyle(.gray)
+                }
+            }
+        }
+        .frame(height: height)
+        .frame(maxWidth: .infinity)
+        .onAppear { vm.setCameraPreview(active: true) }
+        .onDisappear { vm.setCameraPreview(active: false) }
+    }
+}

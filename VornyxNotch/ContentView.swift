@@ -44,7 +44,8 @@ struct ContentView: View {
     @Default(.showCalendar) var showCalendar
     @Default(.calendarAsSeparateTab) var calendarAsSeparateTab
     @Default(.showMirror) var showMirror
-    @Default(.mirrorAsSeparateTab) var mirrorAsSeparateTab
+    @Default(.mirrorDisplayMode) var mirrorDisplayMode
+    @Default(.mirrorBigScreenHeight) var mirrorBigScreenHeight
 
     // Observed so the notch re-renders the moment a corner radius slider moves.
     @Default(.cornerRadiusScaling) var cornerRadiusScaling
@@ -143,7 +144,7 @@ struct ContentView: View {
                     )
                 
                 mainLayout
-                    .frame(height: vm.notchState == .open ? vm.notchSize.height : nil)
+                    .frame(height: vm.notchState == .open ? openNotchContentHeight : nil)
                     .conditionalModifier(true) { view in
                         let openAnimation = Animation.spring(response: 0.42, dampingFraction: 0.8, blendDuration: 0)
                         let closeAnimation = Animation.spring(response: 0.45, dampingFraction: 1.0, blendDuration: 0)
@@ -369,18 +370,30 @@ struct ContentView: View {
               }
               .zIndex(2)
             if vm.notchState == .open {
-                VStack {
-                    switch coordinator.currentView {
-                    case .home:
-                        NotchHomeView(albumArtNamespace: albumArtNamespace)
-                    case .shelf:
-                        ShelfView()
-                    case .calendar:
-                        NotchCalendarView()
-                    case .camera:
-                        NotchCameraView(webcamManager: webcamManager)
+                VStack(spacing: 8) {
+                    ZStack {
+                        tabContent(for: coordinator.currentView)
+                            .id(coordinator.currentView)
+                            .transition(pageTransition)
+                    }
+                    .clipped()
+                    .animation(VornyxViewCoordinator.tabChangeAnimation, value: coordinator.currentView)
+
+                    if showsBigScreenMirror {
+                        BigScreenMirrorView(
+                            webcamManager: webcamManager,
+                            height: Defaults[.mirrorBigScreenHeight]
+                                .clamped(to: mirrorBigScreenHeightRange)
+                        )
+                        .environmentObject(vm)
+                        .transition(
+                            .move(edge: .top)
+                                .combined(with: .opacity)
+                                .combined(with: .scale(scale: 0.96, anchor: .top))
+                        )
                     }
                 }
+                .animation(VornyxViewCoordinator.tabChangeAnimation, value: showsBigScreenMirror)
                 .transition(
                     .scale(scale: 0.8, anchor: .top)
                     .combined(with: .opacity)
@@ -405,7 +418,51 @@ struct ContentView: View {
     }
 
     private var calendarTabAvailable: Bool { showCalendar && calendarAsSeparateTab }
-    private var cameraTabAvailable: Bool { showMirror && mirrorAsSeparateTab }
+    private var cameraTabAvailable: Bool { showMirror && mirrorDisplayMode == .tab }
+
+    /// Height of the visible notch when open. The window reserves room for the
+    /// big-screen mirror up front, but the notch itself only stretches down
+    /// once the mirror is actually showing.
+    private var openNotchContentHeight: CGFloat {
+        defaultOpenNotchSize.height
+            + (showsBigScreenMirror
+               ? mirrorBigScreenHeight.clamped(to: mirrorBigScreenHeightRange) + 8
+               : 0)
+    }
+
+    /// The mirror panel that stretches the notch downwards, shown under any tab.
+    private var showsBigScreenMirror: Bool {
+        showMirror && mirrorDisplayMode == .bigScreen && vm.isCameraExpanded
+            && webcamManager.cameraAvailable
+    }
+
+    @ViewBuilder
+    private func tabContent(for view: NotchViews) -> some View {
+        switch view {
+        case .home:
+            NotchHomeView(albumArtNamespace: albumArtNamespace)
+        case .shelf:
+            ShelfView()
+        case .calendar:
+            NotchCalendarView()
+        case .camera:
+            NotchCameraView(webcamManager: webcamManager)
+        }
+    }
+
+    /// Pages slide in from the side you are travelling towards, and leave the
+    /// other way - so moving right feels like moving right.
+    private var pageTransition: AnyTransition {
+        let forward = coordinator.tabDirection >= 0
+        return .asymmetric(
+            insertion: .move(edge: forward ? .trailing : .leading)
+                .combined(with: .opacity)
+                .combined(with: .scale(scale: 0.94, anchor: forward ? .trailing : .leading)),
+            removal: .move(edge: forward ? .leading : .trailing)
+                .combined(with: .opacity)
+                .combined(with: .scale(scale: 0.94, anchor: forward ? .leading : .trailing))
+        )
+    }
 
     @ViewBuilder
     func VornyxFaceAnimation() -> some View {
@@ -435,8 +492,7 @@ struct ContentView: View {
                 .resizable()
                 .clipped()
                 .clipShape(
-                    RoundedRectangle(
-                        cornerRadius: MusicPlayerImageSizes.cornerRadiusInset.closed)
+                    RoundedRectangle(cornerRadius: AlbumArtStyle.closedCornerRadius)
                 )
                 .matchedGeometryEffect(id: "albumArt", in: albumArtNamespace)
                 .frame(

@@ -50,7 +50,25 @@ struct ExpandedItem {
 class VornyxViewCoordinator: ObservableObject {
     static let shared = VornyxViewCoordinator()
 
-    @Published var currentView: NotchViews = .home
+    @Published var currentView: NotchViews = .home {
+        didSet {
+            guard oldValue != currentView else { return }
+            let tabs = orderedTabs
+            let from = tabs.firstIndex(of: oldValue) ?? 0
+            let to = tabs.firstIndex(of: currentView) ?? 0
+            // Drives which way the page slides in the open notch.
+            tabDirection = to >= from ? 1 : -1
+        }
+    }
+
+    /// +1 when moving right through the tabs, -1 when moving left.
+    @Published private(set) var tabDirection: Int = 1
+
+    /// One spring for every way of changing tab - buttons, swipes, drops - so
+    /// the page slide always feels the same.
+    static let tabChangeAnimation = Animation.spring(
+        response: 0.42, dampingFraction: 0.78, blendDuration: 0)
+
     @Published var helloAnimationRunning: Bool = false
     private var sneakPeekDispatch: DispatchWorkItem?
     private var expandingViewDispatch: DispatchWorkItem?
@@ -296,5 +314,39 @@ class VornyxViewCoordinator: ObservableObject {
     
     func showEmpty() {
         currentView = .home
+    }
+
+    // MARK: - Tab navigation
+
+    /// The tabs currently reachable, left to right. Mirrors what the header
+    /// actually shows, so swiping can never land on a hidden page.
+    var orderedTabs: [NotchViews] {
+        var tabs: [NotchViews] = [.home]
+        if Defaults[.shelfEnabled] {
+            tabs.append(.shelf)
+        }
+        if Defaults[.showCalendar] && Defaults[.calendarAsSeparateTab] {
+            tabs.append(.calendar)
+        }
+        if Defaults[.showMirror] && Defaults[.mirrorDisplayMode] == .tab {
+            tabs.append(.camera)
+        }
+        return tabs
+    }
+
+    /// Step one tab to the left or right. Stops at the ends rather than
+    /// wrapping, so a long swipe cannot spin through the pages.
+    func stepTab(by offset: Int) {
+        let tabs = orderedTabs
+        guard tabs.count > 1,
+              let index = tabs.firstIndex(of: currentView) ?? tabs.firstIndex(of: .home)
+        else { return }
+
+        let target = index + offset
+        guard tabs.indices.contains(target) else { return }
+
+        withAnimation(Self.tabChangeAnimation) {
+            currentView = tabs[target]
+        }
     }
 }

@@ -37,12 +37,23 @@ func openNotchWidth(for view: NotchViews) -> CGFloat {
     }
 }
 
-/// Size the window has to be: wide enough for the widest tab, whichever that
-/// turns out to be once the home page has been resized.
+/// How tall the big-screen mirror panel may be.
+let mirrorBigScreenHeightRange: ClosedRange<CGFloat> = 120...420
+
+/// Extra height the notch needs when the mirror is set to stretch it downwards.
+/// Reserved on the window whenever the mode is active, so opening the mirror
+/// does not have to resize the window mid-animation.
+var mirrorBigScreenReservedHeight: CGFloat {
+    guard Defaults[.showMirror], Defaults[.mirrorDisplayMode] == .bigScreen else { return 0 }
+    return Defaults[.mirrorBigScreenHeight].clamped(to: mirrorBigScreenHeightRange)
+}
+
+/// Size the window has to be: wide enough for the widest tab, and tall enough
+/// for the big-screen mirror if that mode is on.
 var openNotchSize: CGSize {
     .init(
         width: max(configuredHomeNotchWidth, defaultOpenNotchSize.width),
-        height: defaultOpenNotchSize.height
+        height: defaultOpenNotchSize.height + mirrorBigScreenReservedHeight
     )
 }
 
@@ -90,6 +101,21 @@ extension Comparable {
     func clamped(to range: ClosedRange<Self>) -> Self {
         min(max(self, range.lowerBound), range.upperBound)
     }
+}
+
+/// Code-only styling for the player artwork.
+///
+/// Deliberately NOT surfaced in Settings - these are developer knobs. Change a
+/// value here and rebuild; nothing in the UI exposes them.
+enum AlbumArtStyle {
+    /// Artwork corner radius on the open notch's home page.
+    static let openCornerRadius: CGFloat = 13
+    /// Artwork corner radius in the closed-notch live activity.
+    static let closedCornerRadius: CGFloat = 4
+    /// Corner radius of the small source-app badge on the artwork.
+    static let appIconCornerRadius: CGFloat = 7
+    /// Size of that badge.
+    static let appIconSize: CGFloat = 30
 }
 
 enum MusicPlayerImageSizes {

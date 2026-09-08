@@ -46,7 +46,7 @@ struct VornyxHeader: View {
                             tabIconButton(icon: "calendar", target: .calendar)
                         }
                         if Defaults[.showMirror] {
-                            if Defaults[.mirrorAsSeparateTab] {
+                            if Defaults[.mirrorDisplayMode] == .tab {
                                 tabIconButton(icon: "web.camera", target: .camera)
                             } else {
                                 Button(action: {
@@ -107,6 +107,11 @@ struct VornyxHeader: View {
         }
         .foregroundColor(.gray)
         .environmentObject(vm)
+        .contentShape(Rectangle())
+        .horizontalSwipe { direction in
+            guard vm.notchState == .open else { return }
+            coordinator.stepTab(by: direction == .right ? 1 : -1)
+        }
     }
 
     /// A trailing header icon that switches the notch to `target`, and back to
@@ -115,7 +120,7 @@ struct VornyxHeader: View {
     private func tabIconButton(icon: String, target: NotchViews) -> some View {
         let isActive = coordinator.currentView == target
         Button {
-            withAnimation(.smooth) {
+            withAnimation(VornyxViewCoordinator.tabChangeAnimation) {
                 coordinator.currentView = isActive ? .home : target
             }
         } label: {

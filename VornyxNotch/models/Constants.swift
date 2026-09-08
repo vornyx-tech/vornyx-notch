@@ -122,7 +122,9 @@ extension Defaults.Keys {
     static let tileShowLabels = Key<Bool>("tileShowLabels", default: false)
     static let showCalendar = Key<Bool>("showCalendar", default: false)
     static let calendarAsSeparateTab = Key<Bool>("calendarAsSeparateTab", default: false)
-    static let mirrorAsSeparateTab = Key<Bool>("mirrorAsSeparateTab", default: false)
+    static let mirrorDisplayMode = Key<MirrorDisplayMode>(
+        "mirrorDisplayMode", default: MirrorDisplayMode.inline)
+    static let mirrorBigScreenHeight = Key<CGFloat>("mirrorBigScreenHeight", default: 240)
     static let hideCompletedReminders = Key<Bool>("hideCompletedReminders", default: true)
     static let sliderColor = Key<SliderColorEnum>(
         "sliderUseAlbumArtColor",

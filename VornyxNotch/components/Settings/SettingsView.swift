@@ -1200,6 +1200,8 @@ struct Shelf: View {
 struct Appearance: View {
     @ObservedObject var coordinator = VornyxViewCoordinator.shared
     @Default(.showMirror) var showMirror
+    @Default(.mirrorDisplayMode) var mirrorDisplayMode
+    @Default(.mirrorBigScreenHeight) var mirrorBigScreenHeight
     @Default(.mirrorShape) var mirrorShape
     @Default(.sliderColor) var sliderColor
     @Default(.useMusicVisualizer) var useMusicVisualizer
@@ -1424,15 +1426,36 @@ struct Appearance: View {
                     Text("Enable mirror")
                 }
                     .disabled(!checkVideoInput())
-                Defaults.Toggle(key: .mirrorAsSeparateTab) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Show mirror as a separate tab")
-                        Text("The mirror icon opens a full-width mirror tab instead of squeezing the camera onto the home page.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                Picker("Show mirror", selection: $mirrorDisplayMode) {
+                    ForEach(MirrorDisplayMode.allCases) { mode in
+                        Text(mode.rawValue).tag(mode)
                     }
                 }
+                .disabled(!checkVideoInput() || !showMirror)
+                .onChange(of: mirrorDisplayMode) {
+                    NotificationCenter.default.post(
+                        name: Notification.Name.notchHeightChanged, object: nil)
+                }
+                if mirrorDisplayMode == .bigScreen {
+                    Slider(
+                        value: $mirrorBigScreenHeight,
+                        in: mirrorBigScreenHeightRange,
+                        step: 10
+                    ) {
+                        HStack {
+                            Text("Mirror height")
+                            Spacer()
+                            Text("\(mirrorBigScreenHeight, specifier: "%.0f") pt")
+                                .foregroundStyle(.secondary)
+                                .monospacedDigit()
+                        }
+                    }
                     .disabled(!checkVideoInput() || !showMirror)
+                    .onChange(of: mirrorBigScreenHeight) {
+                        NotificationCenter.default.post(
+                            name: Notification.Name.notchHeightChanged, object: nil)
+                    }
+                }
                 Picker("Mirror shape", selection: $mirrorShape) {
                     Text("Circle")
                         .tag(MirrorShapeEnum.circle)

@@ -11007,6 +11007,9 @@
         }
       }
     },
+    "Home page width" : {
+
+    },
     "Hover delay" : {
       "localizations" : {
         "ar" : {
@@ -11106,6 +11109,9 @@
           }
         }
       }
+    },
+    "How far the home page stretches to the sides. The shelf and calendar tabs keep their full width." : {
+
     },
     "https://github.com/pear-devs/pear-desktop" : {
       "localizations" : {
@@ -15520,12 +15526,6 @@
           }
         }
       }
-    },
-    "Open notch width" : {
-
-    },
-    "Open notch width controls how far the open notch stretches to the sides." : {
-
     },
     "Open Reminder Settings" : {
       "localizations" : {
