@@ -50,12 +50,8 @@ class VornyxNotchWindow: NSPanel {
     /// Opt-in, and only for as long as the input is on screen.
     var acceptsKeyboardInput: Bool = false {
         didSet {
-            guard acceptsKeyboardInput != oldValue else { return }
-            if acceptsKeyboardInput {
-                makeKey()
-            } else if isKeyWindow {
-                resignKey()
-            }
+            guard acceptsKeyboardInput != oldValue, !acceptsKeyboardInput else { return }
+            if isKeyWindow { resignKey() }
         }
     }
 
