@@ -145,6 +145,8 @@ extension Defaults.Keys {
         default: SliderColorEnum.white
     )
     static let playerColorTinting = Key<Bool>("playerColorTinting", default: true)
+    /// Glow behind the played portion of the music slider, like the HUD's.
+    static let sliderGlow = Key<Bool>("sliderGlow", default: false)
     static let useMusicVisualizer = Key<Bool>("useMusicVisualizer", default: true)
     static let customVisualizers = Key<[CustomVisualizer]>("customVisualizers", default: [])
     static let selectedVisualizer = Key<CustomVisualizer?>("selectedVisualizer", default: nil)

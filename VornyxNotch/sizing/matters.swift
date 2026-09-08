@@ -125,10 +125,15 @@ enum AlbumArtStyle {
         static let baseOpacity: Double = 0.5
 
         /// How far each property wanders from its resting value.
-        static let scaleSwing: CGFloat = 0.07
-        static let rotationSwing: Double = 6
-        static let driftRadius: CGFloat = 6
-        static let opacitySwing: Double = 0.10
+        ///
+        /// These have to be large. A 40pt blur is a low-pass filter: it erases
+        /// exactly the small movements that would read as motion on a sharp
+        /// image, so anything subtler than roughly the blur radius simply is
+        /// not visible.
+        static let scaleSwing: CGFloat = 0.22
+        static let rotationSwing: Double = 30
+        static let driftRadius: CGFloat = 28
+        static let opacitySwing: Double = 0.22
 
         /// Seconds per cycle. Deliberately not multiples of one another, so
         /// the combined motion takes minutes to repeat and never reads as a

@@ -10999,6 +10999,7 @@
       }
     },
     "High" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -12014,6 +12015,7 @@
       }
     },
     "Low" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -13318,6 +13320,7 @@
       }
     },
     "Medium" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
