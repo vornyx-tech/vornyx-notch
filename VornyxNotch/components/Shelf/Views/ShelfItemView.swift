@@ -114,10 +114,10 @@ struct ShelfItemView: View {
     }
 
     private var backgroundView: some View {
-        RoundedRectangle(cornerRadius: 12, style: .continuous)
+        RoundedRectangle(cornerRadius: nestedCornerRadius(inset: 4), style: .continuous)
             .fill(backgroundColor)
             .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: nestedCornerRadius(inset: 4), style: .continuous)
                     .strokeBorder(
                         strokeColor,
                         lineWidth: strokeWidth
