@@ -127,11 +127,13 @@ private struct LivingGlow: View {
     /// A plain timer rather than TimelineView(.animation): the notch lives in a
     /// non-activating panel, where the display-link schedule cannot be relied
     /// on to keep firing.
-    private var clock: Publishers.Autoconnect<Timer.TimerPublisher> {
-        Timer.publish(
-            every: 1 / AlbumArtStyle.Glow.frameRate, on: .main, in: .common
-        ).autoconnect()
-    }
+    ///
+    /// Stored, NOT computed: a computed property hands `onReceive` a brand new
+    /// publisher on every body pass, so the timer was being torn down and
+    /// rebuilt many times a second.
+    private let clock = Timer.publish(
+        every: 1 / AlbumArtStyle.Glow.frameRate, on: .main, in: .common
+    ).autoconnect()
 
     var body: some View {
         let g = AlbumArtStyle.Glow.self
