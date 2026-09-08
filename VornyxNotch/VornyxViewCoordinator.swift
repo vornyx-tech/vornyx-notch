@@ -350,11 +350,8 @@ class VornyxViewCoordinator: ObservableObject {
         let target = index + offset
         guard tabs.indices.contains(target) else { return }
 
-        if Defaults[.enableHaptics] {
-            // The trackpad "detent" as the page changes under your fingers.
-            NSHapticFeedbackManager.defaultPerformer.perform(
-                .alignment, performanceTime: .now)
-        }
+        // The trackpad thump as the page changes under your fingers.
+        Defaults[.hapticStrength].perform()
 
         withAnimation(Self.tabChangeAnimation) {
             currentView = tabs[target]

@@ -158,6 +158,8 @@ struct GeneralSettings: View {
     @Default(.automaticallySwitchDisplay) var automaticallySwitchDisplay
     @Default(.enableGestures) var enableGestures
     @Default(.openNotchOnHover) var openNotchOnHover
+    @Default(.enableHaptics) var enableHaptics
+    @Default(.hapticStrength) var hapticStrength
     
 
     var body: some View {
@@ -367,6 +369,16 @@ struct GeneralSettings: View {
             }
             Defaults.Toggle(key: .enableHaptics) {
                     Text("Enable haptic feedback")
+            }
+            Picker("Haptic strength", selection: $hapticStrength) {
+                ForEach(HapticStrength.allCases) { strength in
+                    Text(strength.rawValue).tag(strength)
+                }
+            }
+            .disabled(!enableHaptics)
+            .onChange(of: hapticStrength) {
+                // Let them feel the change as they pick it.
+                hapticStrength.perform()
             }
             Toggle("Remember last tab", isOn: $coordinator.openLastTabByDefault)
             if openNotchOnHover {
