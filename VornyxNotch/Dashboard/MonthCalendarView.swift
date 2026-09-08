@@ -94,6 +94,9 @@ struct MonthCalendarView: View {
             today = .now
             Task { await calendarManager.updateVisibleMonth(.now) }
         }
+        .onChange(of: calendarManager.selectedCalendarIDs) {
+            Task { await calendarManager.updateVisibleMonth(today) }
+        }
     }
 
     @ViewBuilder
@@ -144,7 +147,7 @@ struct DayAgendaView: View {
     let date: Date
 
     private var events: [EventModel] {
-        calendarManager.events.filter { event in
+        calendarManager.agendaEvents.filter { event in
             if event.isCompletedReminder && Defaults[.hideCompletedReminders] { return false }
             if event.isAllDay && Defaults[.hideAllDayEvents] { return false }
             return true
@@ -188,10 +191,14 @@ struct DayAgendaView: View {
             }
         }
         .onChange(of: date) {
-            Task { await calendarManager.updateCurrentDate(date) }
+            Task { await calendarManager.loadAgenda(for: date) }
         }
         .onAppear {
-            Task { await calendarManager.updateCurrentDate(date) }
+            Task { await calendarManager.loadAgenda(for: date) }
+        }
+        // Calendar lists arrive after launch; refetch once they do.
+        .onChange(of: calendarManager.selectedCalendarIDs) {
+            Task { await calendarManager.loadAgenda(for: date) }
         }
     }
 

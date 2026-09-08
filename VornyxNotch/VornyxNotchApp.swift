@@ -192,6 +192,34 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// Give the app a standard Edit menu.
+    ///
+    /// Cmd-V is not handled by the text field itself on macOS - it is a menu
+    /// command routed through the responder chain. A menu-bar-only app has no
+    /// Edit menu, so paste silently did nothing in the API key field and the
+    /// chat composer. Appended rather than replacing the menu, so whatever
+    /// SwiftUI installs stays put.
+    private func installEditMenuIfNeeded() {
+        let mainMenu = NSApp.mainMenu ?? NSMenu()
+        if NSApp.mainMenu == nil { NSApp.mainMenu = mainMenu }
+
+        guard !mainMenu.items.contains(where: { $0.submenu?.title == "Edit" }) else { return }
+
+        let editMenu = NSMenu(title: "Edit")
+        editMenu.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
+        editMenu.addItem(withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "Z")
+        editMenu.addItem(.separator())
+        editMenu.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        editMenu.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        editMenu.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        editMenu.addItem(
+            withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+
+        let editItem = NSMenuItem(title: "Edit", action: nil, keyEquivalent: "")
+        editItem.submenu = editMenu
+        mainMenu.addItem(editItem)
+    }
+
     private func setupDragDetectorForScreen(_ screen: NSScreen) {
         guard let uuid = screen.displayUUID else { return }
         
@@ -286,6 +314,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        installEditMenuIfNeeded()
 
         NotificationCenter.default.addObserver(
             self,

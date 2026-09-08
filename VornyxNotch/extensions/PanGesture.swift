@@ -255,7 +255,9 @@ private struct HorizontalSwipeMonitor: NSViewRepresentable {
             // Restart the gesture if it idles, so a second flick pages again.
             idleTask?.cancel()
             idleTask = Task { @MainActor [weak self] in
-                try? await Task.sleep(for: .milliseconds(250))
+                // Long enough that a slow swipe at low sensitivity stays one
+                // gesture, short enough that a second flick still pages.
+                try? await Task.sleep(for: .milliseconds(600))
                 guard !Task.isCancelled else { return }
                 self?.reset()
             }

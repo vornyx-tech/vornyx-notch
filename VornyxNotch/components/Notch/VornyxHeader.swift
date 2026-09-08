@@ -105,10 +105,17 @@ struct VornyxHeader: View {
         .foregroundColor(.gray)
         .environmentObject(vm)
         .contentShape(Rectangle())
-        .horizontalSwipe { direction in
+        .horizontalSwipe(threshold: swipeThreshold) { direction in
             guard vm.notchState == .open else { return }
             coordinator.stepTab(by: direction == .right ? 1 : -1)
         }
+    }
+
+    /// How far you must swipe to turn a page. Follows the gesture sensitivity
+    /// setting, so "Very low" means a deliberate swipe rather than a flick -
+    /// and, with the one-page-per-gesture latch, exactly one tab per swipe.
+    private var swipeThreshold: CGFloat {
+        max(24, Defaults[.gestureSensitivity] / 4)
     }
 
     /// Space available either side of the physical notch.

@@ -9,11 +9,7 @@ import SwiftUI
 /// Two rows of three website tiles, plus an add button in the first free slot.
 struct ShortcutsGridView: View {
     @StateObject private var manager = WebShortcutsManager.shared
-    @State private var isAdding = false
-    @State private var draft = ""
-    @State private var draftTitle = ""
     @State private var isFetching = false
-    @State private var failed = false
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 6), count: 3)
 
@@ -26,7 +22,6 @@ struct ShortcutsGridView: View {
                 addTile
             }
         }
-        .sheet(isPresented: $isAdding) { addSheet }
     }
 
     // MARK: - Tiles
@@ -71,12 +66,7 @@ struct ShortcutsGridView: View {
     }
 
     private var addTile: some View {
-        Button {
-            draft = ""
-            draftTitle = ""
-            failed = false
-            isAdding = true
-        } label: {
+        Button(action: promptForShortcut) {
             VStack(spacing: 3) {
                 Image(systemName: "plus")
                     .font(.system(size: 12, weight: .semibold))
@@ -99,52 +89,48 @@ struct ShortcutsGridView: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: - Add sheet
+    // MARK: - Adding
 
-    private var addSheet: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Add a shortcut")
-                .font(.headline)
+    /// An AppKit prompt rather than a SwiftUI sheet.
+    ///
+    /// The notch lives in a non-activating panel that does not become key, and
+    /// a sheet presented from it cannot take keyboard input - the field simply
+    /// never accepts anything. Activating briefly for a modal is the same
+    /// pattern the camera permission prompt already uses.
+    private func promptForShortcut() {
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
 
-            TextField("Paste a link", text: $draft)
-                .textFieldStyle(.roundedBorder)
-                .onSubmit(submit)
-            TextField("Name (optional)", text: $draftTitle)
-                .textFieldStyle(.roundedBorder)
+        let alert = NSAlert()
+        alert.messageText = "Add a shortcut"
+        alert.informativeText = "Paste a link. The site's icon is fetched automatically; if it can't be found the tile shows the first letter instead."
+        alert.addButton(withTitle: "Add")
+        alert.addButton(withTitle: "Cancel")
 
-            if failed {
-                Label("That does not look like a web address.", systemImage: "exclamationmark.triangle")
-                    .font(.caption)
-                    .foregroundStyle(.orange)
-            } else {
-                Text("The site's icon is fetched automatically. If it can't be found, the tile shows the first letter instead.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            HStack {
-                Spacer()
-                Button("Cancel") { isAdding = false }
-                Button(isFetching ? "Adding…" : "Add", action: submit)
-                    .buttonStyle(BorderedProminentButtonStyle())
-                    .disabled(draft.trimmingCharacters(in: .whitespaces).isEmpty || isFetching)
-            }
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
+        field.placeholderString = "https://example.com"
+        // Pre-fill from the clipboard when it already holds a link.
+        if let pasted = NSPasteboard.general.string(forType: .string),
+           WebShortcutsManager.normalise(pasted) != nil {
+            field.stringValue = pasted.trimmingCharacters(in: .whitespacesAndNewlines)
         }
-        .padding(16)
-        .frame(width: 340)
-    }
+        alert.accessoryView = field
+        alert.window.initialFirstResponder = field
 
-    private func submit() {
-        guard WebShortcutsManager.normalise(draft) != nil else {
-            failed = true
-            return
-        }
-        failed = false
+        let response = alert.runModal()
+        let raw = field.stringValue
+
+        NSApp.setActivationPolicy(.accessory)
+        NSApp.deactivate()
+
+        guard response == .alertFirstButtonReturn,
+              WebShortcutsManager.normalise(raw) != nil
+        else { return }
+
         isFetching = true
         Task {
-            let added = await manager.add(draft, title: draftTitle)
+            _ = await manager.add(raw)
             isFetching = false
-            if added { isAdding = false } else { failed = true }
         }
     }
 }

@@ -490,8 +490,6 @@ struct NotchHomeView: View {
                 mainContent
             }
         }
-        // simplified: use a straightforward opacity transition
-        .transition(.opacity)
     }
 
     private var shouldShowCamera: Bool {
@@ -527,7 +525,9 @@ struct NotchHomeView: View {
                     .animation(.interactiveSpring(response: 0.32, dampingFraction: 0.76, blendDuration: 0), value: shouldShowCamera)
             }
         }
-        .transition(.asymmetric(insertion: .opacity.combined(with: .move(edge: .top)), removal: .opacity))
+        // No transition of its own: the page slide at the call site owns how
+        // this arrives, and a .move(edge: .top) here fought it, which is why
+        // home dropped in from above while the other tabs slid sideways.
         .blur(radius: vm.notchState == .closed ? 30 : 0)
     }
 }

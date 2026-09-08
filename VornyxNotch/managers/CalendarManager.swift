@@ -179,10 +179,34 @@ class CalendarManager: ObservableObject {
     }
 
     /// Events across the whole visible month, for the dots under the grid.
-    /// `events` stays the selected day's list; this is a separate, wider fetch.
     @Published var monthEvents: [EventModel] = []
 
+    /// The dashboard agenda's own list.
+    ///
+    /// Kept separate from `events`, which the home page owns and reloads to
+    /// "today" whenever the notch opens - sharing one array meant picking a
+    /// day on the grid could be silently overwritten and come back empty.
+    @Published var agendaEvents: [EventModel] = []
+
+    /// Calendar lists load asynchronously after launch. Fetching before they
+    /// arrive returned nothing, so make sure they are there first.
+    private func ensureCalendarsLoaded() async {
+        if allCalendars.isEmpty {
+            await reloadCalendarAndReminderLists()
+            updateSelectedCalendars()
+        }
+    }
+
+    func loadAgenda(for date: Date) async {
+        await ensureCalendarsLoaded()
+        let start = Calendar.current.startOfDay(for: date)
+        guard let end = Calendar.current.date(byAdding: .day, value: 1, to: start) else { return }
+        agendaEvents = await calendarService.events(
+            from: start, to: end, calendars: selectedCalendars.map { $0.id })
+    }
+
     func updateVisibleMonth(_ date: Date) async {
+        await ensureCalendarsLoaded()
         guard let interval = Calendar.current.dateInterval(of: .month, for: date) else { return }
         monthEvents = await calendarService.events(
             from: interval.start,
