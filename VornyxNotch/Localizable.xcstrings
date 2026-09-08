@@ -13518,6 +13518,9 @@
         }
       }
     },
+    "Mirror height" : {
+
+    },
     "Mirror shape" : {
       "localizations" : {
         "ar" : {
@@ -19144,7 +19147,7 @@
         }
       }
     },
-    "Show mirror as a separate tab" : {
+    "Show mirror" : {
 
     },
     "Show music live activity" : {
@@ -20948,9 +20951,6 @@
           }
         }
       }
-    },
-    "The mirror icon opens a full-width mirror tab instead of squeezing the camera onto the home page." : {
-
     },
     "Time to Full Charge: %lld min" : {
       "localizations" : {
