@@ -376,7 +376,11 @@ struct ContentView: View {
                             .id(coordinator.currentView)
                             .transition(pageTransition)
                     }
-                    .clipped()
+                    // No .clipped() here: the album art's lighting effect is a
+                    // blurred, oversized copy of the artwork that deliberately
+                    // bleeds past the content bounds. mainLayout already clips
+                    // everything to the notch silhouette, so clipping again here
+                    // only cuts the glow.
                     .animation(VornyxViewCoordinator.tabChangeAnimation, value: coordinator.currentView)
 
                     if showsBigScreenMirror {

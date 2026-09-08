@@ -223,11 +223,13 @@ class VornyxViewCoordinator: ObservableObject {
         }
     }
 
+    /// `duration` overrides the configured display time for one specific peek;
+    /// pass nil (the default) to use the user's setting.
     func toggleSneakPeek(
-        status: Bool, type: SneakContentType, duration: TimeInterval = 1.5, value: CGFloat = 0,
+        status: Bool, type: SneakContentType, duration: TimeInterval? = nil, value: CGFloat = 0,
         icon: String = ""
     ) {
-        sneakPeekDuration = duration
+        sneakPeekDuration = duration ?? Defaults[.sneakPeekDuration]
         if type != .music {
             // close()
             if !Defaults[.hudReplacement] {
@@ -248,7 +250,7 @@ class VornyxViewCoordinator: ObservableObject {
         }
     }
 
-    private var sneakPeekDuration: TimeInterval = 1.5
+    private var sneakPeekDuration: TimeInterval = Defaults[.sneakPeekDuration]
     private var sneakPeekTask: Task<Void, Never>?
 
     // Helper function to manage sneakPeek timer using Swift Concurrency
@@ -261,7 +263,7 @@ class VornyxViewCoordinator: ObservableObject {
             await MainActor.run {
                 withAnimation {
                     self.toggleSneakPeek(status: false, type: .music)
-                    self.sneakPeekDuration = 1.5
+                    self.sneakPeekDuration = Defaults[.sneakPeekDuration]
                 }
             }
         }
