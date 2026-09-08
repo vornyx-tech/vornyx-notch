@@ -51,6 +51,12 @@ struct SettingsView: View {
                 NavigationLink(value: "Shelf") {
                     Label("Shelf", systemImage: "books.vertical")
                 }
+                NavigationLink(value: "Clipboard") {
+                    Label("Clipboard", systemImage: "doc.on.clipboard")
+                }
+                NavigationLink(value: "AI") {
+                    Label("AI", systemImage: "sparkles")
+                }
                 NavigationLink(value: "Shortcuts") {
                     Label("Shortcuts", systemImage: "keyboard")
                 }
@@ -85,6 +91,10 @@ struct SettingsView: View {
                     Charge()
                 case "Shelf":
                     Shelf()
+                case "Clipboard":
+                    ClipboardSettings()
+                case "AI":
+                    AISettings()
                 case "Shortcuts":
                     Shortcuts()
                 case "Extensions":
@@ -2040,4 +2050,149 @@ func warningBadge(_ text: String, _ description: String) -> some View {
 
 #Preview {
     HUD()
+}
+
+// MARK: - Clipboard settings
+
+struct ClipboardSettings: View {
+    @Default(.clipboardEnabled) var clipboardEnabled
+    @Default(.clipboardHistoryLimit) var clipboardHistoryLimit
+    @Default(.clipboardPersistHistory) var clipboardPersistHistory
+    @StateObject private var clipboard = ClipboardManager.shared
+
+    var body: some View {
+        Form {
+            Section {
+                Defaults.Toggle(key: .clipboardEnabled) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Enable clipboard history")
+                        Text("Adds a clipboard tab to the notch and starts watching what you copy.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Stepper(value: $clipboardHistoryLimit, in: 5...200, step: 5) {
+                    HStack {
+                        Text("Items to keep")
+                        Spacer()
+                        Text("\(clipboardHistoryLimit)")
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                    }
+                }
+                .disabled(!clipboardEnabled)
+                Defaults.Toggle(key: .clipboardPersistHistory) {
+                    Text("Remember history between launches")
+                }
+                .disabled(!clipboardEnabled)
+            } header: {
+                Text("Clipboard")
+            } footer: {
+                Text("Copies marked confidential by password managers are skipped. History is stored inside the app's own container.")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+            }
+
+            Section {
+                HStack {
+                    Text("Stored items")
+                    Spacer()
+                    Text("\(clipboard.items.count)")
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
+                Button("Clear history", role: .destructive) {
+                    clipboard.clear()
+                    clipboard.forgetStoredHistory()
+                }
+                .disabled(clipboard.items.isEmpty)
+            }
+        }
+        .accentColor(.effectiveAccent)
+        .navigationTitle("Clipboard")
+    }
+}
+
+// MARK: - AI settings
+
+struct AISettings: View {
+    @Default(.aiEnabled) var aiEnabled
+    @Default(.geminiModel) var geminiModel
+    @Default(.aiSystemPrompt) var aiSystemPrompt
+
+    @State private var apiKey: String = ""
+    @State private var savedKeyPresent: Bool = KeychainStore.hasGeminiAPIKey
+
+    var body: some View {
+        Form {
+            Section {
+                Defaults.Toggle(key: .aiEnabled) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Enable AI chat")
+                        Text("Adds a chat tab to the notch.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            } header: {
+                Text("AI")
+            }
+
+            Section {
+                SecureField("Gemini API key", text: $apiKey)
+                    .textFieldStyle(.roundedBorder)
+                HStack {
+                    if savedKeyPresent {
+                        Label("Key saved to your keychain", systemImage: "checkmark.seal.fill")
+                            .font(.caption)
+                            .foregroundStyle(.green)
+                    } else {
+                        Label("No key saved", systemImage: "exclamationmark.triangle")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button("Remove") {
+                        KeychainStore.remove(KeychainStore.geminiAPIKeyAccount)
+                        apiKey = ""
+                        savedKeyPresent = false
+                    }
+                    .disabled(!savedKeyPresent)
+                    Button("Save") {
+                        KeychainStore.set(apiKey, for: KeychainStore.geminiAPIKeyAccount)
+                        savedKeyPresent = KeychainStore.hasGeminiAPIKey
+                        apiKey = ""
+                    }
+                    .buttonStyle(BorderedProminentButtonStyle())
+                    .disabled(apiKey.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+                TextField("Model", text: $geminiModel)
+                    .textFieldStyle(.roundedBorder)
+            } header: {
+                Text("Gemini")
+            } footer: {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("The key is stored in your login keychain, not in the app's preferences. It is sent only to generativelanguage.googleapis.com.")
+                    Link("Get a key at aistudio.google.com", destination: URL(string: "https://aistudio.google.com/apikey")!)
+                }
+                .foregroundStyle(.secondary)
+                .font(.caption)
+            }
+
+            Section {
+                TextEditor(text: $aiSystemPrompt)
+                    .font(.callout)
+                    .frame(minHeight: 80)
+            } header: {
+                Text("System prompt")
+            } footer: {
+                Text("Sent with every conversation. Keep it short: the notch has room for brief answers.")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+            }
+        }
+        .accentColor(.effectiveAccent)
+        .navigationTitle("AI")
+        .onAppear { savedKeyPresent = KeychainStore.hasGeminiAPIKey }
+    }
 }

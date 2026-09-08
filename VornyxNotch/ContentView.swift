@@ -43,6 +43,8 @@ struct ContentView: View {
 
     @Default(.showCalendar) var showCalendar
     @Default(.calendarAsSeparateTab) var calendarAsSeparateTab
+    @Default(.clipboardEnabled) var clipboardEnabled
+    @Default(.aiEnabled) var aiEnabled
     @Default(.showMirror) var showMirror
     @Default(.mirrorDisplayMode) var mirrorDisplayMode
     @Default(.mirrorBigScreenHeight) var mirrorBigScreenHeight
@@ -153,6 +155,11 @@ struct ContentView: View {
                             .animation(vm.notchState == .open ? openAnimation : closeAnimation, value: vm.notchState)
                             .animation(.smooth, value: gestureProgress)
                             .animation(.smooth(duration: 0.3), value: coordinator.currentView)
+                            // The notch growing/shrinking for the big screen mirror.
+                            .animation(
+                                .spring(response: 0.46, dampingFraction: 0.82, blendDuration: 0),
+                                value: showsBigScreenMirror
+                            )
                     }
                     .contentShape(Rectangle())
                     .onHover { hovering in
@@ -414,16 +421,19 @@ struct ContentView: View {
                 coordinator.currentView = .home
             }
         }
-        .onChange(of: cameraTabAvailable) { _, available in
-            if !available && coordinator.currentView == .camera {
+        .onChange(of: clipboardEnabled) { _, enabled in
+            if !enabled && coordinator.currentView == .clipboard {
+                coordinator.currentView = .home
+            }
+        }
+        .onChange(of: aiEnabled) { _, enabled in
+            if !enabled && coordinator.currentView == .ai {
                 coordinator.currentView = .home
             }
         }
     }
 
     private var calendarTabAvailable: Bool { showCalendar && calendarAsSeparateTab }
-    private var cameraTabAvailable: Bool { showMirror && mirrorDisplayMode == .tab }
-
     /// Height of the visible notch when open. The window reserves room for the
     /// big-screen mirror up front, but the notch itself only stretches down
     /// once the mirror is actually showing.
@@ -449,8 +459,10 @@ struct ContentView: View {
             ShelfView()
         case .calendar:
             NotchCalendarView()
-        case .camera:
-            NotchCameraView(webcamManager: webcamManager)
+        case .clipboard:
+            ClipboardView()
+        case .ai:
+            AIChatView()
         }
     }
 

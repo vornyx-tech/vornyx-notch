@@ -324,6 +324,8 @@
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		112FB72F2CCF12CC0015238C /* private */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = private; sourceTree = "<group>"; };
 		11F748502EC9AABA00F841DB /* VornyxNotchXPCHelper */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (11F7485C2EC9AABA00F841DB /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = VornyxNotchXPCHelper; sourceTree = "<group>"; };
+		AA00000000000000000000A1 /* AI */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = AI; sourceTree = "<group>"; };
+		AA00000000000000000000A2 /* Clipboard */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = Clipboard; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -583,6 +585,8 @@
 				14CEF41E2C5CAED400855D72 /* VornyxNotch.entitlements */,
 				14CEF41B2C5CAED400855D72 /* Preview Content */,
 				112FB72F2CCF12CC0015238C /* private */,
+				AA00000000000000000000A1 /* AI */,
+				AA00000000000000000000A2 /* Clipboard */,
 				11CC44A12CEE614100C7244B /* VornyxViewCoordinator.swift */,
 			);
 			path = VornyxNotch;
@@ -799,6 +803,8 @@
 			);
 			fileSystemSynchronizedGroups = (
 				112FB72F2CCF12CC0015238C /* private */,
+				AA00000000000000000000A1 /* AI */,
+				AA00000000000000000000A2 /* Clipboard */,
 			);
 			name = VornyxNotch;
 			packageProductDependencies = (

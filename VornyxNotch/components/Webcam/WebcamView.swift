@@ -117,26 +117,6 @@ struct CameraPreviewLayerView: NSViewRepresentable {
     CameraPreviewView(webcamManager: .shared)
 }
 
-// MARK: - Mirror tab
-
-/// The mirror as its own notch tab. The capture session follows the tab: it
-/// starts when the tab appears and stops when you leave it, so the camera is
-/// never running for a tab you cannot see.
-struct NotchCameraView: View {
-    @EnvironmentObject var vm: VornyxViewModel
-    @ObservedObject var webcamManager: WebcamManager
-
-    var body: some View {
-        CameraPreviewView(webcamManager: webcamManager)
-            .environmentObject(vm)
-            .aspectRatio(1, contentMode: .fit)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .transition(.opacity)
-            .onAppear { vm.setCameraPreview(active: true) }
-            .onDisappear { vm.setCameraPreview(active: false) }
-    }
-}
-
 // MARK: - Big screen mirror
 
 /// A wide mirror panel that stretches the notch downwards, below whatever tab

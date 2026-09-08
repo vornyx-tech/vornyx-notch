@@ -28,7 +28,8 @@ public enum NotchViews {
     case home
     case shelf
     case calendar
-    case camera
+    case clipboard
+    case ai
 }
 
 enum SettingsEnum {
@@ -62,8 +63,6 @@ enum MirrorShapeEnum: String, Defaults.Serializable {
 enum MirrorDisplayMode: String, CaseIterable, Identifiable, Defaults.Serializable {
     /// Squeezed onto the home page beside the player, as it has always been.
     case inline = "On the home page"
-    /// Its own full-width notch tab.
-    case tab = "Separate tab"
     /// A large panel that stretches the notch downwards below whatever tab
     /// is open.
     case bigScreen = "Big screen below"

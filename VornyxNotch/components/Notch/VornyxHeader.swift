@@ -45,25 +45,28 @@ struct VornyxHeader: View {
                         if Defaults[.showCalendar] && Defaults[.calendarAsSeparateTab] {
                             tabIconButton(icon: "calendar", target: .calendar)
                         }
+                        if Defaults[.clipboardEnabled] {
+                            tabIconButton(icon: "doc.on.clipboard", target: .clipboard)
+                        }
+                        if Defaults[.aiEnabled] {
+                            tabIconButton(icon: "sparkles", target: .ai)
+                        }
                         if Defaults[.showMirror] {
-                            if Defaults[.mirrorDisplayMode] == .tab {
-                                tabIconButton(icon: "web.camera", target: .camera)
-                            } else {
-                                Button(action: {
-                                    vm.toggleCameraPreview()
-                                }) {
-                                    Capsule()
-                                        .fill(.black)
-                                        .frame(width: 30, height: 30)
-                                        .overlay {
-                                            Image(systemName: "web.camera")
-                                                .foregroundColor(.white)
-                                                .padding()
-                                                .imageScale(.medium)
-                                        }
-                                }
-                                .buttonStyle(PlainButtonStyle())
+                            Button(action: {
+                                vm.toggleCameraPreview()
+                            }) {
+                                Capsule()
+                                    .fill(vm.isCameraExpanded
+                                          ? Color(nsColor: .secondarySystemFill) : .black)
+                                    .frame(width: 30, height: 30)
+                                    .overlay {
+                                        Image(systemName: "web.camera")
+                                            .foregroundColor(.white)
+                                            .padding()
+                                            .imageScale(.medium)
+                                    }
                             }
+                            .buttonStyle(PlainButtonStyle())
                         }
                         if Defaults[.settingsIconInNotch] {
                             Button(action: {

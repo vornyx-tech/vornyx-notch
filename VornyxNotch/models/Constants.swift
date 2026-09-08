@@ -122,6 +122,18 @@ extension Defaults.Keys {
     static let tileShowLabels = Key<Bool>("tileShowLabels", default: false)
     static let showCalendar = Key<Bool>("showCalendar", default: false)
     static let calendarAsSeparateTab = Key<Bool>("calendarAsSeparateTab", default: false)
+
+    // MARK: Clipboard
+    static let clipboardEnabled = Key<Bool>("clipboardEnabled", default: false)
+    static let clipboardHistoryLimit = Key<Int>("clipboardHistoryLimit", default: 30)
+    static let clipboardPersistHistory = Key<Bool>("clipboardPersistHistory", default: true)
+
+    // MARK: AI
+    static let aiEnabled = Key<Bool>("aiEnabled", default: false)
+    static let geminiModel = Key<String>("geminiModel", default: "gemini-2.5-flash")
+    static let aiSystemPrompt = Key<String>(
+        "aiSystemPrompt",
+        default: "You are a helpful assistant living in a small notch window on a Mac. Answer briefly and directly.")
     static let mirrorDisplayMode = Key<MirrorDisplayMode>(
         "mirrorDisplayMode", default: MirrorDisplayMode.inline)
     static let mirrorBigScreenHeight = Key<CGFloat>("mirrorBigScreenHeight", default: 240)
