@@ -162,6 +162,18 @@ struct GeneralSettings: View {
     @Default(.hapticStrength) var hapticStrength
     
 
+    /// The stored value is the swipe distance needed to trigger, so a bigger
+    /// number means a *less* sensitive gesture. The labels read the other way
+    /// round on purpose.
+    static func sensitivityLabel(for value: CGFloat) -> String {
+        switch value {
+        case ..<150: return "High"
+        case ..<250: return "Medium"
+        case ..<350: return "Low"
+        default: return "Very low"
+        }
+    }
+
     var body: some View {
         Form {
             Section {
@@ -334,15 +346,12 @@ struct GeneralSettings: View {
                 Defaults.Toggle(key: .closeGestureEnabled) {
                     Text("Close gesture")
                 }
-                Slider(value: $gestureSensitivity, in: 100...300, step: 100) {
+                Slider(value: $gestureSensitivity, in: 100...400, step: 100) {
                     HStack {
                         Text("Gesture sensitivity")
                         Spacer()
-                        Text(
-                            Defaults[.gestureSensitivity] == 100
-                                ? "High" : Defaults[.gestureSensitivity] == 200 ? "Medium" : "Low"
-                        )
-                        .foregroundStyle(.secondary)
+                        Text(Self.sensitivityLabel(for: gestureSensitivity))
+                            .foregroundStyle(.secondary)
                     }
                 }
             }
