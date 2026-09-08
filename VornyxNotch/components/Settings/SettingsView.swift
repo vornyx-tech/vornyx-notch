@@ -214,7 +214,7 @@ struct GeneralSettings: View {
                     }
                     .disabled(showOnAllDisplays)
             } header: {
-                Text("System features")
+                SettingsSectionHeader("System features", icon: "switch.2", tint: .teal)
             }
 
             Section {
@@ -307,7 +307,7 @@ struct GeneralSettings: View {
                     .disabled(openNotchWidth == defaultOpenNotchSize.width)
                 }
             } header: {
-                Text("Notch sizing")
+                SettingsSectionHeader("Notch sizing", icon: "arrow.up.left.and.arrow.down.right", tint: .indigo)
             } footer: {
                 Text("How far the home page stretches to the sides. The shelf and calendar tabs keep their full width.")
                     .foregroundStyle(.secondary)
@@ -405,7 +405,7 @@ struct GeneralSettings: View {
                 }
             }
         } header: {
-            Text("Notch behavior")
+            SettingsSectionHeader("Notch behavior", icon: "hand.tap.fill", tint: .indigo)
         }
     }
 }
@@ -421,7 +421,7 @@ struct Charge: View {
                     Text("Show power status notifications")
                 }
             } header: {
-                Text("General")
+                SettingsSectionHeader("General", icon: "gearshape.fill", tint: .blue)
             }
             Section {
                 Defaults.Toggle(key: .showBatteryPercentage) {
@@ -431,7 +431,7 @@ struct Charge: View {
                     Text("Show power status icons")
                 }
             } header: {
-                Text("Battery Information")
+                SettingsSectionHeader("Battery Information", icon: "battery.100.bolt", tint: .green)
             }
         }
         .onAppear {
@@ -590,7 +590,7 @@ struct HUD: View {
                     Text("Tint progress bar with accent color")
                 }
             } header: {
-                Text("General")
+                SettingsSectionHeader("General", icon: "gearshape.fill", tint: .blue)
             }
             .disabled(!hudReplacement)
             
@@ -630,7 +630,7 @@ struct HUD: View {
                     Text("Show percentage")
                 }
             } header: {
-                Text("Closed Notch")
+                SettingsSectionHeader("Closed Notch", icon: "rectangle.compress.vertical", tint: .indigo)
             }
             .disabled(!Defaults[.hudReplacement])
         }
@@ -679,7 +679,7 @@ struct Media: View {
                     )
                 }
             } header: {
-                Text("Media Source")
+                SettingsSectionHeader("Media Source", icon: "dot.radiowaves.left.and.right", tint: .pink)
             } footer: {
                 if MusicManager.shared.isNowPlayingDeprecated {
                     HStack {
@@ -746,7 +746,7 @@ struct Media: View {
                     Text("Never hide").tag(HideNotchOption.never)
                 }
             } header: {
-                Text("Media playback live activity")
+                SettingsSectionHeader("Media playback live activity", icon: "waveform", tint: .pink)
             }
             
             Section {
@@ -758,7 +758,7 @@ struct Media: View {
                     }
                 }
             } header: {
-                Text("Media controls")
+                SettingsSectionHeader("Media controls", icon: "playpause.fill", tint: .pink)
             }  footer: {
                 Text("Customize which controls appear in the music player. Volume expands when active.")
                     .font(.caption)
@@ -812,7 +812,7 @@ struct CalendarSettings: View {
             Defaults.Toggle(key: .showFullEventTitles) {
                 Text("Always show full event titles")
             }
-            Section(header: Text("Calendars")) {
+            Section(header: SettingsSectionHeader("Calendars", icon: "calendar", tint: .red)) {
                 if calendarManager.calendarAuthorizationStatus != .fullAccess {
                     Text("Calendar access is denied. Please enable it in System Settings.")
                         .foregroundColor(.red)
@@ -943,7 +943,7 @@ struct About: View {
                         }
                     }
                 } header: {
-                    Text("Version info")
+                    SettingsSectionHeader("Version info", icon: "info.circle.fill", tint: .gray)
                 }
 
                 UpdaterSettingsView(updater: updaterController.updater)
@@ -1265,7 +1265,7 @@ struct Appearance: View {
                 }
 
             } header: {
-                Text("General")
+                SettingsSectionHeader("General", icon: "gearshape.fill", tint: .blue)
             }
 
             NotchCornerRadiusSettings()
@@ -1293,7 +1293,7 @@ struct Appearance: View {
                     }
                 }
             } header: {
-                Text("Media")
+                SettingsSectionHeader("Media", icon: "music.note", tint: .pink)
             }
 
             Section {
@@ -1670,7 +1670,7 @@ struct Advanced: View {
                 }
                 .padding(.vertical, 4)
             } header: {
-                Text("Accent color")
+                SettingsSectionHeader("Accent color", icon: "paintpalette.fill", tint: .purple)
             } footer: {
                 Text("Choose between your system accent color or customize it with your own selection.")
                     .multilineTextAlignment(.trailing)
@@ -1686,7 +1686,7 @@ struct Advanced: View {
                     Text("Enable window shadow")
                 }
             } header: {
-                Text("Window Appearance")
+                SettingsSectionHeader("Window Appearance", icon: "macwindow", tint: .teal)
             }
             
             Section {
@@ -1747,7 +1747,7 @@ struct Advanced: View {
                     Text("Hide from screen recording")
                 }
             } header: {
-                Text("Window Behavior")
+                SettingsSectionHeader("Window Behavior", icon: "macwindow.on.rectangle", tint: .teal)
             }
         }
         .accentColor(.effectiveAccent)
@@ -1849,7 +1849,7 @@ struct Shortcuts: View {
             Section {
                 KeyboardShortcuts.Recorder("Toggle Sneak Peek:", name: .toggleSneakPeek)
             } header: {
-                Text("Media")
+                SettingsSectionHeader("Media", icon: "music.note", tint: .pink)
             } footer: {
                 Text(
                     "Sneak Peek shows the media title and artist under the notch for a few seconds."
@@ -1974,7 +1974,7 @@ struct NotchCornerRadiusSettings: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 4)
         } header: {
-            Text("Notch shape preview")
+            SettingsSectionHeader("Notch shape preview", icon: "eye.fill", tint: .indigo)
         }
 
         Section {
@@ -2016,7 +2016,7 @@ struct NotchCornerRadiusSettings: View {
                 .disabled(isUsingDefaults)
             }
         } header: {
-            Text("Corner radius")
+            SettingsSectionHeader("Corner radius", icon: "app.badge.checkmark", tint: .indigo)
         } footer: {
             Text(
                 "Top is the radius where the notch meets the screen edge, bottom is the radius of its lower corners. With separate open radii turned off, the open notch keeps the closed values."
@@ -2047,6 +2047,40 @@ struct NotchCornerRadiusSettings: View {
         openedBottom = defaultCornerRadiusInsets.opened.bottom
         closedTop = defaultCornerRadiusInsets.closed.top
         closedBottom = defaultCornerRadiusInsets.closed.bottom
+    }
+}
+
+/// A section header with a tinted glyph.
+///
+/// These panes are dense - long lists of switches with explanatory captions
+/// under them. A colour and a symbol per section give the eye somewhere to
+/// land when scanning, instead of a wall of same-sized grey text.
+struct SettingsSectionHeader: View {
+    let title: String
+    let icon: String
+    var tint: Color = .effectiveAccent
+
+    init(_ title: String, icon: String, tint: Color = .effectiveAccent) {
+        self.title = title
+        self.icon = icon
+        self.tint = tint
+    }
+
+    var body: some View {
+        HStack(spacing: 7) {
+            Image(systemName: icon)
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(tint)
+                .frame(width: 17, height: 17)
+                .background(Circle().fill(tint.opacity(0.18)))
+
+            Text(title)
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(tint)
+                .textCase(.uppercase)
+                .kerning(0.7)
+        }
+        .padding(.bottom, 1)
     }
 }
 
@@ -2115,7 +2149,7 @@ struct ClipboardSettings: View {
                 }
                 .disabled(!clipboardEnabled)
             } header: {
-                Text("Clipboard")
+                SettingsSectionHeader("Clipboard", icon: "doc.on.clipboard.fill", tint: .yellow)
             } footer: {
                 Text("Copies marked confidential by password managers are skipped. History is stored inside the app's own container.")
                     .foregroundStyle(.secondary)
@@ -2148,6 +2182,7 @@ struct AISettings: View {
     @Default(.aiEnabled) var aiEnabled
     @Default(.geminiModel) var geminiModel
     @Default(.aiSystemPrompt) var aiSystemPrompt
+    @Default(.aiTabCloseDelay) var aiTabCloseDelay
 
     @State private var apiKey: String = ""
     @State private var savedKeyPresent: Bool = KeychainStore.hasGeminiAPIKey
@@ -2163,8 +2198,18 @@ struct AISettings: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                Slider(value: $aiTabCloseDelay, in: 2...30, step: 1) {
+                    HStack {
+                        Text("Stay open for")
+                        Spacer()
+                        Text("\(aiTabCloseDelay, specifier: "%.0f")s")
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                    }
+                }
+                .disabled(!aiEnabled)
             } header: {
-                Text("AI")
+                SettingsSectionHeader("AI", icon: "sparkles", tint: .purple)
             }
 
             Section {
@@ -2198,7 +2243,7 @@ struct AISettings: View {
                 TextField("Model", text: $geminiModel)
                     .textFieldStyle(.roundedBorder)
             } header: {
-                Text("Gemini")
+                SettingsSectionHeader("Gemini", icon: "key.fill", tint: .purple)
             } footer: {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("The key is stored in your login keychain, not in the app's preferences. It is sent only to generativelanguage.googleapis.com.")
@@ -2213,7 +2258,7 @@ struct AISettings: View {
                     .font(.callout)
                     .frame(minHeight: 80)
             } header: {
-                Text("System prompt")
+                SettingsSectionHeader("System prompt", icon: "text.bubble.fill", tint: .purple)
             } footer: {
                 Text("Sent with every conversation. Keep it short: the notch has room for brief answers.")
                     .foregroundStyle(.secondary)

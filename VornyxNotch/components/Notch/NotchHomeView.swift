@@ -598,6 +598,12 @@ struct CustomSlider: View {
     var onValueChange: ((Double) -> Void)?
     var onDragChange: ((Double) -> Void)?
 
+    /// Clear unless the user asked for the glow, so the shadow costs nothing
+    /// when it is off.
+    private var glowColor: Color {
+        Defaults[.sliderGlow] ? color.ensureMinimumBrightness(factor: 0.7) : .clear
+    }
+
     var body: some View {
         GeometryReader { geometry in
             let width = geometry.size.width
@@ -607,24 +613,22 @@ struct CustomSlider: View {
             let progress = rangeSpan == .zero ? 0 : (value - range.lowerBound) / rangeSpan
             let filledTrackWidth = min(max(progress, 0), 1) * width
 
+            // Capsules rather than rectangles clipped by an outer
+            // .cornerRadius: that clip sat outside the fill and swallowed the
+            // glow, which is drawn beyond the bar's own bounds by definition.
             ZStack(alignment: .leading) {
-                Rectangle()
+                Capsule()
                     .fill(.gray.opacity(0.3))
                     .frame(height: height)
 
-                Rectangle()
+                Capsule()
                     .fill(color)
                     .frame(width: filledTrackWidth, height: height)
-                    // Same treatment the HUD bar gets: a soft bloom in the
-                    // track's own colour, thrown slightly ahead of the playhead.
-                    .shadow(
-                        color: Defaults[.sliderGlow]
-                            ? color.ensureMinimumBrightness(factor: 0.7) : .clear,
-                        radius: 8,
-                        x: 3
-                    )
+                    // Two passes: a tight bright bloom over a wide soft one, so
+                    // it reads as light coming off the bar rather than a blur.
+                    .shadow(color: glowColor.opacity(0.9), radius: 4)
+                    .shadow(color: glowColor.opacity(0.55), radius: 10, x: 3)
             }
-            .cornerRadius(height / 2)
             .frame(height: 10)
             .contentShape(Rectangle())
             .gesture(

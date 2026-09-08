@@ -39,10 +39,11 @@ struct AIChatView: View {
             VornyxNotchSkyLightWindow.setKeyboardInputEnabled(false)
             releaseNotch()
         }
-        .onChange(of: composerFocused) { _, focused in
-            // Don't let the notch slide shut mid-sentence when the pointer
-            // wanders off.
-            focused ? holdNotch() : releaseNotch()
+        .onChange(of: chat.isThinking) { _, thinking in
+            // Only pin the notch while a reply is arriving - cutting one off
+            // half-written loses it. Otherwise the tab's longer close delay
+            // does the work and the notch still goes away on its own.
+            thinking ? holdNotch() : releaseNotch()
         }
         .onExitCommand {
             composerFocused = false
