@@ -133,6 +133,10 @@ extension Defaults.Keys {
 
     // MARK: AI
     static let aiEnabled = Key<Bool>("aiEnabled", default: false)
+    /// Which keychain accounts actually hold something. Not a secret - it only
+    /// records presence, so the app can answer "no key saved" without making a
+    /// keychain call and provoking an access prompt.
+    static let keychainAccountsInUse = Key<Set<String>>("keychainAccountsInUse", default: [])
     /// Grace period before the notch closes while the AI tab is open. Reading a
     /// reply means looking away from the notch, which would normally close it.
     static let aiTabCloseDelay = Key<Double>("aiTabCloseDelay", default: 8)
