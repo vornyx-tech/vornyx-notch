@@ -330,8 +330,11 @@ class VornyxViewCoordinator: ObservableObject {
         if Defaults[.showCalendar] && Defaults[.calendarAsSeparateTab] {
             tabs.append(.calendar)
         }
-        if Defaults[.showMirror] && Defaults[.mirrorDisplayMode] == .tab {
-            tabs.append(.camera)
+        if Defaults[.clipboardEnabled] {
+            tabs.append(.clipboard)
+        }
+        if Defaults[.aiEnabled] {
+            tabs.append(.ai)
         }
         return tabs
     }
@@ -346,6 +349,12 @@ class VornyxViewCoordinator: ObservableObject {
 
         let target = index + offset
         guard tabs.indices.contains(target) else { return }
+
+        if Defaults[.enableHaptics] {
+            // The trackpad "detent" as the page changes under your fingers.
+            NSHapticFeedbackManager.defaultPerformer.perform(
+                .alignment, performanceTime: .now)
+        }
 
         withAnimation(Self.tabChangeAnimation) {
             currentView = tabs[target]
