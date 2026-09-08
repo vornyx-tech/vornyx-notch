@@ -122,14 +122,22 @@ private struct LivingGlow: View {
     let cornerRadius: CGFloat
 
     @State private var phase = Double.random(in: 0..<1000)
+    @State private var tick: Double = 0
+
+    /// A plain timer rather than TimelineView(.animation): the notch lives in a
+    /// non-activating panel, where the display-link schedule cannot be relied
+    /// on to keep firing.
+    private var clock: Publishers.Autoconnect<Timer.TimerPublisher> {
+        Timer.publish(
+            every: 1 / AlbumArtStyle.Glow.frameRate, on: .main, in: .common
+        ).autoconnect()
+    }
 
     var body: some View {
-        TimelineView(
-            .animation(minimumInterval: 1 / AlbumArtStyle.Glow.frameRate, paused: !isActive)
-        ) { context in
-            let g = AlbumArtStyle.Glow.self
-            let t = context.date.timeIntervalSinceReferenceDate + phase
+        let g = AlbumArtStyle.Glow.self
+        let t = tick + phase
 
+        Group {
             let breathe = sin(t / g.breathePeriod)
             let rotate = sin(t / g.rotatePeriod)
             let sway = sin(t / g.swayPeriod)
@@ -150,6 +158,10 @@ private struct LivingGlow: View {
                 .blur(radius: g.blur)
                 .opacity(isActive ? g.baseOpacity + g.opacitySwing * shimmer : 0)
                 .animation(.easeInOut(duration: 0.6), value: isActive)
+        }
+        .onReceive(clock) { date in
+            guard isActive else { return }
+            tick = date.timeIntervalSinceReferenceDate
         }
     }
 }
@@ -603,6 +615,14 @@ struct CustomSlider: View {
                 Rectangle()
                     .fill(color)
                     .frame(width: filledTrackWidth, height: height)
+                    // Same treatment the HUD bar gets: a soft bloom in the
+                    // track's own colour, thrown slightly ahead of the playhead.
+                    .shadow(
+                        color: Defaults[.sliderGlow]
+                            ? color.ensureMinimumBrightness(factor: 0.7) : .clear,
+                        radius: 8,
+                        x: 3
+                    )
             }
             .cornerRadius(height / 2)
             .frame(height: 10)

@@ -1284,6 +1284,14 @@ struct Appearance: View {
                         Text(option.rawValue)
                     }
                 }
+                Defaults.Toggle(key: .sliderGlow) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Glow the slider")
+                        Text("Blooms the played part of the progress bar in the slider colour, the way the HUD bar does.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
             } header: {
                 Text("Media")
             }
