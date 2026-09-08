@@ -32,6 +32,16 @@ var configuredHomeNotchWidth: CGFloat {
 /// widens the notch while it is open and hands the width back on the way out.
 let dashboardNotchWidth: CGFloat = 900
 
+/// A six-row month grid does not fit the stock 190pt, so the dashboard is
+/// taller too. Without this the content overflows its frame and SwiftUI
+/// centres the overflow, lifting the header off the top of the screen.
+let dashboardNotchHeight: CGFloat = 252
+
+/// Height of the open notch for a given tab.
+func openNotchHeight(for view: NotchViews) -> CGFloat {
+    view == .dashboard ? dashboardNotchHeight : defaultOpenNotchSize.height
+}
+
 func openNotchWidth(for view: NotchViews) -> CGFloat {
     switch view {
     case .home:
@@ -62,7 +72,8 @@ var openNotchSize: CGSize {
     // outside the notch shape, so the extra width costs nothing visually.
     .init(
         width: max(configuredHomeNotchWidth, defaultOpenNotchSize.width, dashboardNotchWidth),
-        height: defaultOpenNotchSize.height + mirrorBigScreenReservedHeight
+        height: max(defaultOpenNotchSize.height, dashboardNotchHeight)
+            + mirrorBigScreenReservedHeight
     )
 }
 
