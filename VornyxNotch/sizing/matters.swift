@@ -109,17 +109,17 @@ extension Comparable {
 /// value here and rebuild; nothing in the UI exposes them.
 enum AlbumArtStyle {
     /// Artwork corner radius on the open notch's home page.
-    static let openCornerRadius: CGFloat = 13
+    static let openCornerRadius: CGFloat = 24
     /// Artwork corner radius in the closed-notch live activity.
-    static let closedCornerRadius: CGFloat = 4
+    static let closedCornerRadius: CGFloat = 6
     /// Corner radius of the small source-app badge on the artwork.
-    static let appIconCornerRadius: CGFloat = 7
+    static let appIconCornerRadius: CGFloat = 9
     /// Size of that badge.
-    static let appIconSize: CGFloat = 30
+    static let appIconSize: CGFloat = 29
 
     /// Tuning for the living glow behind the artwork. Also code-only.
     enum Glow {
-        static let blur: CGFloat = 40
+        static let blur: CGFloat = 45
         static let baseScale: (x: CGFloat, y: CGFloat) = (1.3, 1.4)
         static let baseRotation: Double = 92
         static let baseOpacity: Double = 0.5

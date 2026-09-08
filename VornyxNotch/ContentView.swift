@@ -25,6 +25,13 @@ struct ContentView: View {
     @ObservedObject var volumeManager = VolumeManager.shared
     @State private var hoverTask: Task<Void, Never>?
     @State private var isHovering: Bool = false
+    /// True while the pointer sits over the open notch's page content.
+    ///
+    /// The close gesture is a scroll monitor that sees the whole window, so
+    /// scrolling a chat transcript or the clipboard row was closing the notch
+    /// instead of scrolling it. Content scrolls; the header strip is where you
+    /// swipe to close.
+    @State private var pointerOverContent: Bool = false
     @State private var anyDropDebounceTask: Task<Void, Never>?
 
     @State private var gestureProgress: CGFloat = .zero
@@ -389,6 +396,9 @@ struct ContentView: View {
                     // everything to the notch silhouette, so clipping again here
                     // only cuts the glow.
                     .animation(VornyxViewCoordinator.tabChangeAnimation, value: coordinator.currentView)
+                    .onHover { hovering in
+                        pointerOverContent = hovering
+                    }
 
                     if showsBigScreenMirror {
                         BigScreenMirrorView(
@@ -686,6 +696,7 @@ struct ContentView: View {
 
     private func handleDownGesture(translation: CGFloat, phase: NSEvent.Phase) {
         guard vm.notchState == .closed else { return }
+        guard !pointerOverContent else { return }
 
         if phase == .ended {
             withAnimation(animationSpring) { gestureProgress = .zero }
@@ -708,6 +719,8 @@ struct ContentView: View {
     }
 
     private func handleUpGesture(translation: CGFloat, phase: NSEvent.Phase) {
+        // Let content scroll; close from the icons line instead.
+        guard !pointerOverContent else { return }
         guard vm.notchState == .open && !vm.isHoveringCalendar else { return }
 
         withAnimation(animationSpring) {
