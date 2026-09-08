@@ -117,14 +117,15 @@ class VornyxNotchSkyLightWindow: NSPanel {
     /// panel is non-activating it can hold key status *without* activating the
     /// app, so the app you were using stays frontmost while you type here.
     /// Opt-in, and only for as long as the input is on screen.
+    /// Setting this only *permits* key status - it never takes it. Calling
+    /// makeKey() here pulled focus onto the notch the moment the tab appeared,
+    /// which activated the app and threw its window over whatever you were
+    /// working in. The window becomes key when you click into the field, which
+    /// is the only time you actually want it.
     var acceptsKeyboardInput: Bool = false {
         didSet {
-            guard acceptsKeyboardInput != oldValue else { return }
-            if acceptsKeyboardInput {
-                makeKey()
-            } else if isKeyWindow {
-                resignKey()
-            }
+            guard acceptsKeyboardInput != oldValue, !acceptsKeyboardInput else { return }
+            if isKeyWindow { resignKey() }
         }
     }
 

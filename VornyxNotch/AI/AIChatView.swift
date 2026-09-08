@@ -26,14 +26,10 @@ struct AIChatView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .onAppear {
+            // Permit typing, but do not steal focus: the notch appearing must
+            // not pull you out of whatever app you were in. Click the field.
             guard chat.hasAPIKey else { return }
             VornyxNotchSkyLightWindow.setKeyboardInputEnabled(true)
-            // The window has to be able to take key status before the field can
-            // claim focus, so ask for focus on the next runloop pass.
-            Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(80))
-                composerFocused = true
-            }
         }
         .onDisappear {
             VornyxNotchSkyLightWindow.setKeyboardInputEnabled(false)
