@@ -3648,6 +3648,9 @@
         }
       }
     },
+    "Blooms the played part of the progress bar in the slider colour, the way the HUD bar does." : {
+
+    },
     "Boost your productivity with Clipboard Manager" : {
       "localizations" : {
         "ar" : {
@@ -10093,6 +10096,9 @@
           }
         }
       }
+    },
+    "Glow the slider" : {
+
     },
     "Got it!" : {
       "localizations" : {

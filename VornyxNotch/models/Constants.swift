@@ -132,6 +132,9 @@ extension Defaults.Keys {
 
     // MARK: AI
     static let aiEnabled = Key<Bool>("aiEnabled", default: false)
+    /// Grace period before the notch closes while the AI tab is open. Reading a
+    /// reply means looking away from the notch, which would normally close it.
+    static let aiTabCloseDelay = Key<Double>("aiTabCloseDelay", default: 8)
     static let geminiModel = Key<String>("geminiModel", default: "gemini-2.5-flash")
     static let aiSystemPrompt = Key<String>(
         "aiSystemPrompt",
@@ -200,7 +203,9 @@ extension Defaults.Keys {
     
     // MARK: Shelf
     static let shelfEnabled = Key<Bool>("shelfEnabled", default: true)
-    static let openShelfByDefault = Key<Bool>("openShelfByDefault", default: true)
+    /// Off: opening the notch lands on home even when the shelf holds files.
+    /// Anything left on the shelf otherwise hijacks every open.
+    static let openShelfByDefault = Key<Bool>("openShelfByDefault", default: false)
     static let shelfTapToOpen = Key<Bool>("shelfTapToOpen", default: true)
     static let quickShareProvider = Key<String>("quickShareProvider", default: QuickShareProvider.defaultProvider.id)
     static let copyOnDrag = Key<Bool>("copyOnDrag", default: false)
