@@ -48,8 +48,6 @@ struct ContentView: View {
     // Named differently from the global openNotchWidth(for:) it would shadow.
     @Default(.openNotchWidth) var homePageWidth
 
-    @Default(.showCalendar) var showCalendar
-    @Default(.calendarAsSeparateTab) var calendarAsSeparateTab
     @Default(.clipboardEnabled) var clipboardEnabled
     @Default(.aiEnabled) var aiEnabled
     @Default(.showMirror) var showMirror
@@ -426,24 +424,13 @@ struct ContentView: View {
             }
         }
         .onDrop(of: [.fileURL, .url, .utf8PlainText, .plainText, .data], delegate: GeneralDropTargetDelegate(isTargeted: $vm.generalDropTargeting))
-        .onChange(of: calendarTabAvailable) { _, available in
-            if !available && coordinator.currentView == .calendar {
-                coordinator.currentView = .home
-            }
-        }
         .onChange(of: clipboardEnabled) { _, enabled in
             if !enabled && coordinator.currentView == .clipboard {
                 coordinator.currentView = .home
             }
         }
-        .onChange(of: aiEnabled) { _, enabled in
-            if !enabled && coordinator.currentView == .ai {
-                coordinator.currentView = .home
-            }
-        }
     }
 
-    private var calendarTabAvailable: Bool { showCalendar && calendarAsSeparateTab }
     /// Height of the visible notch when open. The window reserves room for the
     /// big-screen mirror up front, but the notch itself only stretches down
     /// once the mirror is actually showing.
@@ -467,12 +454,10 @@ struct ContentView: View {
             NotchHomeView(albumArtNamespace: albumArtNamespace)
         case .shelf:
             ShelfView()
-        case .calendar:
-            NotchCalendarView()
         case .clipboard:
             ClipboardView()
-        case .ai:
-            AIChatView()
+        case .dashboard:
+            DashboardView()
         }
     }
 
@@ -678,7 +663,7 @@ struct ContentView: View {
                 // The AI tab keeps the notch around longer: you look away from
                 // it to read a reply or think about the next message, and the
                 // usual 100ms would shut it in your face. It still closes.
-                if coordinator.currentView == .ai {
+                if coordinator.currentView == .dashboard {
                     try? await Task.sleep(for: .seconds(Defaults[.aiTabCloseDelay]))
                     guard !Task.isCancelled else { return }
                 }

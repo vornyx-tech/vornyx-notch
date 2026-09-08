@@ -32,7 +32,7 @@ func openNotchWidth(for view: NotchViews) -> CGFloat {
     switch view {
     case .home:
         return configuredHomeNotchWidth
-    case .shelf, .calendar, .clipboard, .ai:
+    case .shelf, .clipboard, .dashboard:
         return defaultOpenNotchSize.width
     }
 }

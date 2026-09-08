@@ -28,9 +28,9 @@ public enum NotchState {
 public enum NotchViews {
     case home
     case shelf
-    case calendar
     case clipboard
-    case ai
+    /// Month, website shortcuts and AI, side by side.
+    case dashboard
 }
 
 enum SettingsEnum {
