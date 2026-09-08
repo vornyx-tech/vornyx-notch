@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import AppKit
 import Defaults
 
 public enum Style {
@@ -68,6 +69,52 @@ enum MirrorDisplayMode: String, CaseIterable, Identifiable, Defaults.Serializabl
     case bigScreen = "Big screen below"
 
     var id: String { rawValue }
+}
+
+/// How hard the trackpad thumps when a swipe changes page.
+///
+/// macOS only offers a handful of fixed patterns, and `.alignment` - the one
+/// used for scroll detents - is deliberately faint. `.levelChange` is the
+/// firmest single pattern available, and repeating it lands harder still.
+enum HapticStrength: String, CaseIterable, Identifiable, Defaults.Serializable {
+    case light = "Light"
+    case medium = "Medium"
+    case strong = "Strong"
+    case heavy = "Heavy"
+
+    var id: String { rawValue }
+
+    fileprivate var pattern: NSHapticFeedbackManager.FeedbackPattern {
+        self == .light ? .alignment : .levelChange
+    }
+
+    fileprivate var pulses: Int {
+        switch self {
+        case .light, .medium: return 1
+        case .strong: return 2
+        case .heavy: return 3
+        }
+    }
+
+    /// Gap between pulses. Long enough that the taps read as separate, short
+    /// enough that they still feel like one event.
+    fileprivate var interval: Duration { .milliseconds(38) }
+
+    @MainActor
+    func perform() {
+        guard Defaults[.enableHaptics] else { return }
+
+        let performer = NSHapticFeedbackManager.defaultPerformer
+        performer.perform(pattern, performanceTime: .now)
+
+        guard pulses > 1 else { return }
+        Task { @MainActor in
+            for _ in 1..<pulses {
+                try? await Task.sleep(for: interval)
+                performer.perform(pattern, performanceTime: .now)
+            }
+        }
+    }
 }
 
 enum WindowHeightMode: String, Defaults.Serializable {
