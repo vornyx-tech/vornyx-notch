@@ -127,9 +127,7 @@ struct BigScreenMirrorView: View {
     @ObservedObject var webcamManager: WebcamManager
     let height: CGFloat
 
-    private var cornerRadius: CGFloat {
-        Defaults[.cornerRadiusScaling] ? 16 : MusicPlayerImageSizes.cornerRadiusInset.closed
-    }
+    private var cornerRadius: CGFloat { innerPanelCornerRadius }
 
     var body: some View {
         ZStack {

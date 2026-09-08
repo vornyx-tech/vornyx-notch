@@ -103,6 +103,32 @@ extension Comparable {
     }
 }
 
+/// The open notch's own outer corner radius, as actually drawn.
+var openNotchCornerRadius: CGFloat {
+    Defaults[.cornerRadiusScaling]
+        ? cornerRadiusInsets.opened.bottom
+        : cornerRadiusInsets.closed.bottom
+}
+
+/// Gap between the notch's inner edge and the panels drawn inside it.
+let notchContentInset: CGFloat = 12
+
+/// Corner radius for a panel sitting directly inside the open notch.
+///
+/// Apple's concentric rule: an inner radius is the outer radius minus the gap
+/// between them, which keeps the two curves parallel all the way round.
+/// Matching the outer number instead makes the inner corner look too tight;
+/// picking an unrelated number - which is what a hardcoded 16 was - makes the
+/// curves visibly disagree. Follows the user's own corner radius setting.
+var innerPanelCornerRadius: CGFloat {
+    max(6, openNotchCornerRadius - notchContentInset)
+}
+
+/// One level deeper again: a tile inside one of those panels.
+func nestedCornerRadius(inset: CGFloat) -> CGFloat {
+    max(4, innerPanelCornerRadius - inset)
+}
+
 /// Code-only styling for the player artwork.
 ///
 /// Deliberately NOT surfaced in Settings - these are developer knobs. Change a
