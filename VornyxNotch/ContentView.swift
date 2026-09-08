@@ -667,14 +667,6 @@ struct ContentView: View {
                     }
                 }
 
-                // The AI tab keeps the notch around longer: you look away from
-                // it to read a reply or think about the next message, and the
-                // usual 100ms would shut it in your face. It still closes.
-                if coordinator.currentView == .dashboard {
-                    try? await Task.sleep(for: .seconds(Defaults[.aiTabCloseDelay]))
-                    guard !Task.isCancelled else { return }
-                }
-
                 await MainActor.run {
                     if self.vm.notchState == .open && !self.vm.isBatteryPopoverActive && !SharingStateManager.shared.preventNotchClose {
                         self.vm.close()
