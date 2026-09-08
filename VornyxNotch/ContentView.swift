@@ -37,6 +37,10 @@ struct ContentView: View {
 
     @Default(.showNotHumanFace) var showNotHumanFace
 
+    // Observed so the notch resizes as soon as the width slider moves.
+    // Named differently from the global openNotchWidth(for:) it would shadow.
+    @Default(.openNotchWidth) var homePageWidth
+
     @Default(.showCalendar) var showCalendar
     @Default(.calendarAsSeparateTab) var calendarAsSeparateTab
     @Default(.showMirror) var showMirror
@@ -116,6 +120,11 @@ struct ContentView: View {
                         : cornerRadiusInsets.closed.bottom
                     )
                     .padding([.horizontal, .bottom], vm.notchState == .open ? 12 : 0)
+                    .frame(
+                        width: vm.notchState == .open
+                            ? openNotchWidth(for: coordinator.currentView)
+                            : nil
+                    )
                     .background(.black)
                     .clipShape(currentNotchShape)
                     .overlay(alignment: .top) {
@@ -142,6 +151,7 @@ struct ContentView: View {
                         return view
                             .animation(vm.notchState == .open ? openAnimation : closeAnimation, value: vm.notchState)
                             .animation(.smooth, value: gestureProgress)
+                            .animation(.smooth(duration: 0.3), value: coordinator.currentView)
                     }
                     .contentShape(Rectangle())
                     .onHover { hovering in

@@ -262,7 +262,7 @@ struct GeneralSettings: View {
                     step: 10
                 ) {
                     HStack {
-                        Text("Open notch width")
+                        Text("Home page width")
                         Spacer()
                         Text("\(openNotchWidth, specifier: "%.0f") pt")
                             .foregroundStyle(.secondary)
@@ -285,7 +285,7 @@ struct GeneralSettings: View {
             } header: {
                 Text("Notch sizing")
             } footer: {
-                Text("Open notch width controls how far the open notch stretches to the sides.")
+                Text("How far the home page stretches to the sides. The shelf and calendar tabs keep their full width.")
                     .foregroundStyle(.secondary)
                     .font(.caption)
             }

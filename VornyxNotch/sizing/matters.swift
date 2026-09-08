@@ -20,11 +20,28 @@ let defaultOpenNotchSize: CGSize = .init(width: 640, height: 190)
 /// How far the open notch may be stretched or shrunk to the sides.
 let openNotchWidthRange: ClosedRange<CGFloat> = 380...900
 
-/// Current open-notch size. Reads live from `Defaults` so the width slider
-/// takes effect as soon as the window is repositioned.
+/// The configured home-page width.
+var configuredHomeNotchWidth: CGFloat {
+    Defaults[.openNotchWidth].clamped(to: openNotchWidthRange)
+}
+
+/// Width of the open notch for a given tab. Only the home page follows the
+/// width setting - the shelf and calendar keep the full width, because
+/// shrinking them would squeeze content that needs the room.
+func openNotchWidth(for view: NotchViews) -> CGFloat {
+    switch view {
+    case .home:
+        return configuredHomeNotchWidth
+    case .shelf, .calendar, .camera:
+        return defaultOpenNotchSize.width
+    }
+}
+
+/// Size the window has to be: wide enough for the widest tab, whichever that
+/// turns out to be once the home page has been resized.
 var openNotchSize: CGSize {
     .init(
-        width: Defaults[.openNotchWidth].clamped(to: openNotchWidthRange),
+        width: max(configuredHomeNotchWidth, defaultOpenNotchSize.width),
         height: defaultOpenNotchSize.height
     )
 }
