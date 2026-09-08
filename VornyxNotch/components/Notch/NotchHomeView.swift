@@ -39,20 +39,13 @@ struct AlbumArtView: View {
     }
 
     private var albumArtBackground: some View {
-        Image(nsImage: musicManager.albumArt)
-            .resizable()
-            .clipped()
-            .clipShape(
-                RoundedRectangle(
-                    cornerRadius: Defaults[.cornerRadiusScaling]
-                        ? AlbumArtStyle.openCornerRadius
-                        : AlbumArtStyle.closedCornerRadius)
-            )
-            .aspectRatio(1, contentMode: .fit)
-            .scaleEffect(x: 1.3, y: 1.4)
-            .rotationEffect(.degrees(92))
-            .blur(radius: 40)
-            .opacity(musicManager.isPlaying ? 0.5 : 0)
+        LivingGlow(
+            image: musicManager.albumArt,
+            isActive: musicManager.isPlaying,
+            cornerRadius: Defaults[.cornerRadiusScaling]
+                ? AlbumArtStyle.openCornerRadius
+                : AlbumArtStyle.closedCornerRadius
+        )
     }
 
     private var albumArtButton: some View {
@@ -109,6 +102,54 @@ struct AlbumArtView: View {
                 .offset(x: 10, y: 10)
                 .transition(.scale.combined(with: .opacity))
                 .zIndex(2)
+        }
+    }
+}
+
+/// The blurred artwork behind the player, drifting slowly so it feels alive
+/// rather than pasted on.
+///
+/// Five sine waves at periods that share no common multiple drive scale,
+/// rotation, position and opacity. Because they never line up, the motion has
+/// no visible loop - it wanders. A per-instance random phase means two tracks
+/// never breathe in lockstep either.
+///
+/// It only animates while something is playing, and the home page only exists
+/// while the notch is open, so it costs nothing the rest of the time.
+private struct LivingGlow: View {
+    let image: NSImage
+    let isActive: Bool
+    let cornerRadius: CGFloat
+
+    @State private var phase = Double.random(in: 0..<1000)
+
+    var body: some View {
+        TimelineView(
+            .animation(minimumInterval: 1 / AlbumArtStyle.Glow.frameRate, paused: !isActive)
+        ) { context in
+            let g = AlbumArtStyle.Glow.self
+            let t = context.date.timeIntervalSinceReferenceDate + phase
+
+            let breathe = sin(t / g.breathePeriod)
+            let rotate = sin(t / g.rotatePeriod)
+            let sway = sin(t / g.swayPeriod)
+            let bob = cos(t / g.bobPeriod)
+            let shimmer = sin(t / g.shimmerPeriod)
+
+            Image(nsImage: image)
+                .resizable()
+                .clipped()
+                .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+                .aspectRatio(1, contentMode: .fit)
+                .scaleEffect(
+                    x: g.baseScale.x + g.scaleSwing * breathe,
+                    y: g.baseScale.y + g.scaleSwing * breathe
+                )
+                .rotationEffect(.degrees(g.baseRotation + g.rotationSwing * rotate))
+                .offset(x: g.driftRadius * sway, y: g.driftRadius * bob)
+                .blur(radius: g.blur)
+                .opacity(isActive ? g.baseOpacity + g.opacitySwing * shimmer : 0)
+                .animation(.easeInOut(duration: 0.6), value: isActive)
         }
     }
 }
