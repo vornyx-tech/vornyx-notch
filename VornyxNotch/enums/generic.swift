@@ -58,6 +58,19 @@ enum MirrorShapeEnum: String, Defaults.Serializable {
     case circle = "Circular"
 }
 
+/// Where the mirror shows up when you tap its header icon.
+enum MirrorDisplayMode: String, CaseIterable, Identifiable, Defaults.Serializable {
+    /// Squeezed onto the home page beside the player, as it has always been.
+    case inline = "On the home page"
+    /// Its own full-width notch tab.
+    case tab = "Separate tab"
+    /// A large panel that stretches the notch downwards below whatever tab
+    /// is open.
+    case bigScreen = "Big screen below"
+
+    var id: String { rawValue }
+}
+
 enum WindowHeightMode: String, Defaults.Serializable {
     case matchMenuBar = "Match menubar height"
     case matchRealNotchSize = "Match real notch height"

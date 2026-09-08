@@ -45,8 +45,8 @@ struct AlbumArtView: View {
             .clipShape(
                 RoundedRectangle(
                     cornerRadius: Defaults[.cornerRadiusScaling]
-                        ? MusicPlayerImageSizes.cornerRadiusInset.opened
-                        : MusicPlayerImageSizes.cornerRadiusInset.closed)
+                        ? AlbumArtStyle.openCornerRadius
+                        : AlbumArtStyle.closedCornerRadius)
             )
             .aspectRatio(1, contentMode: .fit)
             .scaleEffect(x: 1.3, y: 1.4)
@@ -90,8 +90,8 @@ struct AlbumArtView: View {
             .clipShape(
                 RoundedRectangle(
                     cornerRadius: Defaults[.cornerRadiusScaling]
-                        ? MusicPlayerImageSizes.cornerRadiusInset.opened
-                        : MusicPlayerImageSizes.cornerRadiusInset.closed)
+                        ? AlbumArtStyle.openCornerRadius
+                        : AlbumArtStyle.closedCornerRadius)
             )
     }
 
@@ -101,7 +101,11 @@ struct AlbumArtView: View {
             AppIcon(for: musicManager.bundleIdentifier ?? "com.apple.Music")
                 .resizable()
                 .aspectRatio(contentMode: .fill)
-                .frame(width: 30, height: 30)
+                .frame(width: AlbumArtStyle.appIconSize, height: AlbumArtStyle.appIconSize)
+                .clipShape(
+                    RoundedRectangle(
+                        cornerRadius: AlbumArtStyle.appIconCornerRadius, style: .continuous)
+                )
                 .offset(x: 10, y: 10)
                 .transition(.scale.combined(with: .opacity))
                 .zIndex(2)
@@ -436,7 +440,7 @@ struct NotchHomeView: View {
     }
 
     private var shouldShowCamera: Bool {
-        Defaults[.showMirror] && !Defaults[.mirrorAsSeparateTab]
+        Defaults[.showMirror] && Defaults[.mirrorDisplayMode] == .inline
             && webcamManager.cameraAvailable && vm.isCameraExpanded
     }
 

@@ -26,7 +26,7 @@ struct TabSelectionView: View {
         HStack(spacing: 0) {
             ForEach(tabs) { tab in
                     TabButton(label: tab.label, icon: tab.icon, selected: coordinator.currentView == tab.view) {
-                        withAnimation(.smooth) {
+                        withAnimation(VornyxViewCoordinator.tabChangeAnimation) {
                             coordinator.currentView = tab.view
                         }
                     }
