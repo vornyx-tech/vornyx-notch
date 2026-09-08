@@ -791,15 +791,9 @@ struct CalendarSettings: View {
             Defaults.Toggle(key: .showCalendar) {
                 Text("Show calendar")
             }
-            Defaults.Toggle(key: .calendarAsSeparateTab) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Show calendar as a separate tab")
-                    Text("Adds a calendar icon next to the mirror and settings icons; the calendar gets the whole notch instead of sharing the home page.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .disabled(!showCalendar)
+            Text("The month grid is always on the Dashboard tab. This switch controls the agenda that shares the home page with the player.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
             Defaults.Toggle(key: .hideCompletedReminders) {
                 Text("Hide completed reminders")
             }

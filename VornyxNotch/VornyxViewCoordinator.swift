@@ -330,12 +330,7 @@ class VornyxViewCoordinator: ObservableObject {
         if Defaults[.clipboardEnabled] {
             tabs.append(.clipboard)
         }
-        if Defaults[.showCalendar] && Defaults[.calendarAsSeparateTab] {
-            tabs.append(.calendar)
-        }
-        if Defaults[.aiEnabled] {
-            tabs.append(.ai)
-        }
+        tabs.append(.dashboard)
         return tabs
     }
 

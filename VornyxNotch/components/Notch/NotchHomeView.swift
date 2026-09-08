@@ -499,9 +499,10 @@ struct NotchHomeView: View {
             && webcamManager.cameraAvailable && vm.isCameraExpanded
     }
 
-    /// The calendar sits inline on the home page unless it has its own tab.
+    /// The month grid lives on the dashboard tab; the home page shows the
+    /// agenda beside the player when the user wants it there.
     private var shouldShowCalendar: Bool {
-        Defaults[.showCalendar] && !Defaults[.calendarAsSeparateTab]
+        Defaults[.showCalendar]
     }
 
     private var mainContent: some View {

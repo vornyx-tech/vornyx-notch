@@ -50,6 +50,9 @@ struct ClipboardView: View {
 
     private func card(_ item: ClipboardItem) -> some View {
         let copied = justCopied == item.id
+        // Same concentric rule the shelf panels use: a card inside the notch
+        // takes the notch's radius minus the gap it sits in.
+        let radius = nestedCornerRadius(inset: 2)
         return Button {
             clipboard.copy(item)
             withAnimation(.smooth(duration: 0.2)) { justCopied = item.id }
@@ -90,11 +93,11 @@ struct ClipboardView: View {
             .frame(width: 150)
             .frame(maxHeight: .infinity)
             .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
                     .fill(Color(nsColor: .secondarySystemFill).opacity(copied ? 0.75 : 0.45))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
                     .strokeBorder(
                         copied ? Color.effectiveAccent.opacity(0.8) : .white.opacity(0.05),
                         lineWidth: 1

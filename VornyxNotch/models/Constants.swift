@@ -123,7 +123,8 @@ extension Defaults.Keys {
     static let showNotHumanFace = Key<Bool>("showNotHumanFace", default: false)
     static let tileShowLabels = Key<Bool>("tileShowLabels", default: false)
     static let showCalendar = Key<Bool>("showCalendar", default: false)
-    static let calendarAsSeparateTab = Key<Bool>("calendarAsSeparateTab", default: false)
+    /// Website shortcuts shown in the middle of the dashboard tab.
+    static let webShortcuts = Key<[WebShortcut]>("webShortcuts", default: [])
 
     // MARK: Clipboard
     static let clipboardEnabled = Key<Bool>("clipboardEnabled", default: false)
