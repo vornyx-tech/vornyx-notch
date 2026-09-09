@@ -169,7 +169,9 @@ struct DayAgendaView: View {
                 }
             }
 
-            if events.isEmpty {
+            if needsAccess {
+                accessNotice
+            } else if events.isEmpty {
                 HStack(spacing: 4) {
                     Image(systemName: "checkmark.circle")
                         .font(.system(size: 9))
@@ -200,6 +202,47 @@ struct DayAgendaView: View {
         .onChange(of: calendarManager.selectedCalendarIDs) {
             Task { await calendarManager.loadAgenda(for: date) }
         }
+    }
+
+    /// True while macOS has not granted calendar access. Without this the view
+    /// reports "Nothing scheduled" for a day that is actually full, which is
+    /// worse than saying nothing at all.
+    private var needsAccess: Bool {
+        calendarManager.calendarAuthorizationStatus != .fullAccess
+    }
+
+    private var accessNotice: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Label(
+                calendarManager.calendarAuthorizationStatus == .denied
+                    ? "Calendar access denied" : "Calendar access needed",
+                systemImage: "lock"
+            )
+            .font(.system(size: 10, weight: .medium))
+            .foregroundStyle(.orange)
+
+            Button(
+                calendarManager.calendarAuthorizationStatus == .denied
+                    ? "Open Settings" : "Allow"
+            ) {
+                if calendarManager.calendarAuthorizationStatus == .denied {
+                    if let url = URL(
+                        string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars"
+                    ) {
+                        NSWorkspace.shared.open(url)
+                    }
+                } else {
+                    Task {
+                        await calendarManager.checkCalendarAuthorization()
+                        await calendarManager.checkReminderAuthorization()
+                        await calendarManager.loadAgenda(for: date)
+                    }
+                }
+            }
+            .controlSize(.small)
+            Spacer(minLength: 0)
+        }
+        .padding(.top, 2)
     }
 
     private func row(_ event: EventModel) -> some View {

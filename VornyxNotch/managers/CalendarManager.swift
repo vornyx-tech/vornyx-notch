@@ -191,6 +191,15 @@ class CalendarManager: ObservableObject {
     /// Calendar lists load asynchronously after launch. Fetching before they
     /// arrive returned nothing, so make sure they are there first.
     private func ensureCalendarsLoaded() async {
+        // Renaming the app changed its bundle id, which resets macOS privacy
+        // permissions - so an install that used to have access can quietly
+        // have none. Ask again rather than reporting an empty day.
+        if calendarAuthorizationStatus != .fullAccess {
+            await checkCalendarAuthorization()
+        }
+        if reminderAuthorizationStatus != .fullAccess {
+            await checkReminderAuthorization()
+        }
         if allCalendars.isEmpty {
             await reloadCalendarAndReminderLists()
             updateSelectedCalendars()

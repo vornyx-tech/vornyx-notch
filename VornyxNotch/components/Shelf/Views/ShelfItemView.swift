@@ -223,6 +223,12 @@ private struct DraggableClickHandler<Content: View>: NSViewRepresentable {
         private var draggedURLs: [URL] = []
         private var draggedItems: [ShelfItem] = []
         
+        /// The notch is a non-activating panel that never becomes key, so every
+        /// click on it is a "first mouse" click. AppKit swallows those by
+        /// default - the click goes to focusing the window and never reaches
+        /// the view - which is why shelf items could not be selected.
+        override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
         override func rightMouseDown(with event: NSEvent) {
             onRightClick?(event, self)
         }
