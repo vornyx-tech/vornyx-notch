@@ -2003,6 +2003,7 @@ struct AISettings: View {
 
     @State private var apiKey: String = ""
     @State private var savedKeyPresent: Bool = KeychainStore.hasGeminiAPIKey
+    @State private var saveFailed = false
 
     var body: some View {
         Form {
@@ -2032,6 +2033,11 @@ struct AISettings: View {
             Section {
                 SecureField("Gemini API key", text: $apiKey)
                     .textFieldStyle(.roundedBorder)
+                if saveFailed {
+                    Label("Could not save to the keychain.", systemImage: "exclamationmark.triangle")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
                 HStack {
                     if savedKeyPresent {
                         Label("Key saved to your keychain", systemImage: "checkmark.seal.fill")
@@ -2050,9 +2056,15 @@ struct AISettings: View {
                     }
                     .disabled(!savedKeyPresent)
                     Button("Save") {
-                        KeychainStore.set(apiKey, for: KeychainStore.geminiAPIKeyAccount)
-                        savedKeyPresent = KeychainStore.hasGeminiAPIKey
-                        apiKey = ""
+                        // Report a failed write instead of clearing the field
+                        // and looking like it worked.
+                        if KeychainStore.set(apiKey, for: KeychainStore.geminiAPIKeyAccount) {
+                            savedKeyPresent = KeychainStore.hasGeminiAPIKey
+                            saveFailed = false
+                            apiKey = ""
+                        } else {
+                            saveFailed = true
+                        }
                     }
                     .buttonStyle(BorderedProminentButtonStyle())
                     .disabled(apiKey.trimmingCharacters(in: .whitespaces).isEmpty)
