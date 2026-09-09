@@ -30,8 +30,8 @@ var tabs: [TabModel] {
     if Defaults[.clipboardEnabled] {
         tabs.append(TabModel(label: "Clipboard", icon: "doc.on.clipboard.fill", view: .clipboard))
     }
-    // Three panels side by side is literally what this glyph draws.
-    tabs.append(TabModel(label: "Dashboard", icon: "rectangle.3.group.fill", view: .dashboard))
+    // The dashboard lives with the trailing icons, not in this pill - see
+    // VornyxHeader. Four tabs here crowded the pill and squashed the logo.
     return tabs
 }
 

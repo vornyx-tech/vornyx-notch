@@ -18,6 +18,9 @@ struct TabButton: View {
 
     /// Matches the optical height of the SF Symbols in the same pill.
     private let artworkHeight: CGFloat = 14
+    /// The trimmed logo's own proportions. Fixing height alone let the pill's
+    /// own frame squash the width, so both axes are pinned.
+    private let artworkAspect: CGFloat = 28.0 / 24.0
 
     var body: some View {
         Button(action: onClick) {
@@ -28,8 +31,8 @@ struct TabButton: View {
                     Image(icon)
                         .renderingMode(.template)
                         .resizable()
-                        .scaledToFit()
-                        .frame(height: artworkHeight)
+                        .aspectRatio(artworkAspect, contentMode: .fit)
+                        .frame(width: artworkHeight * artworkAspect, height: artworkHeight)
                 }
             }
             .padding(.horizontal, 11)
