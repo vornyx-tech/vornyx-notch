@@ -18,6 +18,7 @@ enum SneakContentType {
     case mic
     case battery
     case download
+    case airpods
 }
 
 struct sneakPeek {
@@ -63,6 +64,21 @@ class VornyxViewCoordinator: ObservableObject {
 
     /// +1 when moving right through the tabs, -1 when moving left.
     @Published private(set) var tabDirection: Int = 1
+
+    /// Set when the notch was opened from a keyboard shortcut, so it answers
+    /// the keyboard: arrows inside a page, Command-arrows across the tabs.
+    ///
+    /// A notch reached with the mouse deliberately does not: taking the
+    /// keyboard away from whatever you were typing in, because you happened to
+    /// hover the notch, would be rude. Lasts until the notch closes, so
+    /// stepping from the clipboard to another tab does not end it.
+    @Published var keyboardSession: Bool = false
+
+    /// How many rows of clipboard cards are open.
+    ///
+    /// Lives here rather than in the page because the notch has to grow to hold
+    /// the extra row, and the notch's height is worked out in `ContentView`.
+    @Published var clipboardRows: Int = 1
 
     /// One spring for every way of changing tab - buttons, swipes, drops - so
     /// the page slide always feels the same.
@@ -316,6 +332,13 @@ class VornyxViewCoordinator: ObservableObject {
     
     func showEmpty() {
         currentView = .home
+    }
+
+    /// Say in the closed notch that a pair has just connected. Whether there is
+    /// anywhere to say it - the notch may be open, or hidden under a fullscreen
+    /// video - is settled by the view, the same way the music banner settles it.
+    func announceAirPods() {
+        toggleExpandingView(status: true, type: .airpods)
     }
 
     // MARK: - Tab navigation

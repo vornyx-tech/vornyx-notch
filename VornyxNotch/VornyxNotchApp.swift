@@ -316,6 +316,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         installEditMenuIfNeeded()
 
+        // Cheap to keep running: two IO registry notifications and a two-minute
+        // backstop, no polling and no permission prompt.
+        AirPodsManager.shared.start()
+
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(screenConfigurationDidChange),
@@ -404,20 +408,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             Task { [weak self] in
                 guard let self = self else { return }
 
-                let mouseLocation = NSEvent.mouseLocation
-
-                var viewModel = self.vm
-
-                if Defaults[.showOnAllDisplays] {
-                    for screen in NSScreen.screens {
-                        if screen.frame.contains(mouseLocation) {
-                            if let uuid = screen.displayUUID, let screenViewModel = self.viewModels[uuid] {
-                                viewModel = screenViewModel
-                                break
-                            }
-                        }
-                    }
-                }
+                let viewModel = self.viewModelUnderMouse()
 
                 self.closeNotchTask?.cancel()
                 self.closeNotchTask = nil
@@ -440,6 +431,36 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 case .open:
                     await MainActor.run {
                         viewModel.close()
+                    }
+                }
+            }
+        }
+
+        KeyboardShortcuts.onKeyDown(for: .showClipboard) { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self = self else { return }
+                // Nothing to show if the tab is off - and switching to it would
+                // land the notch on a page its own header does not list.
+                guard Defaults[.clipboardEnabled] else { return }
+
+                let viewModel = self.viewModelUnderMouse()
+
+                self.closeNotchTask?.cancel()
+                self.closeNotchTask = nil
+
+                // A second press on the clipboard puts it away; pressing it
+                // while another tab is open switches to the clipboard instead,
+                // which is what "show clipboard" should do from anywhere.
+                if viewModel.notchState == .open && self.coordinator.currentView == .clipboard {
+                    viewModel.close()
+                } else {
+                    // Opened from the keyboard, so it answers the keyboard.
+                    self.coordinator.keyboardSession = true
+                    withAnimation(VornyxViewCoordinator.tabChangeAnimation) {
+                        self.coordinator.currentView = .clipboard
+                    }
+                    if viewModel.notchState == .closed {
+                        viewModel.open()
                     }
                 }
             }
@@ -507,6 +528,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.setupDragDetectors()
             }
         }
+    }
+
+    /// The notch a keyboard shortcut should act on: the one on the screen the
+    /// pointer is over, when the notch is showing on every display, and the
+    /// single notch otherwise.
+    func viewModelUnderMouse() -> VornyxViewModel {
+        guard Defaults[.showOnAllDisplays] else { return vm }
+
+        let mouseLocation = NSEvent.mouseLocation
+        for screen in NSScreen.screens where screen.frame.contains(mouseLocation) {
+            if let uuid = screen.displayUUID, let screenViewModel = viewModels[uuid] {
+                return screenViewModel
+            }
+        }
+        return vm
     }
 
     @objc func adjustWindowPosition(changeAlpha: Bool = false) {

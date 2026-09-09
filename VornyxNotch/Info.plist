@@ -7,6 +7,10 @@
 		<key>NSAllowsArbitraryLoads</key>
 		<true/>
 	</dict>
+	<key>NSLocationUsageDescription</key>
+	<string>Vornyx Notch uses your location to show the local forecast on the dashboard. You can name a place in Settings instead.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Vornyx Notch uses your location to show the local forecast on the dashboard. You can name a place in Settings instead.</string>
 	<key>SUEnableDownloaderService</key>
 	<true/>
 	<key>SUEnableInstallerLauncherService</key>

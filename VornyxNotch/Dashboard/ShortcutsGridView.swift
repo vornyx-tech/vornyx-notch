@@ -57,7 +57,7 @@ struct ShortcutsGridView: View {
                     .fill(.white.opacity(0.07))
             )
         }
-        .buttonStyle(.plain)
+        .springyTile()
         .help(shortcut.url.absoluteString)
         .contextMenu {
             Button("Open") { manager.open(shortcut) }
@@ -86,7 +86,7 @@ struct ShortcutsGridView: View {
                     )
             )
         }
-        .buttonStyle(.plain)
+        .springyTile()
     }
 
     // MARK: - Adding
