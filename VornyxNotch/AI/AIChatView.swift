@@ -121,7 +121,7 @@ struct AIChatView: View {
         let isUser = message.role == .user
         HStack {
             if isUser { Spacer(minLength: 40) }
-            Text(message.text)
+            Text(message.isError ? AttributedString(message.text) : styled(message.text))
                 .font(.callout)
                 .textSelection(.enabled)
                 .foregroundStyle(message.isError ? Color.red.opacity(0.9) : .white)
@@ -137,6 +137,42 @@ struct AIChatView: View {
             if !isUser { Spacer(minLength: 40) }
         }
         .transition(.opacity.combined(with: .move(edge: .bottom)))
+    }
+
+    /// Renders the model's Markdown rather than showing its syntax.
+    ///
+    /// Gemini emphasises with `**bold**` and `*italic*`; unparsed, that
+    /// punctuation ends up on screen. Bold runs take the accent colour, which
+    /// reads better than heavy type in a bubble this small, and italics take a
+    /// softer tint.
+    private func styled(_ text: String) -> AttributedString {
+        guard var attributed = try? AttributedString(
+            markdown: text,
+            // Inline-only keeps paragraph breaks intact; the default collapses
+            // them, which would run the model's paragraphs together.
+            options: AttributedString.MarkdownParsingOptions(
+                interpretedSyntax: .inlineOnlyPreservingWhitespace
+            )
+        ) else {
+            return AttributedString(text)
+        }
+
+        // Collect first: mutating while iterating runs invalidates them.
+        let runs = attributed.runs.map { ($0.range, $0.inlinePresentationIntent) }
+        for (range, intent) in runs {
+            guard let intent else { continue }
+            if intent.contains(.stronglyEmphasized) {
+                attributed[range].foregroundColor = Color.effectiveAccent
+                attributed[range].inlinePresentationIntent = nil
+            } else if intent.contains(.emphasized) {
+                attributed[range].foregroundColor = Color.effectiveAccent.opacity(0.75)
+                attributed[range].inlinePresentationIntent = nil
+            } else if intent.contains(.code) {
+                attributed[range].font = .system(.callout, design: .monospaced)
+                attributed[range].foregroundColor = .white.opacity(0.9)
+            }
+        }
+        return attributed
     }
 
     private var composer: some View {
