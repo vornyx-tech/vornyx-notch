@@ -18,6 +18,23 @@ struct ClipboardView: View {
     @State private var hovered: UUID?
 
     private let cardWidth: CGFloat = 184
+    /// Roughly what a card gets vertically inside the open notch. Only used to
+    /// keep the corner radius geometrically valid.
+    private let approximateCardHeight: CGFloat = 132
+
+    /// The same rule the shelf panels follow: concentric with the notch.
+    ///
+    /// Clamped to half the shorter side, because past that a rounded rectangle
+    /// stops being one - the arcs meet and the shape becomes a stadium.
+    private var cardRadius: CGFloat {
+        min(innerPanelCornerRadius, cardWidth / 2, approximateCardHeight / 2)
+    }
+
+    /// Padding grows with the radius, so the glyphs and text stay clear of the
+    /// curve however round the notch is set.
+    private var cardPadding: CGFloat {
+        max(12, cardRadius * 0.42)
+    }
 
     var body: some View {
         Group {
@@ -59,7 +76,7 @@ struct ClipboardView: View {
     private func card(_ item: ClipboardItem) -> some View {
         let copied = justCopied == item.id
         let isHovered = hovered == item.id
-        let radius = nestedCornerRadius(inset: 2, cap: 16)
+        let radius = cardRadius
 
         return Button {
             copy(item)
@@ -78,7 +95,7 @@ struct ClipboardView: View {
 
                 footer(item)
             }
-            .padding(12)
+            .padding(cardPadding)
             .frame(width: cardWidth)
             .frame(maxHeight: .infinity)
             .background(
