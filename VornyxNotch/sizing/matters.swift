@@ -17,13 +17,12 @@ let shadowPadding: CGFloat = 20
 /// settings, the height follows the content.
 let defaultOpenNotchSize: CGSize = .init(width: 640, height: 190)
 
-/// How far the open notch may be stretched or shrunk to the sides.
-let openNotchWidthRange: ClosedRange<CGFloat> = 380...900
-
-/// The configured home-page width.
-var configuredHomeNotchWidth: CGFloat {
-    Defaults[.openNotchWidth].clamped(to: openNotchWidthRange)
-}
+/// How far the home page reaches out to the sides.
+///
+/// Code-only, like `cornerRadiusInsets` and `AlbumArtStyle`: edit and rebuild.
+/// Only the home page uses it - the shelf and clipboard keep the stock width,
+/// and the dashboard has its own.
+let homeNotchWidth: CGFloat = 560
 
 /// Width of the open notch for a given tab. Only the home page follows the
 /// width setting - the shelf and calendar keep the full width, because
@@ -45,7 +44,7 @@ func openNotchHeight(for view: NotchViews) -> CGFloat {
 func openNotchWidth(for view: NotchViews) -> CGFloat {
     switch view {
     case .home:
-        return configuredHomeNotchWidth
+        return homeNotchWidth
     case .dashboard:
         return dashboardNotchWidth
     case .shelf, .clipboard:
@@ -71,7 +70,7 @@ var openNotchSize: CGSize {
     // dashboard even while a narrower tab is showing. It is transparent
     // outside the notch shape, so the extra width costs nothing visually.
     .init(
-        width: max(configuredHomeNotchWidth, defaultOpenNotchSize.width, dashboardNotchWidth),
+        width: max(homeNotchWidth, defaultOpenNotchSize.width, dashboardNotchWidth),
         height: max(defaultOpenNotchSize.height, dashboardNotchHeight)
             + mirrorBigScreenReservedHeight
     )

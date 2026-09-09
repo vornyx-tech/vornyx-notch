@@ -44,10 +44,6 @@ struct ContentView: View {
 
     @Default(.showNotHumanFace) var showNotHumanFace
 
-    // Observed so the notch resizes as soon as the width slider moves.
-    // Named differently from the global openNotchWidth(for:) it would shadow.
-    @Default(.openNotchWidth) var homePageWidth
-
     @Default(.clipboardEnabled) var clipboardEnabled
     @Default(.aiEnabled) var aiEnabled
     @Default(.showMirror) var showMirror
