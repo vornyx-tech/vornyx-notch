@@ -145,8 +145,13 @@ var innerPanelCornerRadius: CGFloat {
 }
 
 /// One level deeper again: a tile inside one of those panels.
-func nestedCornerRadius(inset: CGFloat) -> CGFloat {
-    max(4, innerPanelCornerRadius - inset)
+///
+/// `cap` matters on small tiles: concentric rounding is derived from the notch,
+/// and on a card only ~110pt tall an unbounded radius eats the corners and
+/// pushes content into the curve. Past roughly an eighth of the shorter side a
+/// rounded rectangle stops reading as a rectangle at all.
+func nestedCornerRadius(inset: CGFloat, cap: CGFloat = .infinity) -> CGFloat {
+    min(max(4, innerPanelCornerRadius - inset), cap)
 }
 
 /// Code-only styling for the player artwork.
@@ -155,7 +160,7 @@ func nestedCornerRadius(inset: CGFloat) -> CGFloat {
 /// value here and rebuild; nothing in the UI exposes them.
 enum AlbumArtStyle {
     /// Artwork corner radius on the open notch's home page.
-    static let openCornerRadius: CGFloat = 24
+    static let openCornerRadius: CGFloat = 29
     /// Artwork corner radius in the closed-notch live activity.
     static let closedCornerRadius: CGFloat = 6
     /// Corner radius of the small source-app badge on the artwork.

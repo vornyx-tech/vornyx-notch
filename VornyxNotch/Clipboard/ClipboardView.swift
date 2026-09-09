@@ -17,7 +17,7 @@ struct ClipboardView: View {
     @State private var justCopied: UUID?
     @State private var hovered: UUID?
 
-    private let cardWidth: CGFloat = 172
+    private let cardWidth: CGFloat = 168
 
     var body: some View {
         Group {
@@ -59,28 +59,27 @@ struct ClipboardView: View {
     private func card(_ item: ClipboardItem) -> some View {
         let copied = justCopied == item.id
         let isHovered = hovered == item.id
-        let radius = nestedCornerRadius(inset: 2)
+        let radius = nestedCornerRadius(inset: 2, cap: 14)
 
         return Button {
             copy(item)
         } label: {
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 7) {
                 header(item, copied: copied)
 
                 Text(item.preview)
                     .font(bodyFont(for: item))
                     .foregroundStyle(.white)
-                    .lineSpacing(1)
+                    .lineSpacing(1.5)
                     .lineLimit(4)
+                    .truncationMode(.tail)
                     .multilineTextAlignment(.leading)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .topLeading)
-
-                Spacer(minLength: 0)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
                 footer(item)
             }
-            .padding(10)
+            .padding(.horizontal, 11)
+            .padding(.vertical, 10)
             .frame(width: cardWidth)
             .frame(maxHeight: .infinity)
             .background(
@@ -132,15 +131,16 @@ struct ClipboardView: View {
     private func header(_ item: ClipboardItem, copied: Bool) -> some View {
         HStack(spacing: 5) {
             Image(systemName: icon(for: item))
-                .font(.system(size: 9, weight: .bold))
+                .font(.system(size: 8, weight: .bold))
                 .foregroundStyle(tint(for: item))
-                .frame(width: 16, height: 16)
+                .frame(width: 15, height: 15)
                 .background(Circle().fill(tint(for: item).opacity(0.18)))
 
             if let bundleID = item.sourceBundleID {
                 AppIcon(for: bundleID)
                     .resizable()
-                    .frame(width: 12, height: 12)
+                    .frame(width: 11, height: 11)
+                    .clipShape(RoundedRectangle(cornerRadius: 2.5, style: .continuous))
             }
 
             Spacer(minLength: 0)
@@ -152,12 +152,13 @@ struct ClipboardView: View {
                     .transition(.scale.combined(with: .opacity))
             } else {
                 Text(item.date, style: .time)
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.55))
+                    .font(.system(size: 9.5, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.5))
                     .monospacedDigit()
+                    .lineLimit(1)
             }
         }
-        .frame(height: 16)
+        .frame(height: 15)
     }
 
     private func footer(_ item: ClipboardItem) -> some View {
