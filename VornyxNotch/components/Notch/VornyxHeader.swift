@@ -47,40 +47,18 @@ struct VornyxHeader: View {
                     } else {
                         tabIconButton(icon: "rectangle.3.group.fill", target: .dashboard)
                         if Defaults[.showMirror] {
-                            Button(action: {
-                                vm.toggleCameraPreview()
-                            }) {
-                                Capsule()
-                                    .fill(vm.isCameraExpanded
-                                          ? Color(nsColor: .secondarySystemFill) : .black)
-                                    .frame(width: 30, height: 30)
-                                    .overlay {
-                                        Image(systemName: "web.camera")
-                                            .foregroundColor(.white)
-                                            .padding()
-                                            .imageScale(.medium)
-                                    }
-                            }
-                            .buttonStyle(PlainButtonStyle())
+                            headerIconButton(
+                                icon: "web.camera",
+                                isActive: vm.isCameraExpanded,
+                                action: { vm.toggleCameraPreview() }
+                            )
                         }
                         if Defaults[.settingsIconInNotch] {
-                            Button(action: {
+                            headerIconButton(icon: "gear", isActive: false) {
                                 DispatchQueue.main.async {
                                     SettingsWindowController.shared.showWindow()
                                 }
-                                
-                            }) {
-                                Capsule()
-                                    .fill(.black)
-                                    .frame(width: 30, height: 30)
-                                    .overlay {
-                                        Image(systemName: "gear")
-                                            .foregroundColor(.white)
-                                            .padding()
-                                            .imageScale(.medium)
-                                    }
                             }
-                            .buttonStyle(PlainButtonStyle())
                         }
                         if Defaults[.showBatteryIndicator] {
                             VornyxBatteryView(
@@ -138,23 +116,48 @@ struct VornyxHeader: View {
     @ViewBuilder
     private func tabIconButton(icon: String, target: NotchViews) -> some View {
         let isActive = coordinator.currentView == target
-        Button {
+        headerIconButton(icon: icon, isActive: isActive) {
             withAnimation(VornyxViewCoordinator.tabChangeAnimation) {
                 coordinator.currentView = isActive ? .home : target
             }
-        } label: {
+        }
+    }
+
+    /// The shape every trailing header icon wears.
+    ///
+    /// A stadium the same height as the tab pill on the other side, not a 30pt
+    /// circle: a capsule is only round when it is square, and one round button
+    /// beside a row of pill-shaped ones reads as a different kind of control
+    /// rather than the same kind in a different place.
+    ///
+    /// Nothing at rest - no fill, no outline. The only thing worth drawing here
+    /// is which tab you are on, and giving every button a surface spends that
+    /// signal on all of them at once.
+    @ViewBuilder
+    private func headerIconButton(
+        icon: String,
+        isActive: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
             Capsule()
-                .fill(isActive ? Color(nsColor: .secondarySystemFill) : .black)
-                .frame(width: 30, height: 30)
+                .fill(isActive ? Color.effectiveAccent.opacity(0.30) : .clear)
+                .frame(width: headerIconSize.width, height: headerIconSize.height)
                 .overlay {
                     Image(systemName: icon)
-                        .foregroundColor(.white)
-                        .padding()
-                        .imageScale(.medium)
+                        .foregroundStyle(isActive ? Color.effectiveAccent : .white.opacity(0.6))
+                        .imageScale(.small)
                 }
+                .contentShape(Capsule())
         }
         .buttonStyle(PlainButtonStyle())
+        .springyTile(hoverScale: 1.08, pressScale: 0.92, hoverBrightness: 0.12)
+        .animation(.smooth(duration: 0.18), value: isActive)
     }
+
+    /// Matches `TabButton`'s 26pt height, so both ends of the header sit on the
+    /// same line.
+    private var headerIconSize: CGSize { .init(width: 34, height: 26) }
 
     func isHUDType(_ type: SneakContentType) -> Bool {
         switch type {

@@ -402,6 +402,31 @@ struct Charge: View {
             } header: {
                 SettingsSectionHeader("Battery Information", icon: "battery.100.bolt", tint: .green)
             }
+            Section {
+                Defaults.Toggle(key: .airPodsSneakPeek) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Announce AirPods connecting")
+                        Text("Shows the name and levels in the closed notch for a few seconds.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Defaults.Toggle(key: .showAirPodsWidget) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Show AirPods on the home page")
+                        Text("Keeps the levels beside the player. Widens the open notch a little.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            } header: {
+                SettingsSectionHeader("AirPods", icon: "airpods.gen3", tint: .teal)
+            } footer: {
+                Text("Levels come from the connected pair itself; nothing to allow or set up.")
+                    .multilineTextAlignment(.trailing)
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+            }
         }
         .onAppear {
             Task { @MainActor in
@@ -751,6 +776,8 @@ struct Media: View {
 struct CalendarSettings: View {
     @ObservedObject private var calendarManager = CalendarManager.shared
     @Default(.showCalendar) var showCalendar: Bool
+    @Default(.weatherPlace) var weatherPlace: String
+    @Default(.weatherUnit) var weatherUnit: WeatherUnit
     @Default(.hideCompletedReminders) var hideCompletedReminders
     @Default(.hideAllDayEvents) var hideAllDayEvents
     @Default(.autoScrollToNextEvent) var autoScrollToNextEvent
@@ -846,6 +873,25 @@ struct CalendarSettings: View {
                         }
                     }
                 }
+            }
+            Section {
+                TextField("Place", text: $weatherPlace, prompt: Text("Use my location"))
+                    .onSubmit { WeatherManager.shared.refresh() }
+                Picker("Units", selection: $weatherUnit) {
+                    ForEach(WeatherUnit.allCases) { unit in
+                        Text(unit.name).tag(unit)
+                    }
+                }
+                .onChange(of: weatherUnit) { _, _ in WeatherManager.shared.refresh() }
+            } header: {
+                SettingsSectionHeader("Weather", icon: "cloud.sun.fill", tint: .cyan)
+            } footer: {
+                Text(
+                    "The dashboard's calendar column swipes sideways to the forecast. Leave the place empty to use this Mac's location, or name a city to skip the permission entirely."
+                )
+                .multilineTextAlignment(.trailing)
+                .foregroundStyle(.secondary)
+                .font(.caption)
             }
         }
         .accentColor(.effectiveAccent)
@@ -1829,6 +1875,16 @@ struct Shortcuts: View {
             }
             Section {
                 KeyboardShortcuts.Recorder("Toggle Notch Open:", name: .toggleNotchOpen)
+                KeyboardShortcuts.Recorder("Show Clipboard:", name: .showClipboard)
+            } header: {
+                SettingsSectionHeader("Notch", icon: "macbook", tint: .blue)
+            } footer: {
+                Text(
+                    "Show Clipboard opens the notch on the clipboard tab. Unset by default - record a shortcut to use it, and turn the clipboard on under Clipboard first."
+                )
+                .multilineTextAlignment(.trailing)
+                .foregroundStyle(.secondary)
+                .font(.caption)
             }
         }
         .accentColor(.effectiveAccent)
@@ -2040,6 +2096,14 @@ struct AISettings: View {
                 }
                 TextField("Model", text: $geminiModel)
                     .textFieldStyle(.roundedBorder)
+                Defaults.Toggle(key: .aiThinking) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Think before answering")
+                        Text("Better on hard questions, but adds seconds of silence before the reply starts. Gemini 3 always thinks a little; this only sets how much.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
             } header: {
                 SettingsSectionHeader("Gemini", icon: "key.fill", tint: .purple)
             } footer: {

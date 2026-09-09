@@ -23,10 +23,14 @@ struct ShelfDropService {
     }
     
     private static func processProvider(_ provider: NSItemProvider) async -> ShelfItem? {
+        NSLog("SHELF-DROP: types \(provider.registeredTypeIdentifiers)")
+
         if let actualFileURL = await provider.extractFileURL() {
+            NSLog("SHELF-DROP: file URL \(actualFileURL.path)")
             if let bookmark = createBookmark(for: actualFileURL) {
                 return await ShelfItem(kind: .file(bookmark: bookmark), isTemporary: false)
             }
+            NSLog("SHELF-DROP: no bookmark for \(actualFileURL.path), dropping it")
             return nil
         }
         
@@ -58,7 +62,8 @@ struct ShelfDropService {
                 return await ShelfItem(kind: .file(bookmark: bookmark), isTemporary: false)
             }
         }
-        
+
+        NSLog("SHELF-DROP: nothing usable in this provider")
         return nil
     }
     

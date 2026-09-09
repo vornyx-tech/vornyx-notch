@@ -14,6 +14,10 @@ struct AIChatView: View {
     @FocusState private var composerFocused: Bool
     /// Balances begin/endInteraction so the counter can't drift.
     @State private var holdingNotch = false
+    /// How tall the whole transcript is, and how much of it is on screen. The
+    /// notch grows towards the first until it runs out of allowance.
+    @State private var transcriptContentHeight: CGFloat = 0
+    @State private var transcriptVisibleHeight: CGFloat = 0
 
     var body: some View {
         VStack(spacing: 8) {
@@ -30,9 +34,12 @@ struct AIChatView: View {
             // not pull you out of whatever app you were in. Click the field.
             guard chat.hasAPIKey else { return }
             VornyxNotchSkyLightWindow.setKeyboardInputEnabled(true)
+            GeminiClient.warmUp()
         }
         .onDisappear {
-            VornyxNotchSkyLightWindow.setKeyboardInputEnabled(false)
+            // Not turned off here any more: the open notch owns keyboard input
+            // now, and switching away from the chat must not take Command-arrow
+            // with it. `ContentView` gives it back when the notch closes.
             releaseNotch()
         }
         .onChange(of: chat.isThinking) { _, thinking in
@@ -99,9 +106,26 @@ struct AIChatView: View {
                     }
                 }
                 .padding(.horizontal, 2)
+                .measuringHeight(into: $transcriptContentHeight)
             }
             .scrollIndicators(.never)
-            .onChange(of: chat.messages.count) { scrollToEnd(proxy) }
+            // The transcript is the one thing on this page that scrolls, so it
+            // is the one thing that takes the swipe away from the close gesture.
+            .scrollableNotchContent()
+            .measuringHeight(into: $transcriptVisibleHeight)
+            // Asking the notch to stretch so more of the conversation shows.
+            // Past its allowance the notch stops growing and this scrolls.
+            .preference(
+                key: NotchContentFitKey.self,
+                value: NotchContentFit(
+                    content: transcriptContentHeight,
+                    visible: transcriptVisibleHeight
+                )
+            )
+            .onChange(of: chat.messages.count) {
+                MarkdownCache.prune(keeping: chat.messages)
+                scrollToEnd(proxy)
+            }
             .onChange(of: chat.isThinking) { scrollToEnd(proxy) }
         }
     }
@@ -121,7 +145,7 @@ struct AIChatView: View {
         let isUser = message.role == .user
         HStack {
             if isUser { Spacer(minLength: 40) }
-            Text(message.isError ? AttributedString(message.text) : styled(message.text))
+            Text(message.isError ? AttributedString(message.text) : styled(message))
                 .font(.callout)
                 .textSelection(.enabled)
                 .foregroundStyle(message.isError ? Color.red.opacity(0.9) : .white)
@@ -139,13 +163,25 @@ struct AIChatView: View {
         .transition(.opacity.combined(with: .move(edge: .bottom)))
     }
 
+    /// The message's rendered Markdown, parsed once per change rather than
+    /// once per redraw.
+    ///
+    /// Parsing is expensive and the body re-runs for every bubble whenever the
+    /// transcript changes - so while a reply streams in, the entire
+    /// conversation was being re-parsed over and over, costing more the longer
+    /// the chat got. Only the bubble currently growing actually has new text;
+    /// every other one is a cache hit.
+    private func styled(_ message: AIChatMessage) -> AttributedString {
+        MarkdownCache.value(for: message, parse: parseMarkdown)
+    }
+
     /// Renders the model's Markdown rather than showing its syntax.
     ///
     /// Gemini emphasises with `**bold**` and `*italic*`; unparsed, that
     /// punctuation ends up on screen. Bold runs take the accent colour, which
     /// reads better than heavy type in a bubble this small, and italics take a
     /// softer tint.
-    private func styled(_ text: String) -> AttributedString {
+    private func parseMarkdown(_ text: String) -> AttributedString {
         guard var attributed = try? AttributedString(
             markdown: text,
             // Inline-only keeps paragraph breaks intact; the default collapses
@@ -214,6 +250,33 @@ struct AIChatView: View {
             .buttonStyle(.plain)
             .disabled(chat.messages.isEmpty)
         }
+    }
+}
+
+/// Parsed Markdown, kept between redraws and keyed by the message it came from.
+///
+/// One entry per message, replaced as a streaming reply grows, so the store
+/// stays the size of the conversation rather than the size of everything ever
+/// typed. Cleared with the chat, since ids never come back.
+@MainActor
+private enum MarkdownCache {
+    private static var entries: [UUID: (text: String, value: AttributedString)] = [:]
+
+    static func value(
+        for message: AIChatMessage,
+        parse: (String) -> AttributedString
+    ) -> AttributedString {
+        if let hit = entries[message.id], hit.text == message.text { return hit.value }
+        let parsed = parse(message.text)
+        entries[message.id] = (message.text, parsed)
+        return parsed
+    }
+
+    /// Drop entries for messages that are gone - a cleared chat, mainly.
+    static func prune(keeping messages: [AIChatMessage]) {
+        guard entries.count > messages.count else { return }
+        let live = Set(messages.map(\.id))
+        entries = entries.filter { live.contains($0.key) }
     }
 }
 

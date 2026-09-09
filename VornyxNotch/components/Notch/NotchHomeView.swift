@@ -503,9 +503,22 @@ struct NotchHomeView: View {
         Defaults[.showCalendar]
     }
 
+    /// The AirPods panel is opt-in, and the home width is reserved for it in
+    /// `homeNotchWidth` off the same setting - so this must follow the setting
+    /// exactly, connected or not, or the page and the notch disagree.
+    private var shouldShowAirPods: Bool {
+        Defaults[.showAirPodsWidget]
+    }
+
     private var mainContent: some View {
         HStack(alignment: .top, spacing: (shouldShowCamera && shouldShowCalendar) ? 10 : 15) {
             MusicPlayerView(albumArtNamespace: albumArtNamespace)
+
+            if shouldShowAirPods {
+                AirPodsWidgetView()
+                    .frame(width: airPodsWidgetWidth)
+                    .transition(.opacity)
+            }
 
             if shouldShowCalendar {
                 CalendarView()

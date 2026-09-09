@@ -17,6 +17,7 @@ struct MonthCalendarView: View {
     @Binding var selectedDate: Date
 
     @State private var today = Date()
+    @State private var hoveredDay: Date?
     private let clock = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
 
     private var calendar: Calendar {
@@ -48,35 +49,36 @@ struct MonthCalendarView: View {
         return Array(symbols[first...] + symbols[..<first])
     }
 
-    /// Day-of-month numbers in the visible month that have events.
-    private var busyDays: Set<Int> {
-        Set(
-            calendarManager.monthEvents
-                .filter { calendar.isDate($0.start, equalTo: today, toGranularity: .month) }
-                .map { calendar.component(.day, from: $0.start) }
-        )
+    /// The colours of what is on each day of the visible month, up to three.
+    ///
+    /// Colours rather than a count: the calendar a thing belongs to is the fact
+    /// you actually want off a month grid - work, or personal, or a birthday -
+    /// and a row of identical accent dots cannot tell you that.
+    private var busyColors: [Int: [Color]] {
+        var map: [Int: [Color]] = [:]
+        for event in calendarManager.monthEvents
+        where calendar.isDate(event.start, equalTo: today, toGranularity: .month) {
+            let day = calendar.component(.day, from: event.start)
+            var colors = map[day] ?? []
+            guard colors.count < 3, !colors.contains(event.accentColor) else { continue }
+            colors.append(event.accentColor)
+            map[day] = colors
+        }
+        return map
     }
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 1), count: 7)
 
     var body: some View {
-        VStack(spacing: 3) {
-            HStack {
-                Text(today, format: .dateTime.month(.wide))
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.white)
-                Text(today, format: .dateTime.year())
-                    .font(.system(size: 11, weight: .light))
-                    .foregroundStyle(.secondary)
-                Spacer(minLength: 0)
-            }
-            .padding(.bottom, 1)
+        VStack(spacing: 4) {
+            header
 
             LazyVGrid(columns: columns, spacing: 1) {
-                ForEach(Array(weekdaySymbols.enumerated()), id: \.offset) { _, symbol in
+                ForEach(Array(weekdaySymbols.enumerated()), id: \.offset) { index, symbol in
                     Text(symbol)
-                        .font(.system(size: 9, weight: .medium))
-                        .foregroundStyle(.tertiary)
+                        .font(.system(size: 9, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white.opacity(isWeekend(index) ? 0.22 : 0.38))
+                        .textCase(.uppercase)
                 }
             }
 
@@ -99,44 +101,90 @@ struct MonthCalendarView: View {
         }
     }
 
+    /// Month in full, year as a quiet chip beside it - the year is context, not
+    /// news, and giving it the same weight as the month made the two compete.
+    private var header: some View {
+        HStack(spacing: 5) {
+            Text(today, format: .dateTime.month(.wide))
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundStyle(.white)
+
+            Text(today, format: .dateTime.year())
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.5))
+                .monospacedDigit()
+                .padding(.horizontal, 5)
+                .padding(.vertical, 2)
+                .background(Capsule().fill(.white.opacity(0.08)))
+
+            Spacer(minLength: 0)
+        }
+        .padding(.bottom, 1)
+    }
+
+    /// The last two columns, whichever weekday the grid starts on.
+    private func isWeekend(_ column: Int) -> Bool { column >= 5 }
+
     @ViewBuilder
     private func dayCell(_ day: Date) -> some View {
         let isToday = calendar.isDateInToday(day)
         let isSelected = calendar.isDate(day, inSameDayAs: selectedDate)
         let inMonth = calendar.isDate(day, equalTo: today, toGranularity: .month)
         let number = calendar.component(.day, from: day)
-        let busy = inMonth && busyDays.contains(number)
+        let colors = inMonth ? (busyColors[number] ?? []) : []
+        let hovered = hoveredDay == day
 
         Button {
             withAnimation(.smooth(duration: 0.15)) { selectedDate = day }
         } label: {
             ZStack {
                 if isToday {
+                    // Lit, not painted: the same halo the weather icon wears.
+                    Circle()
+                        .fill(Color.effectiveAccent)
+                        .blur(radius: 6)
+                        .opacity(0.6)
                     Circle().fill(Color.effectiveAccent)
                 } else if isSelected {
-                    Circle().strokeBorder(Color.effectiveAccent.opacity(0.8), lineWidth: 1.5)
+                    Circle().fill(Color.effectiveAccent.opacity(0.16))
+                    Circle().strokeBorder(Color.effectiveAccent.opacity(0.85), lineWidth: 1.5)
+                } else if hovered && inMonth {
+                    Circle().fill(.white.opacity(0.10))
                 }
 
                 Text("\(number)")
-                    .font(.system(size: 10, weight: isToday ? .bold : (inMonth ? .medium : .regular)))
+                    .font(.system(
+                        size: 10.5,
+                        weight: isToday ? .bold : (inMonth ? .medium : .regular),
+                        design: .rounded
+                    ))
                     .foregroundStyle(
-                        isToday ? .white : (inMonth ? Color.white : Color.white.opacity(0.25))
+                        isToday ? .white : (inMonth ? Color.white.opacity(0.9) : Color.white.opacity(0.2))
                     )
                     .monospacedDigit()
             }
-            .frame(width: 18, height: 18)
+            .frame(width: 19, height: 19)
             .overlay(alignment: .bottom) {
-                if busy && !isToday {
-                    Circle()
-                        .fill(Color.effectiveAccent.opacity(0.9))
-                        .frame(width: 3, height: 3)
-                        .offset(y: 3)
+                // One dot per calendar the day has something in, so a glance
+                // says what kind of day it is and not merely that it is busy.
+                HStack(spacing: 1.5) {
+                    ForEach(Array(colors.enumerated()), id: \.offset) { _, color in
+                        Circle()
+                            .fill(isToday ? .white.opacity(0.9) : color)
+                            .frame(width: 3, height: 3)
+                    }
                 }
+                .offset(y: 3.5)
             }
-            .frame(height: 21)
+            .frame(height: 22)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .onHover { hovering in
+            withAnimation(.smooth(duration: 0.12)) {
+                if hovering { hoveredDay = day } else if hoveredDay == day { hoveredDay = nil }
+            }
+        }
     }
 }
 
@@ -155,32 +203,13 @@ struct DayAgendaView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 4) {
-                Text(date, format: .dateTime.weekday(.abbreviated).day().month(.abbreviated))
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(.white)
-                Spacer(minLength: 0)
-                if !events.isEmpty {
-                    Text("\(events.count)")
-                        .font(.system(size: 9, weight: .medium))
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
-                }
-            }
+        VStack(alignment: .leading, spacing: 5) {
+            header
 
             if needsAccess {
                 accessNotice
             } else if events.isEmpty {
-                HStack(spacing: 4) {
-                    Image(systemName: "checkmark.circle")
-                        .font(.system(size: 9))
-                    Text("Nothing scheduled")
-                        .font(.system(size: 10))
-                }
-                .foregroundStyle(.secondary)
-                .padding(.top, 2)
-                Spacer(minLength: 0)
+                empty
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 3) {
@@ -190,6 +219,7 @@ struct DayAgendaView: View {
                     }
                 }
                 .scrollIndicators(.never)
+                .scrollableNotchContent()
             }
         }
         .onChange(of: date) {
@@ -202,6 +232,41 @@ struct DayAgendaView: View {
         .onChange(of: calendarManager.selectedCalendarIDs) {
             Task { await calendarManager.loadAgenda(for: date) }
         }
+    }
+
+    private var header: some View {
+        HStack(spacing: 5) {
+            Text(date, format: .dateTime.weekday(.abbreviated).day().month(.abbreviated))
+                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                .foregroundStyle(.white)
+
+            Spacer(minLength: 0)
+
+            if !events.isEmpty {
+                Text("\(events.count)")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.6))
+                    .monospacedDigit()
+                    .frame(minWidth: 8)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 2)
+                    .background(Capsule().fill(.white.opacity(0.10)))
+            }
+        }
+    }
+
+    /// An empty day is a good outcome, so it gets a shape rather than a
+    /// shrugging line of grey text.
+    private var empty: some View {
+        VStack(spacing: 5) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 15))
+                .foregroundStyle(Color.effectiveAccent.opacity(0.55))
+            Text("Nothing scheduled")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(.white.opacity(0.45))
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     /// True while macOS has not granted calendar access. Without this the view
@@ -245,31 +310,63 @@ struct DayAgendaView: View {
         .padding(.top, 2)
     }
 
+    /// An event as a tile in its calendar's own colour, rather than a line of
+    /// text with a stripe next to it.
+    ///
+    /// What is happening *now* is the one thing worth finding instantly, so it
+    /// is the only row that gets a filled edge and a label.
     private func row(_ event: EventModel) -> some View {
-        Button {
+        let status = event.eventStatus
+        let live = status == .inProgress
+        let radius = nestedCornerRadius(inset: 6, cap: 9)
+
+        return Button {
             if let url = event.calendarAppURL() { openURL(url) }
         } label: {
-            HStack(alignment: .top, spacing: 5) {
+            HStack(alignment: .center, spacing: 6) {
                 Capsule()
                     .fill(event.accentColor)
-                    .frame(width: 2.5)
+                    .frame(width: 3)
                     .frame(maxHeight: .infinity)
 
-                VStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: 1) {
                     Text(event.title)
-                        .font(.system(size: 10.5, weight: .medium))
-                        .foregroundStyle(.white)
+                        .font(.system(size: 10.5, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.95))
                         .lineLimit(1)
-                    Text(event.isAllDay
-                         ? "All-day"
-                         : event.start.formatted(date: .omitted, time: .shortened))
-                        .font(.system(size: 9))
-                        .foregroundStyle(.secondary)
+
+                    HStack(spacing: 4) {
+                        Text(event.isAllDay
+                             ? "All-day"
+                             : event.start.formatted(date: .omitted, time: .shortened))
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.5))
+                            .monospacedDigit()
+
+                        if live {
+                            Text("NOW")
+                                .font(.system(size: 7, weight: .black))
+                                .kerning(0.4)
+                                .foregroundStyle(.black.opacity(0.8))
+                                .padding(.horizontal, 3.5)
+                                .padding(.vertical, 1)
+                                .background(Capsule().fill(event.accentColor))
+                        }
+                    }
                 }
                 Spacer(minLength: 0)
             }
-            .padding(.vertical, 2)
-            .opacity(event.eventStatus == .ended ? 0.45 : 1)
+            .padding(.vertical, 4)
+            .padding(.trailing, 4)
+            .background(
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .fill(event.accentColor.opacity(live ? 0.20 : 0.11))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .strokeBorder(event.accentColor.opacity(live ? 0.55 : 0), lineWidth: 1)
+            )
+            .opacity(status == .ended ? 0.4 : 1)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

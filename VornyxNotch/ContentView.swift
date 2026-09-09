@@ -25,13 +25,30 @@ struct ContentView: View {
     @ObservedObject var volumeManager = VolumeManager.shared
     @State private var hoverTask: Task<Void, Never>?
     @State private var isHovering: Bool = false
-    /// True while the pointer sits over the open notch's page content.
+    @State private var resizeHoldTask: Task<Void, Never>?
+    /// Until when a hover exit must not close the notch.
+    ///
+    /// The notch resizes itself - the clipboard opening a row, the dashboard
+    /// stretching around a long reply - and a resize moves the edge out from
+    /// under a pointer that never moved. AppKit re-evaluates the tracking area
+    /// and reports an exit, and the notch closes on a gesture the user did not
+    /// make. Closing a clipboard row with the up arrow did exactly this.
+    @State private var suppressHoverCloseUntil: Date = .distantPast
+    /// True while the pointer sits over a part of the page that scrolls itself.
     ///
     /// The close gesture is a scroll monitor that sees the whole window, so
     /// scrolling a chat transcript or the clipboard row was closing the notch
-    /// instead of scrolling it. Content scrolls; the header strip is where you
-    /// swipe to close.
+    /// instead of scrolling it. Only the views that actually scroll claim the
+    /// gesture, via `scrollableNotchContent()` - over the month grid, the
+    /// shortcuts or the player there is nothing to scroll, so a swipe there
+    /// closes the notch like a swipe over the header.
     @State private var pointerOverContent: Bool = false
+
+    /// Height the dashboard has grown by to show more of a long AI transcript.
+    ///
+    /// Zero for every other tab, and reset whenever the notch closes or the tab
+    /// changes, so a page always opens at its natural size and grows from there.
+    @State private var dashboardGrowth: CGFloat = 0
     @State private var anyDropDebounceTask: Task<Void, Never>?
 
     @State private var gestureProgress: CGFloat = .zero
@@ -120,10 +137,19 @@ struct ContentView: View {
                         : cornerRadiusInsets.closed.bottom
                     )
                     .padding([.horizontal, .bottom], vm.notchState == .open ? 12 : 0)
+                    // Height belongs here, with the width and *before* the
+                    // background: the black shape and its corner curve are then
+                    // drawn at the notch's real size. Sizing only the outer
+                    // frame let a tab that overflowed - the AI transcript did -
+                    // stretch the silhouette far below the region that tracks
+                    // the mouse, so the curve landed off-notch and the pointer
+                    // fell out of the hover area without ever leaving the black.
                     .frame(
                         width: vm.notchState == .open
                             ? openNotchWidth(for: coordinator.currentView)
-                            : nil
+                            : nil,
+                        height: vm.notchState == .open ? openNotchContentHeight : nil,
+                        alignment: .top
                     )
                     .background(.black)
                     .clipShape(currentNotchShape)
@@ -142,11 +168,10 @@ struct ContentView: View {
                         vm.effectiveClosedNotchHeight == 0 ? 10 : 0
                     )
                 
+                // No height here: mainLayout is already exactly the notch's
+                // size, so letting it report that size keeps the hover region
+                // below in step with what is actually drawn.
                 mainLayout
-                    .frame(
-                        height: vm.notchState == .open ? openNotchContentHeight : nil,
-                        alignment: .top
-                    )
                     .conditionalModifier(true) { view in
                         let openAnimation = Animation.spring(response: 0.42, dampingFraction: 0.8, blendDuration: 0)
                         let closeAnimation = Animation.spring(response: 0.45, dampingFraction: 1.0, blendDuration: 0)
@@ -154,21 +179,14 @@ struct ContentView: View {
                         return view
                             .animation(vm.notchState == .open ? openAnimation : closeAnimation, value: vm.notchState)
                             .animation(.smooth, value: gestureProgress)
-                            .animation(.smooth(duration: 0.3), value: coordinator.currentView)
+                            // The width change on a tab switch is a resize like
+                            // any other, so it rides the same spring.
+                            .animation(notchResizeAnimation, value: coordinator.currentView)
                             // The notch growing/shrinking for the big screen mirror.
-                            .animation(
-                                .spring(response: 0.46, dampingFraction: 0.82, blendDuration: 0),
-                                value: showsBigScreenMirror
-                            )
-                            .animation(
-                                .spring(response: 0.46, dampingFraction: 0.82, blendDuration: 0),
-                                value: openNotchContentHeight
-                            )
+                            .animation(notchResizeAnimation, value: showsBigScreenMirror)
+                            .animation(notchResizeAnimation, value: openNotchContentHeight)
                     }
                     .contentShape(Rectangle())
-                    .onHover { hovering in
-                        handleHover(hovering)
-                    }
                     .onTapGesture {
                         doOpen()
                     }
@@ -183,6 +201,23 @@ struct ContentView: View {
                             .panGesture(direction: .up) { translation, phase in
                                 handleUpGesture(translation: translation, phase: phase)
                             }
+                    }
+                    // The pointer's margin of error around the open notch, as
+                    // transparent padding wrapped *around* the notch rather
+                    // than a backdrop behind it: the notch paints an opaque
+                    // background, and hit testing runs front to back, so
+                    // anything behind it never sees the pointer. Wrapped, it
+                    // does - onHover reports for a view's descendants too.
+                    //
+                    // Outside the gestures above, so a swipe still has to start
+                    // on the notch itself. Zero when closed, where the region
+                    // has to stay exactly the notch or hover-to-open would fire
+                    // from the menu bar beside it.
+                    .padding(.horizontal, hoverSlack)
+                    .padding(.bottom, hoverSlack)
+                    .contentShape(Rectangle())
+                    .onHover { hovering in
+                        handleHover(hovering)
                     }
                     .onReceive(NotificationCenter.default.publisher(for: .sharingDidFinish)) { _ in
                         if vm.notchState == .open && !isHovering && !vm.isBatteryPopoverActive {
@@ -204,6 +239,17 @@ struct ContentView: View {
                                 isHovering = false
                             }
                         }
+                        if newState == .closed {
+                            dashboardGrowth = 0
+                            pointerOverContent = false
+                        }
+                    }
+                    .onChange(of: coordinator.currentView) {
+                        // Switching tabs never fires a hover exit, and the new
+                        // page starts at its own height rather than the last
+                        // one's.
+                        dashboardGrowth = 0
+                        pointerOverContent = false
                     }
                     .onChange(of: vm.isBatteryPopoverActive) {
                         if !vm.isBatteryPopoverActive && !isHovering && vm.notchState == .open && !SharingStateManager.shared.preventNotchClose {
@@ -322,6 +368,11 @@ struct ContentView: View {
                             .frame(width: 76, alignment: .trailing)
                         }
                         .frame(height: vm.effectiveClosedNotchHeight, alignment: .center)
+                      } else if coordinator.expandingView.type == .airpods && coordinator.expandingView.show
+                                  && vm.notchState == .closed && !vm.hideOnClosed && Defaults[.airPodsSneakPeek] {
+                          AirPodsLiveActivity()
+                              .environmentObject(vm)
+                              .transition(.opacity)
                       } else if coordinator.sneakPeek.show && Defaults[.inlineHUD] && (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && vm.notchState == .closed {
                           InlineHUD(type: $coordinator.sneakPeek.type, value: $coordinator.sneakPeek.value, icon: $coordinator.sneakPeek.icon, hoverAnimation: $isHovering, gestureProgress: $gestureProgress)
                               .transition(.opacity)
@@ -393,8 +444,11 @@ struct ContentView: View {
                     // everything to the notch silhouette, so clipping again here
                     // only cuts the glow.
                     .animation(VornyxViewCoordinator.tabChangeAnimation, value: coordinator.currentView)
-                    .onHover { hovering in
-                        pointerOverContent = hovering
+                    // Pages claim the scroll gesture per region rather than
+                    // wholesale; see `scrollableNotchContent()`.
+                    .environment(\.notchScrollableHover, $pointerOverContent)
+                    .onPreferenceChange(NotchContentFitKey.self) { fit in
+                        applyContentFit(fit)
                     }
 
                     if showsBigScreenMirror {
@@ -422,6 +476,35 @@ struct ContentView: View {
                 .opacity(gestureProgress != 0 ? 1.0 - min(abs(gestureProgress) * 0.1, 0.3) : 1.0)
             }
         }
+        // Keys that belong to the notch rather than to whichever page is
+        // showing, so they keep working as you step between tabs.
+        .onKeyDown(enabled: vm.notchState == .open, handleNotchKey)
+        // The open notch answers the keyboard however it was opened - hovered,
+        // clicked or shortcut - because Command-arrow has to work from the tab
+        // you are already looking at, not only from one you opened by keyboard.
+        //
+        // Taking key status is what makes that possible, and the panel is
+        // non-activating so the app underneath stays frontmost. It does mean
+        // the open notch holds the keyboard, which is why this is tied to the
+        // notch being open: it closes when the pointer leaves, and the keyboard
+        // goes straight back.
+        .onChange(of: vm.notchState) { _, state in
+            state == .open
+                ? VornyxNotchSkyLightWindow.takeKeyboardFocus()
+                : endKeyboardSession()
+        }
+        // Every way the notch changes its own size, so none of them can be
+        // mistaken for the pointer leaving.
+        .onChange(of: coordinator.currentView) { _, _ in holdOpenAfterResize() }
+        .onChange(of: coordinator.clipboardRows) { _, _ in holdOpenAfterResize() }
+        .onChange(of: dashboardGrowth) { _, _ in holdOpenAfterResize() }
+        .onChange(of: showsBigScreenMirror) { _, _ in holdOpenAfterResize() }
+        // The chat gives the keyboard back when it goes away; the notch is
+        // still open, so take it again.
+        .onChange(of: coordinator.currentView) { _, _ in
+            guard vm.notchState == .open else { return }
+            VornyxNotchSkyLightWindow.takeKeyboardFocus()
+        }
         .onDrop(of: [.fileURL, .url, .utf8PlainText, .plainText, .data], delegate: GeneralDropTargetDelegate(isTargeted: $vm.generalDropTargeting))
         .onChange(of: clipboardEnabled) { _, enabled in
             if !enabled && coordinator.currentView == .clipboard {
@@ -430,14 +513,111 @@ struct ContentView: View {
         }
     }
 
+    /// Command-left and Command-right step the tabs, and Escape puts the notch
+    /// away - from any page, for as long as the notch is answering the keyboard.
+    ///
+    /// Command is the modifier because the plain arrows are already spoken for
+    /// inside a page: the clipboard walks its cards with them.
+    private func handleNotchKey(_ event: NSEvent) -> Bool {
+        guard let key = NotchKey(event) else { return false }
+
+        if event.modifierFlags.contains(.command) {
+            switch key {
+            case .leftArrow:
+                stepTab(by: -1)
+            case .rightArrow:
+                stepTab(by: 1)
+            default:
+                return false
+            }
+            return true
+        }
+
+        guard key == .escape else { return false }
+        vm.close()
+        return true
+    }
+
+    private func stepTab(by offset: Int) {
+        withAnimation(VornyxViewCoordinator.tabChangeAnimation) {
+            coordinator.stepTab(by: offset)
+        }
+    }
+
+    /// Hold the notch open for a moment after it resizes itself, then close it
+    /// if the pointer never came back.
+    ///
+    /// The dashboard is far wider than the home page, so clicking home from the
+    /// far side of it pulls the notch's edge past the pointer: the button you
+    /// just clicked is now off-notch, the hover exit fires, and the notch shuts
+    /// on you. Suppressing that exit alone is not enough - nothing would ever
+    /// close it afterwards, since the exit already happened - so the hold ends
+    /// by making the decision itself: on the notch, stay; not on it, close.
+    ///
+    /// Three seconds, because the pointer may have a long way to travel.
+    private func holdOpenAfterResize() {
+        guard vm.notchState == .open else { return }
+        suppressHoverCloseUntil = Date().addingTimeInterval(notchResizeGrace)
+
+        resizeHoldTask?.cancel()
+        resizeHoldTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(notchResizeGrace))
+            guard !Task.isCancelled,
+                  vm.notchState == .open,
+                  !isHovering,
+                  // Driving from the keyboard: where the pointer sits is not an
+                  // opinion about whether the notch should still be here.
+                  !coordinator.keyboardSession,
+                  !vm.isBatteryPopoverActive,
+                  !SharingStateManager.shared.preventNotchClose
+            else { return }
+            vm.close()
+        }
+    }
+
+    private func endKeyboardSession() {
+        coordinator.keyboardSession = false
+        VornyxNotchSkyLightWindow.setKeyboardInputEnabled(false)
+    }
+
     /// Height of the visible notch when open. The window reserves room for the
     /// big-screen mirror up front, but the notch itself only stretches down
     /// once the mirror is actually showing.
     private var openNotchContentHeight: CGFloat {
         openNotchHeight(for: coordinator.currentView)
+            + dashboardGrowth
+            + clipboardGrowth
             + (showsBigScreenMirror
                ? mirrorBigScreenHeight.clamped(to: mirrorBigScreenHeightRange) + 8
                : 0)
+    }
+
+    /// Room for the clipboard's extra rows, which it opens out to on a press of
+    /// the down arrow. Zero on every other tab, and zero on a one-row clipboard.
+    private var clipboardGrowth: CGFloat {
+        guard coordinator.currentView == .clipboard else { return 0 }
+        return CGFloat(max(0, coordinator.clipboardRows - 1)) * clipboardRowGrowth
+    }
+
+    /// The most the dashboard may grow by, on top of its starting height.
+    private var maxDashboardGrowth: CGFloat {
+        max(0, dashboardNotchMaxHeight - dashboardNotchHeight)
+    }
+
+    /// Grow - or shrink - the notch so a page's content fits.
+    ///
+    /// The page reports how far its content overruns what is on screen, and
+    /// that number is added to the growth already applied. One round settles
+    /// it: growing by the shortfall makes the shortfall zero, and a page with
+    /// room to spare reports a negative one and gives the height back. The
+    /// dead band keeps the spring from chasing its own mid-animation frames.
+    private func applyContentFit(_ fit: NotchContentFit) {
+        guard vm.notchState == .open, coordinator.currentView == .dashboard else { return }
+
+        let target = (dashboardGrowth + fit.shortfall).clamped(to: 0...maxDashboardGrowth)
+        guard abs(target - dashboardGrowth) > notchGrowthDeadBand else { return }
+
+        dashboardGrowth = target
     }
 
     /// The mirror panel that stretches the notch downwards, shown under any tab.
@@ -619,6 +799,16 @@ struct ContentView: View {
 
     // MARK: - Hover Management
 
+    /// How far past the notch the pointer may stray before it counts as gone.
+    ///
+    /// Open, it is `openNotchHoverSlack` on the left, right and bottom, so
+    /// clipping a corner on the way to a button no longer closes the notch out
+    /// from under you. Never upwards - the notch's top edge is the screen's.
+    /// Closed it is zero: hover-to-open must not fire from the menu bar.
+    private var hoverSlack: CGFloat {
+        vm.notchState == .open ? openNotchHoverSlack : 0
+    }
+
     private func handleHover(_ hovering: Bool) {
         if coordinator.firstLaunch { return }
         hoverTask?.cancel()
@@ -660,6 +850,9 @@ struct ContentView: View {
                 }
 
                 await MainActor.run {
+                    // A pointer that has not moved cannot have left.
+                    guard Date() >= self.suppressHoverCloseUntil else { return }
+
                     if self.vm.notchState == .open && !self.vm.isBatteryPopoverActive && !SharingStateManager.shared.preventNotchClose {
                         self.vm.close()
                     }

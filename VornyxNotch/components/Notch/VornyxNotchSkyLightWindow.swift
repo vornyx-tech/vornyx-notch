@@ -141,4 +141,25 @@ extension VornyxNotchSkyLightWindow {
             window.acceptsKeyboardInput = enabled
         }
     }
+
+    /// Enable input *and* take key status, for a notch that was opened from the
+    /// keyboard and has to answer the keyboard straight away.
+    ///
+    /// The chat composer deliberately stops at enabling input and waits to be
+    /// clicked - it must not pull you out of whatever you were typing in. A
+    /// notch opened *by* a shortcut has no such worry: the keystroke that
+    /// opened it is already ours. The panel is non-activating, so taking key
+    /// here leaves the frontmost app frontmost, which is what makes pasting
+    /// straight back into it work.
+    @MainActor
+    static func takeKeyboardFocus() {
+        setKeyboardInputEnabled(true)
+
+        let windows = NSApp.windows
+            .compactMap { $0 as? VornyxNotchSkyLightWindow }
+            .filter(\.isVisible)
+        let mouse = NSEvent.mouseLocation
+        let target = windows.first { $0.screen?.frame.contains(mouse) ?? false } ?? windows.first
+        target?.makeKeyAndOrderFront(nil)
+    }
 }

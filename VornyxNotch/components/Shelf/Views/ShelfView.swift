@@ -33,7 +33,13 @@ struct ShelfView: View {
     }
     
     private func handleDrop(providers: [NSItemProvider]) -> Bool {
-        guard !selection.isDragging else { return false }
+        // A drop that goes nowhere is silent at three separate points - here,
+        // in the type handling, and in the bookmark - so each one says so.
+        guard !selection.isDragging else {
+            NSLog("SHELF-DROP: refused, a shelf item is mid-drag")
+            return false
+        }
+        NSLog("SHELF-DROP: accepted \(providers.count) provider(s)")
         vm.dropEvent = true
         ShelfStateViewModel.shared.load(providers)
         return true
@@ -77,6 +83,12 @@ struct ShelfView: View {
                     )
             )
             .animation(.smooth(duration: 0.18), value: vm.dragDetectorTargeting)
+            // Clearing belongs to the panel's own surface, *underneath* the
+            // items. Applied after the overlay it covered them as well: an item
+            // selected itself on mouse-down and this then cleared it on the
+            // mouse-up of the very same click, so nothing could stay selected.
+            .contentShape(Rectangle())
+            .onTapGesture { selection.clear() }
             .overlay {
                 content
                     .padding()
@@ -84,8 +96,6 @@ struct ShelfView: View {
             .transaction { transaction in
                 transaction.animation = vm.animation
             }
-            .contentShape(Rectangle())
-            .onTapGesture { selection.clear() }
     }
 
     var content: some View {
@@ -114,6 +124,14 @@ struct ShelfView: View {
                 }
                 .padding(-spacing)
                 .scrollIndicators(.never)
+                .scrollableNotchContent()
+                // The row covers the panel once there are items on it, so the
+                // gap between and around them needs its own way to clear.
+                .background(
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .onTapGesture { selection.clear() }
+                )
                 .onDrop(of: [.fileURL, .url, .utf8PlainText, .plainText, .data], isTargeted: $vm.dragDetectorTargeting) { providers in
                     handleDrop(providers: providers)
                 }

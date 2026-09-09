@@ -30,6 +30,46 @@ enum CalendarSelectionState: Codable, Defaults.Serializable {
     case selected(Set<String>)
 }
 
+/// Which of the dashboard's left-hand pages is showing.
+enum DashboardLeftPage: String, CaseIterable, Defaults.Serializable {
+    case calendar
+    case weather
+}
+
+/// Units for the weather page.
+///
+/// `automatic` follows the locale, which is right for almost everybody; the
+/// other two are for people whose Mac is set to one country and whose head is
+/// set to another.
+enum WeatherUnit: String, CaseIterable, Identifiable, Defaults.Serializable {
+    case automatic
+    case celsius
+    case fahrenheit
+
+    var id: String { rawValue }
+
+    var name: String {
+        switch self {
+        case .automatic: return "Automatic"
+        case .celsius: return "Celsius"
+        case .fahrenheit: return "Fahrenheit"
+        }
+    }
+
+    private var isFahrenheit: Bool {
+        switch self {
+        case .celsius: return false
+        case .fahrenheit: return true
+        case .automatic: return Locale.current.measurementSystem == .us
+        }
+    }
+
+    var apiValue: String { isFahrenheit ? "fahrenheit" : "celsius" }
+    var windAPIValue: String { isFahrenheit ? "mph" : "kmh" }
+    var degreeSuffix: String { isFahrenheit ? "F" : "C" }
+    var windSuffix: String { isFahrenheit ? "mph" : "km/h" }
+}
+
 enum HideNotchOption: String, Defaults.Serializable {
     case always
     case nowPlayingOnly
@@ -127,7 +167,17 @@ extension Defaults.Keys {
     /// Grace period before the notch closes while the AI tab is open. Reading a
     /// reply means looking away from the notch, which would normally close it.
     static let aiTabCloseDelay = Key<Double>("aiTabCloseDelay", default: 8)
-    static let geminiModel = Key<String>("geminiModel", default: "gemini-2.5-flash")
+    static let geminiModel = Key<String>("geminiModel", default: GeminiClient.newestModel)
+    /// Gemini 3 thinks before answering, which costs seconds of silence on
+    /// questions that never needed it. Off by default - the notch has room for
+    /// short answers, and waiting is worse here than in a full chat window.
+    /// Gemini 3 cannot stop thinking entirely, so "off" means the lowest level.
+    static let aiThinking = Key<Bool>("aiThinking", default: false)
+    /// Model ids the app itself shipped as a default. A stale one gets bumped
+    /// to the current model once, so upgrading users are not left on an old
+    /// model they never chose. Anything typed by hand is left alone.
+    static let supersededGeminiModels: Set<String> = ["gemini-2.5-flash"]
+    static let didUpgradeGeminiModel = Key<Bool>("didUpgradeGeminiModel", default: false)
     static let aiSystemPrompt = Key<String>(
         "aiSystemPrompt",
         default: "You are a helpful assistant living in a small notch window on a Mac. Answer briefly and directly.")
@@ -174,7 +224,21 @@ extension Defaults.Keys {
     static let showBatteryIndicator = Key<Bool>("showBatteryIndicator", default: true)
     static let showBatteryPercentage = Key<Bool>("showBatteryPercentage", default: true)
     static let showPowerStatusIcons = Key<Bool>("showPowerStatusIcons", default: true)
+
+    // MARK: AirPods
+    /// Announce a pair connecting in the closed notch.
+    static let airPodsSneakPeek = Key<Bool>("airPodsSneakPeek", default: true)
+    /// Keep the levels beside the player on the home page. Off by default: it
+    /// widens the home notch, which is not something to do uninvited.
+    static let showAirPodsWidget = Key<Bool>("showAirPodsWidget", default: false)
     
+    // MARK: Weather
+    /// Remembered so the dashboard opens on whichever of the two you left it on.
+    static let dashboardLeftPage = Key<DashboardLeftPage>("dashboardLeftPage", default: .calendar)
+    /// A place name typed in Settings. Empty means "use where this Mac is".
+    static let weatherPlace = Key<String>("weatherPlace", default: "")
+    static let weatherUnit = Key<WeatherUnit>("weatherUnit", default: .automatic)
+
     // MARK: Downloads
     static let enableDownloadListener = Key<Bool>("enableDownloadListener", default: true)
     static let enableSafariDownloads = Key<Bool>("enableSafariDownloads", default: true)

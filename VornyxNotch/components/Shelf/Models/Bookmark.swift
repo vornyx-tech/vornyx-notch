@@ -17,6 +17,10 @@ struct Bookmark: Sendable, Equatable, Codable {
 
     init(url: URL) throws {
         guard url.isFileURL, FileManager.default.fileExists(atPath: url.path) else {
+            // In a sandbox this is also what "the file is there but we were
+            // never granted access to it" looks like, so say which it was.
+            NSLog("SHELF-DROP: bookmark refused - isFileURL \(url.isFileURL), "
+                  + "visible \(FileManager.default.fileExists(atPath: url.path)), \(url.path)")
             throw NSError(domain: "Bookmark", code: 1, userInfo: [NSLocalizedDescriptionKey: "Not a valid file URL or file does not exist at \(url.path)"])
         }
         do {
