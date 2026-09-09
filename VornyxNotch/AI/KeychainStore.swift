@@ -30,22 +30,49 @@ enum KeychainStore {
     /// Memoised per launch. `.some(nil)` means "checked, nothing there".
     private static var cache: [String: String?] = [:]
 
-    private static func baseQuery(_ account: String) -> [String: Any] {
-        [
+    /// Which store each account actually lives in, decided at write time.
+    private static var usesDataProtection: [String: Bool] = [:]
+
+    private static func baseQuery(_ account: String, dataProtection: Bool) -> [String: Any] {
+        var query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
-            kSecUseDataProtectionKeychain as String: true,
         ]
+        if dataProtection {
+            query[kSecUseDataProtectionKeychain as String] = true
+        }
+        return query
     }
 
-    static func set(_ value: String, for account: String) {
+    /// Writes the secret, reporting whether it actually landed.
+    ///
+    /// Tries the data protection keychain first and falls back to the legacy
+    /// one. The data protection keychain needs a real signing identity: a
+    /// locally-built, ad-hoc-signed app has no `application-identifier`
+    /// entitlement, so `SecItemAdd` fails with errSecMissingEntitlement and
+    /// the save silently did nothing. The legacy keychain has no such
+    /// requirement - it just re-prompts whenever the signature changes.
+    @discardableResult
+    static func set(_ value: String, for account: String) -> Bool {
         guard !value.isEmpty else {
             remove(account)
-            return
+            return true
         }
 
-        let query = baseQuery(account)
+        for dataProtection in [true, false] {
+            if write(value, account: account, dataProtection: dataProtection) {
+                usesDataProtection[account] = dataProtection
+                cache[account] = value
+                markStored(account, true)
+                return true
+            }
+        }
+        return false
+    }
+
+    private static func write(_ value: String, account: String, dataProtection: Bool) -> Bool {
+        let query = baseQuery(account, dataProtection: dataProtection)
         let attributes: [String: Any] = [kSecValueData as String: Data(value.utf8)]
 
         var status = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
@@ -55,10 +82,7 @@ enum KeychainStore {
             insert[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
             status = SecItemAdd(insert as CFDictionary, nil)
         }
-
-        guard status == errSecSuccess else { return }
-        cache[account] = value
-        markStored(account, true)
+        return status == errSecSuccess
     }
 
     static func get(_ account: String) -> String? {
@@ -67,36 +91,43 @@ enum KeychainStore {
         guard isStored(account) else { return nil }
         if let cached = cache[account] { return cached }
 
-        var query = baseQuery(account)
+        // Prefer whichever store the write landed in, then try the other.
+        let preferred = usesDataProtection[account] ?? true
+        for dataProtection in [preferred, !preferred] {
+            if let value = read(account: account, dataProtection: dataProtection) {
+                usesDataProtection[account] = dataProtection
+                cache[account] = value
+                return value
+            }
+        }
+
+        // Gone, or unreadable. Remember that so we do not ask again.
+        cache[account] = String?.none
+        markStored(account, false)
+        return nil
+    }
+
+    private static func read(account: String, dataProtection: Bool) -> String? {
+        var query = baseQuery(account, dataProtection: dataProtection)
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
 
         var item: CFTypeRef?
-        let status = SecItemCopyMatching(query as CFDictionary, &item)
-
-        guard status == errSecSuccess,
+        guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess,
               let data = item as? Data,
               let value = String(data: data, encoding: .utf8),
               !value.isEmpty
-        else {
-            // Gone, or unreadable. Remember that so we do not ask again.
-            cache[account] = String?.none
-            markStored(account, false)
-            return nil
-        }
-
-        cache[account] = value
+        else { return nil }
         return value
     }
 
     static func remove(_ account: String) {
-        SecItemDelete(baseQuery(account) as CFDictionary)
-        // Older builds wrote to the legacy keychain; clear that too.
-        var legacy = baseQuery(account)
-        legacy.removeValue(forKey: kSecUseDataProtectionKeychain as String)
-        SecItemDelete(legacy as CFDictionary)
+        // Clear both stores: which one holds it depends on how the app was signed.
+        SecItemDelete(baseQuery(account, dataProtection: true) as CFDictionary)
+        SecItemDelete(baseQuery(account, dataProtection: false) as CFDictionary)
 
         cache[account] = String?.none
+        usesDataProtection[account] = nil
         markStored(account, false)
     }
 
