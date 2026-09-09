@@ -152,7 +152,6 @@ struct GeneralSettings: View {
     @Default(.nonNotchHeight) var nonNotchHeight
     @Default(.nonNotchHeightMode) var nonNotchHeightMode
     @Default(.notchHeight) var notchHeight
-    @Default(.openNotchWidth) var openNotchWidth
     @Default(.notchHeightMode) var notchHeightMode
     @Default(.showOnAllDisplays) var showOnAllDisplays
     @Default(.automaticallySwitchDisplay) var automaticallySwitchDisplay
@@ -280,38 +279,8 @@ struct GeneralSettings: View {
                             name: Notification.Name.notchHeightChanged, object: nil)
                     }
                 }
-                Slider(
-                    value: $openNotchWidth,
-                    in: openNotchWidthRange,
-                    step: 10
-                ) {
-                    HStack {
-                        Text("Home page width")
-                        Spacer()
-                        Text("\(openNotchWidth, specifier: "%.0f") pt")
-                            .foregroundStyle(.secondary)
-                            .monospacedDigit()
-                    }
-                }
-                .onChange(of: openNotchWidth) {
-                    NotificationCenter.default.post(
-                        name: Notification.Name.notchHeightChanged, object: nil)
-                }
-                HStack {
-                    Spacer()
-                    Button("Reset width") {
-                        openNotchWidth = defaultOpenNotchSize.width
-                        NotificationCenter.default.post(
-                            name: Notification.Name.notchHeightChanged, object: nil)
-                    }
-                    .disabled(openNotchWidth == defaultOpenNotchSize.width)
-                }
             } header: {
                 SettingsSectionHeader("Notch sizing", icon: "arrow.up.left.and.arrow.down.right", tint: .indigo)
-            } footer: {
-                Text("How far the home page stretches to the sides. The shelf and calendar tabs keep their full width.")
-                    .foregroundStyle(.secondary)
-                    .font(.caption)
             }
 
             NotchBehaviour()
