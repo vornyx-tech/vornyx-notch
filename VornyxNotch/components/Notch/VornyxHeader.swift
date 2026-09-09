@@ -45,6 +45,7 @@ struct VornyxHeader: View {
                         OpenNotchHUD(type: $coordinator.sneakPeek.type, value: $coordinator.sneakPeek.value, icon: $coordinator.sneakPeek.icon)
                             .transition(.scale(scale: 0.8).combined(with: .opacity))
                     } else {
+                        tabIconButton(icon: "rectangle.3.group.fill", target: .dashboard)
                         if Defaults[.showMirror] {
                             Button(action: {
                                 vm.toggleCameraPreview()

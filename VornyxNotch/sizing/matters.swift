@@ -147,13 +147,13 @@ func nestedCornerRadius(inset: CGFloat, cap: CGFloat = .infinity) -> CGFloat {
 /// value here and rebuild; nothing in the UI exposes them.
 enum AlbumArtStyle {
     /// Artwork corner radius on the open notch's home page.
-    static let openCornerRadius: CGFloat = 29
+    static let openCornerRadius: CGFloat = 30
     /// Artwork corner radius in the closed-notch live activity.
     static let closedCornerRadius: CGFloat = 6
     /// Corner radius of the small source-app badge on the artwork.
     static let appIconCornerRadius: CGFloat = 9
     /// Size of that badge.
-    static let appIconSize: CGFloat = 29
+    static let appIconSize: CGFloat = 33
 
     /// Tuning for the living glow behind the artwork. Also code-only.
     enum Glow {
