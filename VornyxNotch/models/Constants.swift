@@ -110,16 +110,6 @@ extension Defaults.Keys {
     static let openNotchWidth = Key<CGFloat>(
         "openNotchWidth", default: defaultOpenNotchSize.width)
 
-    // MARK: Notch corner radius
-    static let openedTopCornerRadius = Key<CGFloat>(
-        "openedTopCornerRadius", default: defaultCornerRadiusInsets.opened.top)
-    static let openedBottomCornerRadius = Key<CGFloat>(
-        "openedBottomCornerRadius", default: defaultCornerRadiusInsets.opened.bottom)
-    static let closedTopCornerRadius = Key<CGFloat>(
-        "closedTopCornerRadius", default: defaultCornerRadiusInsets.closed.top)
-    static let closedBottomCornerRadius = Key<CGFloat>(
-        "closedBottomCornerRadius", default: defaultCornerRadiusInsets.closed.bottom)
-
     static let showNotHumanFace = Key<Bool>("showNotHumanFace", default: false)
     static let tileShowLabels = Key<Bool>("tileShowLabels", default: false)
     static let showCalendar = Key<Bool>("showCalendar", default: false)

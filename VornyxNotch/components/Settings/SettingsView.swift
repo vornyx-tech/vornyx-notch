@@ -1262,8 +1262,6 @@ struct Appearance: View {
                 SettingsSectionHeader("General", icon: "gearshape.fill", tint: .blue)
             }
 
-            NotchCornerRadiusSettings()
-
             Section {
                 Defaults.Toggle(key: .coloredSpectrogram) {
                     Text("Colored spectrogram")
@@ -1679,6 +1677,14 @@ struct Advanced: View {
                 Defaults.Toggle(key: .enableShadow) {
                     Text("Enable window shadow")
                 }
+                Defaults.Toggle(key: .cornerRadiusScaling) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Use separate corner radii when open")
+                        Text("With this off the open notch keeps the closed radii. The radii themselves are set in code.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
             } header: {
                 SettingsSectionHeader("Window Appearance", icon: "macwindow", tint: .teal)
             }
@@ -1882,168 +1888,6 @@ func comingSoonTag() -> some View {
         .clipShape(.capsule)
 }
 
-// MARK: - Notch corner radius
-
-/// Live corner-radius editor for the notch shape, with a preview of the closed
-/// and open states. Values are written straight to `Defaults`, so the real notch
-/// updates while the slider is being dragged.
-struct NotchCornerRadiusSettings: View {
-    @Default(.cornerRadiusScaling) var cornerRadiusScaling
-    @Default(.openedTopCornerRadius) var openedTop
-    @Default(.openedBottomCornerRadius) var openedBottom
-    @Default(.closedTopCornerRadius) var closedTop
-    @Default(.closedBottomCornerRadius) var closedBottom
-
-    @State private var previewOpen: Bool = true
-
-    private var previewUsesOpenedRadii: Bool {
-        previewOpen && cornerRadiusScaling
-    }
-
-    private var previewTopRadius: CGFloat {
-        previewUsesOpenedRadii ? openedTop : closedTop
-    }
-
-    private var previewBottomRadius: CGFloat {
-        previewUsesOpenedRadii ? openedBottom : closedBottom
-    }
-
-    private let previewScale: CGFloat = 0.5
-
-    /// Drawn at the notch's real dimensions and then scaled down, so the size
-    /// clamping `NotchShape` applies in the preview matches the real notch.
-    private var previewRealSize: CGSize {
-        previewOpen ? openNotchSize : CGSize(width: 185, height: 32)
-    }
-
-    private var isUsingDefaults: Bool {
-        openedTop == defaultCornerRadiusInsets.opened.top
-            && openedBottom == defaultCornerRadiusInsets.opened.bottom
-            && closedTop == defaultCornerRadiusInsets.closed.top
-            && closedBottom == defaultCornerRadiusInsets.closed.bottom
-    }
-
-    var body: some View {
-        Section {
-            VStack(spacing: 12) {
-                Picker("Preview state", selection: $previewOpen) {
-                    Text("Closed").tag(false)
-                    Text("Open").tag(true)
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .frame(maxWidth: 220)
-
-                ZStack(alignment: .top) {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color.effectiveAccent.opacity(0.45),
-                                    Color.effectiveAccent.opacity(0.12),
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-
-                    NotchShape(
-                        topCornerRadius: previewTopRadius,
-                        bottomCornerRadius: previewBottomRadius
-                    )
-                    .fill(.black)
-                    .frame(width: previewRealSize.width, height: previewRealSize.height)
-                    .scaleEffect(previewScale, anchor: .top)
-                    .frame(
-                        width: previewRealSize.width * previewScale,
-                        height: previewRealSize.height * previewScale
-                    )
-                }
-                .frame(height: 120)
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .animation(.smooth(duration: 0.35), value: previewOpen)
-                .animation(.smooth(duration: 0.2), value: previewTopRadius)
-                .animation(.smooth(duration: 0.2), value: previewBottomRadius)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 4)
-        } header: {
-            SettingsSectionHeader("Notch shape preview", icon: "eye.fill", tint: .indigo)
-        }
-
-        Section {
-            Defaults.Toggle(key: .cornerRadiusScaling) {
-                Text("Use separate corner radii when open")
-            }
-
-            radiusSlider(
-                "Open – top",
-                value: $openedTop,
-                range: NotchCornerRadiusRange.openedTop
-            )
-            .disabled(!cornerRadiusScaling)
-
-            radiusSlider(
-                "Open – bottom",
-                value: $openedBottom,
-                range: NotchCornerRadiusRange.openedBottom
-            )
-            .disabled(!cornerRadiusScaling)
-
-            radiusSlider(
-                "Closed – top",
-                value: $closedTop,
-                range: NotchCornerRadiusRange.closedTop
-            )
-
-            radiusSlider(
-                "Closed – bottom",
-                value: $closedBottom,
-                range: NotchCornerRadiusRange.closedBottom
-            )
-
-            HStack {
-                Spacer()
-                Button("Reset to defaults") {
-                    resetToDefaults()
-                }
-                .disabled(isUsingDefaults)
-            }
-        } header: {
-            SettingsSectionHeader("Corner radius", icon: "app.badge.checkmark", tint: .indigo)
-        } footer: {
-            Text(
-                "Top is the radius where the notch meets the screen edge, bottom is the radius of its lower corners. With separate open radii turned off, the open notch keeps the closed values."
-            )
-            .foregroundStyle(.secondary)
-            .font(.caption)
-        }
-    }
-
-    private func radiusSlider(
-        _ title: String,
-        value: Binding<CGFloat>,
-        range: ClosedRange<CGFloat>
-    ) -> some View {
-        Slider(value: value, in: range, step: 1) {
-            HStack {
-                Text(title)
-                Spacer()
-                Text("\(value.wrappedValue, specifier: "%.0f") pt")
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
-            }
-        }
-    }
-
-    private func resetToDefaults() {
-        openedTop = defaultCornerRadiusInsets.opened.top
-        openedBottom = defaultCornerRadiusInsets.opened.bottom
-        closedTop = defaultCornerRadiusInsets.closed.top
-        closedBottom = defaultCornerRadiusInsets.closed.bottom
-    }
-}
-
 /// A section header with a tinted glyph.
 ///
 /// These panes are dense - long lists of switches with explanatory captions
@@ -2086,27 +1930,6 @@ func customBadge(text: String) -> some View {
         .padding(.horizontal, 6)
         .background(Color(nsColor: .secondarySystemFill))
         .clipShape(.capsule)
-}
-
-func warningBadge(_ text: String, _ description: String) -> some View {
-    Section {
-        HStack(spacing: 12) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 22))
-                .foregroundStyle(.yellow)
-            VStack(alignment: .leading) {
-                Text(text)
-                    .font(.headline)
-                Text(description)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-        }
-    }
-}
-
-#Preview {
-    HUD()
 }
 
 // MARK: - Clipboard settings

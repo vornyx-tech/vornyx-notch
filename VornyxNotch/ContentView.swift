@@ -56,10 +56,6 @@ struct ContentView: View {
 
     // Observed so the notch re-renders the moment a corner radius slider moves.
     @Default(.cornerRadiusScaling) var cornerRadiusScaling
-    @Default(.openedTopCornerRadius) var openedTopCornerRadius
-    @Default(.openedBottomCornerRadius) var openedBottomCornerRadius
-    @Default(.closedTopCornerRadius) var closedTopCornerRadius
-    @Default(.closedBottomCornerRadius) var closedBottomCornerRadius
 
     // Shared interactive spring for movement/resizing to avoid conflicting animations
     private let animationSpring = Animation.interactiveSpring(response: 0.38, dampingFraction: 0.8, blendDuration: 0)
