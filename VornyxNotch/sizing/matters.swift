@@ -85,37 +85,24 @@ typealias NotchCornerRadiusInsets = (
     closed: (top: CGFloat, bottom: CGFloat)
 )
 
-/// Stock notch corner radii. Used as the factory defaults for the user-facing
-/// corner radius settings and by the "Reset" button in Appearance settings.
-let defaultCornerRadiusInsets: NotchCornerRadiusInsets = (
-    opened: (top: 19, bottom: 24),
+/// The notch's corner radii.
+///
+/// Code-only, like `AlbumArtStyle`: deliberately NOT surfaced in Settings.
+/// Edit the numbers here and rebuild.
+///
+/// - `top` is the radius where the notch meets the screen edge - the outward
+///   flare at the top corners.
+/// - `bottom` is the radius of its lower corners.
+/// - The `opened` pair is used only while `Defaults[.cornerRadiusScaling]` is
+///   on; with it off the notch keeps the `closed` values in both states.
+///
+/// `NotchShape` caps whatever it is given against the box it draws into, so a
+/// value too large for the current notch height simply stops having an effect
+/// rather than folding the shape in on itself.
+let cornerRadiusInsets: NotchCornerRadiusInsets = (
+    opened: (top: 26, bottom: 57),
     closed: (top: 6, bottom: 14)
 )
-
-/// Allowed slider ranges for each corner radius. `NotchShape` additionally
-/// caps them against the notch it is drawing into, so a value that is too large
-/// for the current notch height simply stops having an effect.
-enum NotchCornerRadiusRange {
-    static let openedTop: ClosedRange<CGFloat> = 0...60
-    static let openedBottom: ClosedRange<CGFloat> = 0...60
-    static let closedTop: ClosedRange<CGFloat> = 0...20
-    static let closedBottom: ClosedRange<CGFloat> = 0...30
-}
-
-/// The corner radii currently configured by the user. Reads live from `Defaults`
-/// so changing a slider in settings updates the notch immediately.
-var cornerRadiusInsets: NotchCornerRadiusInsets {
-    (
-        opened: (
-            top: Defaults[.openedTopCornerRadius].clamped(to: NotchCornerRadiusRange.openedTop),
-            bottom: Defaults[.openedBottomCornerRadius].clamped(to: NotchCornerRadiusRange.openedBottom)
-        ),
-        closed: (
-            top: Defaults[.closedTopCornerRadius].clamped(to: NotchCornerRadiusRange.closedTop),
-            bottom: Defaults[.closedBottomCornerRadius].clamped(to: NotchCornerRadiusRange.closedBottom)
-        )
-    )
-}
 
 extension Comparable {
     func clamped(to range: ClosedRange<Self>) -> Self {
@@ -155,7 +142,7 @@ func nestedCornerRadius(inset: CGFloat, cap: CGFloat = .infinity) -> CGFloat {
 }
 
 /// Code-only styling for the player artwork.
-///
+/// 
 /// Deliberately NOT surfaced in Settings - these are developer knobs. Change a
 /// value here and rebuild; nothing in the UI exposes them.
 enum AlbumArtStyle {
