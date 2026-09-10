@@ -23,6 +23,7 @@ struct ContentView: View {
     @ObservedObject var batteryModel = BatteryStatusViewModel.shared
     @ObservedObject var brightnessManager = BrightnessManager.shared
     @ObservedObject var volumeManager = VolumeManager.shared
+    @ObservedObject var countdown = CountdownManager.shared
     @State private var hoverTask: Task<Void, Never>?
     @State private var isHovering: Bool = false
     @State private var resizeHoldTask: Task<Void, Never>?
@@ -371,6 +372,26 @@ struct ContentView: View {
                       } else if coordinator.expandingView.type == .airpods && coordinator.expandingView.show
                                   && vm.notchState == .closed && !vm.hideOnClosed && Defaults[.airPodsSneakPeek] {
                           AirPodsLiveActivity()
+                              .environmentObject(vm)
+                              .transition(.opacity)
+                      // Sound moved somewhere else. Below the pair's own
+                      // banner, which says the same thing with the levels.
+                      } else if coordinator.expandingView.type == .audioRoute && coordinator.expandingView.show
+                                  && vm.notchState == .closed && !vm.hideOnClosed && Defaults[.audioRouteSneakPeek] {
+                          AudioRouteLiveActivity()
+                              .environmentObject(vm)
+                              .transition(.opacity)
+                      // A running countdown outranks the banner's own timeout:
+                      // it stays for as long as it is counting, rather than
+                      // showing for three seconds and leaving.
+                      } else if countdown.isActive && vm.notchState == .closed && !vm.hideOnClosed
+                                  && Defaults[.timerLiveActivity] {
+                          TimerLiveActivity()
+                              .environmentObject(vm)
+                              .transition(.opacity)
+                      } else if coordinator.expandingView.type == .timer && coordinator.expandingView.show
+                                  && vm.notchState == .closed && !vm.hideOnClosed {
+                          TimerLiveActivity()
                               .environmentObject(vm)
                               .transition(.opacity)
                       } else if coordinator.sneakPeek.show && Defaults[.inlineHUD] && (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && vm.notchState == .closed {

@@ -319,6 +319,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Cheap to keep running: two IO registry notifications and a two-minute
         // backstop, no polling and no permission prompt.
         AirPodsManager.shared.start()
+        IndicatorsManager.shared.start()
+        // Two CoreAudio property listeners. Started here rather than by the
+        // header's picker, which only appears once the notch has been opened -
+        // the route banner has to work before that ever happens.
+        AudioDeviceManager.shared.start()
 
         NotificationCenter.default.addObserver(
             self,

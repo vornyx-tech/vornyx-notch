@@ -310,7 +310,12 @@ final class WeatherManager: NSObject, ObservableObject {
         let (data, _) = try await session.data(from: components.url!)
         let decoded = try JSONDecoder().decode(ForecastResponse.self, from: data)
 
+        // POSIX, because this parses a fixed machine format rather than
+        // anything the reader sees: under a non-Gregorian regional calendar
+        // "yyyy" means that calendar's year, "2026-09-10" fails to parse, and
+        // the `compactMap` below silently drops every day of the forecast.
         let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "yyyy-MM-dd"
         let days: [DayForecast] = zip(
             zip(decoded.daily.time, decoded.daily.weather_code),

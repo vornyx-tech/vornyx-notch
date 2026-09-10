@@ -7,6 +7,8 @@
 		<key>NSAllowsArbitraryLoads</key>
 		<true/>
 	</dict>
+	<key>NSFocusStatusUsageDescription</key>
+	<string>Vornyx Notch shows a light in the notch while a Focus is on.</string>
 	<key>NSLocationUsageDescription</key>
 	<string>Vornyx Notch uses your location to show the local forecast on the dashboard. You can name a place in Settings instead.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
