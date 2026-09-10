@@ -380,6 +380,10 @@ struct GeneralSettings: View {
 }
 
 struct Charge: View {
+    @Default(.showFocusIndicator) var showFocusIndicator
+    @Default(.audioRouteSneakPeek) var audioRouteSneakPeek
+    @Default(.audioRouteSneakPeekStyle) var audioRouteSneakPeekStyle
+
     var body: some View {
         Form {
             Section {
@@ -403,6 +407,62 @@ struct Charge: View {
                 SettingsSectionHeader("Battery Information", icon: "battery.100.bolt", tint: .green)
             }
             Section {
+                Defaults.Toggle(key: .showPrivacyIndicators) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Camera and microphone lights")
+                        Text("A light in the open notch while anything on the Mac is using them.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Defaults.Toggle(key: .showCapsLockIndicator) {
+                    Text("Caps Lock light")
+                }
+                Defaults.Toggle(key: .showFocusIndicator) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Focus light")
+                        Text("Asks for the Focus Status permission the first time.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .onChange(of: showFocusIndicator) { _, on in
+                    if on { IndicatorsManager.shared.refreshFocusAuthorization() }
+                }
+                Defaults.Toggle(key: .showAudioPicker) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Sound output menu")
+                        Text("Switch where audio goes from the notch's header.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            } header: {
+                SettingsSectionHeader("Indicators", icon: "dot.radiowaves.left.and.right", tint: .purple)
+            }
+            Section {
+                Defaults.Toggle(key: .timerLiveActivity) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Show the countdown in the closed notch")
+                        Text("The timer lives on the dashboard - swipe the calendar column to it.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Defaults.Toggle(key: .timerSound) {
+                    Text("Play a sound when it finishes")
+                }
+            } header: {
+                SettingsSectionHeader("Timer", icon: "timer", tint: .orange)
+            } footer: {
+                Text(
+                    "This is the notch's own timer, not the Clock app's. Reading a running system timer means reaching outside the app's container, which a sandboxed app cannot do."
+                )
+                .multilineTextAlignment(.trailing)
+                .foregroundStyle(.secondary)
+                .font(.caption)
+            }
+            Section {
                 Defaults.Toggle(key: .airPodsSneakPeek) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Announce AirPods connecting")
@@ -419,6 +479,20 @@ struct Charge: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                Defaults.Toggle(key: .audioRouteSneakPeek) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Announce the sound output changing")
+                        Text("Says in the closed notch whenever sound moves - to a pair, or back to the built-in speakers.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Picker("Output banner style", selection: $audioRouteSneakPeekStyle) {
+                    ForEach(SneakPeekStyle.allCases) { style in
+                        Text(style.rawValue).tag(style)
+                    }
+                }
+                .disabled(!audioRouteSneakPeek)
             } header: {
                 SettingsSectionHeader("AirPods", icon: "airpods.gen3", tint: .teal)
             } footer: {

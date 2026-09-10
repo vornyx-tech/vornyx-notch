@@ -314,6 +314,64 @@ enum WeatherGlowStyle {
     static let frameRate: Double = 12
 }
 
+/// Tuning for the falling weather. Code-only, like `WeatherGlowStyle`.
+enum WeatherPrecipitationStyle {
+    /// How many drops at each intensity.
+    ///
+    /// Higher than they look like they should be: the page is only ~330x215,
+    /// and at fifty drops that is one streak per fifteen hundred square points
+    /// - which is drizzle you have to go looking for rather than weather.
+    static let dropsLight = 55
+    static let dropsMedium = 110
+    static let dropsHeavy = 170
+    static let flakes = 70
+
+    /// Fractions of the view's height travelled per second.
+    static let rainSpeed: ClosedRange<Double> = 0.55...1.15
+    static let snowSpeed: ClosedRange<Double> = 0.10...0.22
+
+    /// How far a drop leans as it falls, as a fraction of the view's width.
+    /// Rain on a still day is not vertical, and vertical rain looks like a
+    /// screensaver.
+    static let rainSlant: Double = 0.055
+    /// How far a flake wanders either side of its line.
+    static let snowSway: Double = 9
+
+    static let rainLength: ClosedRange<Double> = 10...24
+    static let flakeRadius: ClosedRange<Double> = 1.0...2.4
+    /// Kept down deliberately: the page's own text sits under this, and rain
+    /// you have to look for is the point - weather, not a foreground.
+    static let opacity: ClosedRange<Double> = 0.22...0.58
+    /// Thin enough to read as rain, thick enough to see on a small dark page.
+    static let rainWidth: CGFloat = 1.2
+
+    /// Rain needs a real frame rate - at the glow's twelve it stutters visibly,
+    /// because a falling drop crosses several of its own lengths per frame.
+    static let frameRate: Double = 30
+
+    /// How far in from the top the shower fades out.
+    ///
+    /// The page clips its contents, so without this a drop is chopped
+    /// mid-streak against a dead straight line - which is what gives the whole
+    /// thing away as a drawing. Roughly a drop's own length, so a streak is
+    /// gone by the time it reaches the cut rather than fading halfway down the
+    /// page.
+    static let topFade: CGFloat = 22
+
+    /// How far past the bottom of the page the shower is allowed to run.
+    ///
+    /// The page stops above the dots, and the dots stop above the notch's own
+    /// edge, which left the rain ending in a band of flat black with the
+    /// weather plainly still going on above it. The shower runs on behind the
+    /// dots instead and fades out down there, where there is nothing left to
+    /// cut it. The left zone's clip is opened by the same amount to let it.
+    static let bottomBleed: CGFloat = 14
+
+    /// Longer than the top's: it has the bleed to fade across, and a shower
+    /// thinning out towards the ground reads better than one switched off.
+    static let bottomFade: CGFloat = 30
+}
+
 enum MusicPlayerImageSizes {
     static let cornerRadiusInset: (opened: CGFloat, closed: CGFloat) = (opened: 13.0, closed: 4.0)
     static let size = (opened: CGSize(width: 90, height: 90), closed: CGSize(width: 20, height: 20))

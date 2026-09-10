@@ -13,6 +13,7 @@ struct VornyxHeader: View {
     @ObservedObject var batteryModel = BatteryStatusViewModel.shared
     @ObservedObject var coordinator = VornyxViewCoordinator.shared
     @StateObject var tvm = ShelfStateViewModel.shared
+    @ObservedObject var audio = AudioDeviceManager.shared
     var body: some View {
         HStack(spacing: 0) {
             HStack {
@@ -45,6 +46,12 @@ struct VornyxHeader: View {
                         OpenNotchHUD(type: $coordinator.sneakPeek.type, value: $coordinator.sneakPeek.value, icon: $coordinator.sneakPeek.icon)
                             .transition(.scale(scale: 0.8).combined(with: .opacity))
                     } else {
+                        // Ahead of the buttons, so the lights sit nearest the
+                        // middle of the notch where the eye already is.
+                        IndicatorLights(size: 9)
+                        if Defaults[.showAudioPicker] {
+                            audioOutputMenu
+                        }
                         tabIconButton(icon: "rectangle.3.group.fill", target: .dashboard)
                         if Defaults[.showMirror] {
                             headerIconButton(
@@ -121,6 +128,41 @@ struct VornyxHeader: View {
                 coordinator.currentView = isActive ? .home : target
             }
         }
+    }
+
+    /// Where the sound is going, and a menu to send it somewhere else.
+    ///
+    /// A menu rather than a panel of our own: this is a list of names with one
+    /// of them ticked, which is exactly what a menu is for, and an NSMenu opens
+    /// from a non-activating panel where a popover of ours would have to fight
+    /// for key status first.
+    private var audioOutputMenu: some View {
+        Menu {
+            ForEach(audio.devices) { device in
+                Button {
+                    audio.select(device)
+                } label: {
+                    // The tick is drawn rather than set, because a menu built
+                    // from a non-key panel does not get the system's own.
+                    Label(
+                        device.id == audio.currentID ? "✓  \(device.name)" : "     \(device.name)",
+                        systemImage: device.symbol
+                    )
+                }
+            }
+            if audio.devices.isEmpty {
+                Text("No output devices")
+            }
+        } label: {
+            Image(systemName: audio.current?.symbol ?? "speaker.wave.2.fill")
+                .foregroundStyle(.white.opacity(0.6))
+                .imageScale(.small)
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .frame(width: headerIconSize.width, height: headerIconSize.height)
+        .help(audio.current.map { "Output: \($0.name)" } ?? "Sound output")
+        .onAppear { audio.start() }
     }
 
     /// The shape every trailing header icon wears.

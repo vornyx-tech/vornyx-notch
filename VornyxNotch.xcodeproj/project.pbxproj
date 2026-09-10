@@ -116,6 +116,13 @@
 		9A987A102C73CA8D005CA465 /* Collections in Frameworks */ = {isa = PBXBuildFile; productRef = 9A987A0F2C73CA8D005CA465 /* Collections */; };
 		9AB0C6BD2C73C9CB00F7CD30 /* NotchHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AB0C6BB2C73C9CB00F7CD30 /* NotchHomeView.swift */; };
 		AA0000000000000000000B02 /* NotchContentRegions.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000B01 /* NotchContentRegions.swift */; };
+		AA00000000000000000D52 /* AudioDeviceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000D51 /* AudioDeviceManager.swift */; };
+		AA00000000000000000D42 /* IndicatorLights.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000D41 /* IndicatorLights.swift */; };
+		AA00000000000000000D32 /* IndicatorsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000D31 /* IndicatorsManager.swift */; };
+		AA00000000000000000D22 /* TimerLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000D21 /* TimerLiveActivity.swift */; };
+		AA00000000000000000E42 /* AudioRouteLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000E41 /* AudioRouteLiveActivity.swift */; };
+		AA00000000000000000D12 /* StatsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000D11 /* StatsManager.swift */; };
+		AA00000000000000000D02 /* CountdownManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000D01 /* CountdownManager.swift */; };
 		AA00000000000000000C02 /* KeyCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000C01 /* KeyCapture.swift */; };
 		AA00000000000000000C12 /* AirPodsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000C11 /* AirPodsManager.swift */; };
 		AA00000000000000000C22 /* AirPodsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000C21 /* AirPodsView.swift */; };
@@ -289,6 +296,13 @@
 		9A987A032C73CA66005CA465 /* ShelfView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ShelfView.swift; sourceTree = "<group>"; };
 		9AB0C6BB2C73C9CB00F7CD30 /* NotchHomeView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = NotchHomeView.swift; sourceTree = "<group>"; };
 		AA0000000000000000000B01 /* NotchContentRegions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchContentRegions.swift; sourceTree = "<group>"; };
+		AA00000000000000000D51 /* AudioDeviceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioDeviceManager.swift; sourceTree = "<group>"; };
+		AA00000000000000000D41 /* IndicatorLights.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IndicatorLights.swift; sourceTree = "<group>"; };
+		AA00000000000000000D31 /* IndicatorsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IndicatorsManager.swift; sourceTree = "<group>"; };
+		AA00000000000000000D21 /* TimerLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerLiveActivity.swift; sourceTree = "<group>"; };
+		AA00000000000000000E41 /* AudioRouteLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRouteLiveActivity.swift; sourceTree = "<group>"; };
+		AA00000000000000000D11 /* StatsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsManager.swift; sourceTree = "<group>"; };
+		AA00000000000000000D01 /* CountdownManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CountdownManager.swift; sourceTree = "<group>"; };
 		AA00000000000000000C01 /* KeyCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyCapture.swift; sourceTree = "<group>"; };
 		AA00000000000000000C11 /* AirPodsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirPodsManager.swift; sourceTree = "<group>"; };
 		AA00000000000000000C21 /* AirPodsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirPodsView.swift; sourceTree = "<group>"; };
@@ -525,6 +539,10 @@
 				F38DE6472D8243E2008B5C6D /* BatteryActivityManager.swift */,
 				112FB7342CCF16F70015238C /* NotchSpaceManager.swift */,
 				147163992C5D35FF0068B555 /* MusicManager.swift */,
+				AA00000000000000000D51 /* AudioDeviceManager.swift */,
+				AA00000000000000000D31 /* IndicatorsManager.swift */,
+				AA00000000000000000D11 /* StatsManager.swift */,
+				AA00000000000000000D01 /* CountdownManager.swift */,
 				AA00000000000000000C11 /* AirPodsManager.swift */,
 				149E0B962C737D00006418B1 /* WebcamManager.swift */,
 				14C08BB52C8DE42D000F8AA0 /* CalendarManager.swift */,
@@ -749,6 +767,9 @@
 			children = (
 				115C12EB2ED3D003009754CA /* OpenNotchHUD.swift */,
 				14D570CC2C5F4BB70011E668 /* VornyxBattery.swift */,
+				AA00000000000000000D41 /* IndicatorLights.swift */,
+				AA00000000000000000D21 /* TimerLiveActivity.swift */,
+				AA00000000000000000E41 /* AudioRouteLiveActivity.swift */,
 				AA00000000000000000C21 /* AirPodsView.swift */,
 				B1C974332C642B6D0000E707 /* MarqueeTextView.swift */,
 				B1D365CD2C6A979C0047BDBC /* LiveActivityModifier.swift */,
@@ -1018,6 +1039,13 @@
 				F38DE6482D8243E7008B5C6D /* BatteryActivityManager.swift in Sources */,
 				B10348D92C74E56000475897 /* ConditionalModifier.swift in Sources */,
 				AA0000000000000000000B02 /* NotchContentRegions.swift in Sources */,
+				AA00000000000000000D52 /* AudioDeviceManager.swift in Sources */,
+				AA00000000000000000D42 /* IndicatorLights.swift in Sources */,
+				AA00000000000000000D32 /* IndicatorsManager.swift in Sources */,
+				AA00000000000000000D22 /* TimerLiveActivity.swift in Sources */,
+				AA00000000000000000E42 /* AudioRouteLiveActivity.swift in Sources */,
+				AA00000000000000000D12 /* StatsManager.swift in Sources */,
+				AA00000000000000000D02 /* CountdownManager.swift in Sources */,
 				AA00000000000000000C22 /* AirPodsView.swift in Sources */,
 				AA00000000000000000C12 /* AirPodsManager.swift in Sources */,
 				AA00000000000000000C02 /* KeyCapture.swift in Sources */,

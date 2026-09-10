@@ -31,9 +31,32 @@ enum CalendarSelectionState: Codable, Defaults.Serializable {
 }
 
 /// Which of the dashboard's left-hand pages is showing.
+///
+/// The drawer of things you glance at rather than work in. Order is the order
+/// you swipe through them.
 enum DashboardLeftPage: String, CaseIterable, Defaults.Serializable {
     case calendar
     case weather
+    case timer
+    case stats
+
+    var name: String {
+        switch self {
+        case .calendar: return "Calendar"
+        case .weather: return "Weather"
+        case .timer: return "Timer"
+        case .stats: return "Stats"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .calendar: return "calendar"
+        case .weather: return "cloud.sun.fill"
+        case .timer: return "timer"
+        case .stats: return "chart.bar.fill"
+        }
+    }
 }
 
 /// Units for the weather page.
@@ -153,6 +176,28 @@ extension Defaults.Keys {
     /// Website shortcuts shown in the middle of the dashboard tab.
     static let webShortcuts = Key<[WebShortcut]>("webShortcuts", default: [])
 
+    // MARK: Audio
+    /// A sound-output menu in the open notch's header.
+    static let showAudioPicker = Key<Bool>("showAudioPicker", default: true)
+
+    // MARK: Indicators
+    /// A light while the camera or the microphone is in use by anything.
+    static let showPrivacyIndicators = Key<Bool>("showPrivacyIndicators", default: true)
+    /// A light while a Focus is on. Asks for the Focus Status permission once.
+    static let showFocusIndicator = Key<Bool>("showFocusIndicator", default: false)
+    static let showCapsLockIndicator = Key<Bool>("showCapsLockIndicator", default: true)
+
+    // MARK: Timer
+    /// Seconds the last countdown was set to, so the same one is one tap away.
+    static let timerLastDuration = Key<Double>("timerLastDuration", default: 5 * 60)
+    /// Show the countdown in the closed notch while it runs.
+    static let timerLiveActivity = Key<Bool>("timerLiveActivity", default: true)
+    static let timerSound = Key<Bool>("timerSound", default: true)
+
+    // MARK: Stats
+    /// How often the machine is measured, in seconds. Cheap, but not free.
+    static let statsInterval = Key<Double>("statsInterval", default: 2)
+
     // MARK: Clipboard
     static let clipboardEnabled = Key<Bool>("clipboardEnabled", default: false)
     static let clipboardHistoryLimit = Key<Int>("clipboardHistoryLimit", default: 30)
@@ -231,6 +276,17 @@ extension Defaults.Keys {
     /// Keep the levels beside the player on the home page. Off by default: it
     /// widens the home notch, which is not something to do uninvited.
     static let showAirPodsWidget = Key<Bool>("showAirPodsWidget", default: false)
+
+    // MARK: Sound output
+    /// Announce in the closed notch when sound moves to another output - a pair
+    /// connecting, or dropping back to the built-in speakers.
+    static let audioRouteSneakPeek = Key<Bool>("audioRouteSneakPeek", default: true)
+    /// Which shape that banner takes - the compact pair of squares hugging the
+    /// cut-out, or the wide one that names the device across the notch. The
+    /// same two the music banner offers, and named the same, because they are
+    /// the same two ideas.
+    static let audioRouteSneakPeekStyle = Key<SneakPeekStyle>(
+        "audioRouteSneakPeekStyle", default: .standard)
     
     // MARK: Weather
     /// Remembered so the dashboard opens on whichever of the two you left it on.

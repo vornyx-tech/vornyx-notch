@@ -19,6 +19,8 @@ enum SneakContentType {
     case battery
     case download
     case airpods
+    case timer
+    case audioRoute
 }
 
 struct sneakPeek {
@@ -339,6 +341,23 @@ class VornyxViewCoordinator: ObservableObject {
     /// video - is settled by the view, the same way the music banner settles it.
     func announceAirPods() {
         toggleExpandingView(status: true, type: .airpods)
+    }
+
+    /// Say in the closed notch that sound has moved to another output - a pair
+    /// connecting, or dropping back to the built-in speakers.
+    ///
+    /// A pair's own banner outranks this one: it carries the same name plus the
+    /// battery levels, so replacing it with the plainer version would be a step
+    /// backwards a second after it appeared.
+    func announceAudioRoute() {
+        guard !(expandingView.show && expandingView.type == .airpods) else { return }
+        toggleExpandingView(status: true, type: .audioRoute)
+    }
+
+    /// Show the countdown in the closed notch. Started, paused, resumed and
+    /// finished are each worth a glance, and each one calls this.
+    func announceTimer() {
+        toggleExpandingView(status: true, type: .timer)
     }
 
     // MARK: - Tab navigation

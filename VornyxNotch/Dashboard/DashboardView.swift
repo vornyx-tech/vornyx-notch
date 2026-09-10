@@ -77,12 +77,19 @@ struct DashboardView: View {
                     calendarPage.transition(pageTransition)
                 case .weather:
                     WeatherView().transition(pageTransition)
+                case .timer:
+                    TimerView().transition(pageTransition)
+                case .stats:
+                    StatsView().transition(pageTransition)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             // Keeps the outgoing page inside its own column: without this it
-            // slides out across the divider and over the shortcuts.
-            .clipped()
+            // slides out across the divider and over the shortcuts. Tight at
+            // the sides, open at the bottom by exactly the amount the weather's
+            // shower runs past the page - the dots draw over it either way,
+            // being the next thing in the stack.
+            .clipShape(ColumnClip(bottomBleed: WeatherPrecipitationStyle.bottomBleed))
             .animation(VornyxViewCoordinator.tabChangeAnimation, value: leftPage)
 
             pageDots
@@ -105,15 +112,25 @@ struct DashboardView: View {
         }
     }
 
-    /// Two dots under the zone, the way a paged view says how many there are
-    /// and which one you are on. Clickable as well as swipeable - a swipe is
-    /// not discoverable on its own.
+    /// The left zone's clip: exact at the sides, loose at the bottom.
+    private struct ColumnClip: Shape {
+        let bottomBleed: CGFloat
+
+        func path(in rect: CGRect) -> Path {
+            Path(CGRect(
+                x: rect.minX, y: rect.minY,
+                width: rect.width, height: rect.height + bottomBleed
+            ))
+        }
+    }
+
+    /// A dot per page, saying how many there are and which one you are on.
+    /// Clickable as well as swipeable - a swipe is not discoverable on its own.
     private var pageDots: some View {
         HStack(spacing: 6) {
             ForEach(DashboardLeftPage.allCases, id: \.self) { page in
                 Button {
-                    guard page != leftPage else { return }
-                    step(by: page == .weather ? 1 : -1)
+                    go(to: page)
                 } label: {
                     Circle()
                         .fill(.white.opacity(page == leftPage ? 0.75 : 0.22))
@@ -121,7 +138,7 @@ struct DashboardView: View {
                         .contentShape(Circle().inset(by: -5))
                 }
                 .buttonStyle(.plain)
-                .help(page == .weather ? "Weather" : "Calendar")
+                .help(page.name)
             }
         }
         .animation(.smooth(duration: 0.2), value: leftPage)
@@ -129,19 +146,29 @@ struct DashboardView: View {
     }
 
     /// Stops at the ends rather than wrapping, so a run of swipes cannot spin
-    /// the pair round and round - the same rule the tabs follow.
+    /// the pages round and round - the same rule the tabs follow.
     private func step(by offset: Int) {
         let pages = DashboardLeftPage.allCases
         guard let index = pages.firstIndex(of: leftPage) else { return }
         let next = (index + offset).clamped(to: 0...(pages.count - 1))
         guard next != index else { return }
+        go(to: pages[next])
+    }
 
-        pageDirection = offset
+    /// Straight to a page, sliding from whichever side it lives on.
+    private func go(to page: DashboardLeftPage) {
+        let pages = DashboardLeftPage.allCases
+        guard page != leftPage,
+              let from = pages.firstIndex(of: leftPage),
+              let to = pages.firstIndex(of: page)
+        else { return }
+
+        pageDirection = to > from ? 1 : -1
         withAnimation(VornyxViewCoordinator.tabChangeAnimation) {
-            leftPage = pages[next]
+            leftPage = page
         }
-        storedPage = pages[next]
-        if pages[next] == .weather { WeatherManager.shared.refreshIfStale() }
+        storedPage = page
+        if page == .weather { WeatherManager.shared.refreshIfStale() }
     }
 
     private var pageTransition: AnyTransition {
