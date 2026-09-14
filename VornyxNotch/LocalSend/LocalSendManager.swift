@@ -555,16 +555,13 @@ extension LocalSendManager: LocalSendServerDelegate {
     }
 
     /// A message needs no answer and no session: LocalSend itself takes one by
-    /// "accepting nothing". It is shown, and kept on the shelf so it outlives
-    /// the banner.
+    /// "accepting nothing". It is shown with Copy and Open, and not put on the
+    /// shelf: the setting says received *files*, and a link left there kept the
+    /// notch opening on the shelf with "open shelf by default" on.
     func localSendDidReceiveMessage(_ text: String, from sender: LocalSendInfo) {
         let received = Message(senderName: sender.alias, text: text)
         withAnimation(.smooth) { message = received }
 
-        if Defaults[.localSendAddToShelf] {
-            let kind: ShelfItemKind = received.url.map { .link(url: $0) } ?? .text(string: text)
-            ShelfStateViewModel.shared.add([ShelfItem(kind: kind)])
-        }
 
         Task {
             try? await Task.sleep(for: .seconds(8))

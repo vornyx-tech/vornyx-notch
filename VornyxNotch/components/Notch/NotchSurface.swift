@@ -27,14 +27,19 @@ extension View {
     ///   - glassTint: The glass's tint alone, for states that the white wash
     ///     showed by getting brighter - hovered, copied, a drop over it - and
     ///     that glass has to show by colour instead.
+    ///   - interactive: Glass that answers the pointer with its own highlight
+    ///     and give - the part of Liquid Glass that reads most as liquid.
     func notchSurface<S: InsettableShape>(
         _ shape: S,
         fill: Double = 0.05,
         stroke: Double = 0.07,
         tint: Color? = nil,
-        glassTint: Color? = nil
+        glassTint: Color? = nil,
+        interactive: Bool = false
     ) -> some View {
-        modifier(NotchSurface(shape: shape, fill: fill, stroke: stroke, tint: tint, glassTint: glassTint))
+        modifier(NotchSurface(
+            shape: shape, fill: fill, stroke: stroke, tint: tint, glassTint: glassTint,
+            interactive: interactive))
     }
 }
 
@@ -54,17 +59,29 @@ private struct NotchSurface<S: InsettableShape>: ViewModifier {
     let stroke: Double
     let tint: Color?
     let glassTint: Color?
+    let interactive: Bool
 
     @Default(.liquidGlassNotch) private var liquidGlass
 
     /// How dark untinted glass is. Enough to hold white text over a bright
     /// window behind the notch without turning the glass grey.
-    private static var darkening: Double { 0.28 }
+    private static var darkening: Double { 0.20 }
+
+    @available(macOS 26.0, *)
+    private var glass: Glass {
+        let tinted = Glass.clear.tint(glassTint ?? tint ?? .black.opacity(Self.darkening))
+        return interactive ? tinted.interactive() : tinted
+    }
 
     func body(content: Content) -> some View {
         if #available(macOS 26.0, *), liquidGlass {
             content
-                .glassEffect(.regular.tint(glassTint ?? tint ?? .black.opacity(Self.darkening)), in: shape)
+                .glassEffect(glass, in: shape)
+                // Glass is only drawn - unlike the fill it replaces, it takes
+                // no part in hit testing. Without this a clipboard card, a
+                // shortcut or a device tile answered the pointer, clicks and
+                // drops only over its text, and the rest of it was a hole.
+                .contentShape(shape)
         } else {
             content
                 .background(

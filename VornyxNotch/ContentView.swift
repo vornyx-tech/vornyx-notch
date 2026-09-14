@@ -1141,7 +1141,13 @@ private struct NotchBackground: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            if #available(macOS 26.0, *), liquidGlass {
+            // Only while open. Glass is drawn in a layer of its own that does not
+            // follow the notch's clip while the corners animate, so kept under
+            // the black through the close it came out as a square-cornered
+            // block - and redrawing it every frame of the shrink made the close
+            // stutter. Gone the moment closing starts, the close is exactly the
+            // plain black one Liquid Glass off always had.
+            if #available(macOS 26.0, *), showsGlass {
                 Rectangle()
                     .fill(.clear)
                     .glassEffect(.clear, in: shape)
@@ -1174,7 +1180,9 @@ private struct NotchBackground: View {
             Color.black
                 .opacity(showsGlass ? 0 : 1)
         }
-        .animation(.smooth(duration: 0.35), value: showsGlass)
+        // Fade into glass on the way open; on the way closed the black is back
+        // at once, or there would be frames with neither glass nor black.
+        .animation(showsGlass ? .smooth(duration: 0.35) : nil, value: showsGlass)
     }
 
     private var showsGlass: Bool {
