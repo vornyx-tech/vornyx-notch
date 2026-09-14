@@ -47,12 +47,9 @@ struct LocalSendStrip: View {
         }
         .frame(height: localSendStripHeight)
         .frame(maxWidth: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: innerPanelCornerRadius, style: .continuous)
-                .fill(.white.opacity(0.05))
-                .overlay(
-                    RoundedRectangle(cornerRadius: innerPanelCornerRadius, style: .continuous)
-                        .strokeBorder(.white.opacity(0.07), lineWidth: 1)))
+        .notchSurface(
+            RoundedRectangle(cornerRadius: innerPanelCornerRadius, style: .continuous),
+            fill: 0.05, stroke: 0.07)
         .animation(.smooth(duration: 0.25), value: localSend.pendingRequest?.id)
         .animation(.smooth(duration: 0.25), value: localSend.incoming?.sessionID)
         .animation(.smooth(duration: 0.25), value: localSend.outgoing?.id)
@@ -124,10 +121,9 @@ struct LocalSendStrip: View {
                 .foregroundStyle(.white)
                 .padding(.horizontal, 12)
                 .frame(height: 30)
-                .background(Capsule().fill(Color.effectiveAccent.opacity(0.9)))
+                .notchSurface(Capsule(), stroke: 0, tint: Color.effectiveAccent.opacity(0.9))
                 .contentShape(Capsule())
             }
-            .buttonStyle(.plain)
             .springyTile(hoverScale: 1.05, pressScale: 0.94, hoverBrightness: 0.1)
             .help("Send text to a device")
 
@@ -142,9 +138,9 @@ struct LocalSendStrip: View {
                         localSend.isScanning ? .linear(duration: 1).repeatForever(autoreverses: false) : .default,
                         value: localSend.isScanning)
                     .frame(width: 30, height: 30)
-                    .background(Circle().fill(.white.opacity(0.1)))
+                    .notchSurface(Circle(), fill: 0.1, stroke: 0)
             }
-            .buttonStyle(.plain)
+            .springyTile(hoverScale: 1.08, pressScale: 0.92, hoverBrightness: 0.12)
             .disabled(localSend.isScanning)
             .help("Look for devices")
         }
@@ -172,7 +168,7 @@ extension LocalSendStrip {
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
-                .background(Capsule().fill(.white.opacity(0.08)))
+                .notchSurface(Capsule(), fill: 0.08, stroke: 0)
                 .frame(maxWidth: .infinity)
 
             if localSend.devices.isEmpty {
@@ -212,9 +208,9 @@ extension LocalSendStrip {
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.6))
                     .frame(width: 26, height: 26)
-                    .background(Circle().fill(.white.opacity(0.08)))
+                    .notchSurface(Circle(), fill: 0.08, stroke: 0)
             }
-            .buttonStyle(.plain)
+            .springyTile(hoverScale: 1.08, pressScale: 0.92, hoverBrightness: 0.12)
             .help("Cancel")
         }
         .padding(.horizontal, 12)
@@ -256,10 +252,12 @@ private struct DeviceTile: View {
         .foregroundStyle(targeted ? Color.effectiveAccent : .white.opacity(0.88))
         .padding(.horizontal, 8)
         .frame(width: 104, height: localSendStripHeight - 24)
-        .background(shape.fill(.white.opacity(targeted ? 0.14 : 0.07)))
+        .notchSurface(
+            shape, fill: targeted ? 0.14 : 0.07, stroke: 0,
+            glassTint: targeted ? Color.effectiveAccent.opacity(0.35) : nil)
         .overlay(
             shape.strokeBorder(
-                targeted ? Color.effectiveAccent.opacity(0.95) : .white.opacity(0.08),
+                targeted ? Color.effectiveAccent.opacity(0.95) : .white.opacity(NotchGlass.isActive ? 0 : 0.08),
                 style: targeted
                     ? StrokeStyle(lineWidth: 2, lineCap: .round, dash: [6, 4])
                     : StrokeStyle(lineWidth: 1)))
@@ -547,8 +545,12 @@ private struct TransferRow: View {
     }
 }
 
+/// Accept, Decline, Copy, Cancel and the device buttons of the composer.
+/// Lifts and brightens under the pointer, so it is plain what is clickable.
 private struct StripButtonStyle: ButtonStyle {
     let prominent: Bool
+
+    @State private var hovering = false
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -556,9 +558,14 @@ private struct StripButtonStyle: ButtonStyle {
             .foregroundStyle(.white)
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
-            .background(Capsule().fill(prominent ? Color.effectiveAccent : .white.opacity(0.12)))
-            .scaleEffect(configuration.isPressed ? 0.94 : 1)
+            .notchSurface(
+                Capsule(), fill: 0.12, stroke: 0,
+                tint: prominent ? Color.effectiveAccent : nil)
+            .brightness(hovering && !configuration.isPressed ? 0.1 : 0)
+            .scaleEffect(configuration.isPressed ? 0.94 : (hovering ? 1.04 : 1))
             .animation(.smooth(duration: 0.12), value: configuration.isPressed)
+            .animation(.spring(response: 0.26, dampingFraction: 0.7), value: hovering)
             .contentShape(Capsule())
+            .onHover { hovering = $0 }
     }
 }

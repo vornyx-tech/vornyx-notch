@@ -151,12 +151,13 @@ struct AIChatView: View {
                 .foregroundStyle(message.isError ? Color.red.opacity(0.9) : .white)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
-                .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(isUser
-                              ? Color.effectiveAccent.opacity(0.35)
-                              : Color(nsColor: .secondarySystemFill).opacity(0.6))
-                )
+                .notchSurface(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous),
+                    stroke: 0,
+                    tint: isUser
+                        ? Color.effectiveAccent.opacity(0.35)
+                        : Color(nsColor: .secondarySystemFill).opacity(0.6),
+                    glassTint: isUser ? Color.effectiveAccent.opacity(0.45) : Color.black.opacity(0.28))
                 .frame(maxWidth: .infinity, alignment: isUser ? .trailing : .leading)
             if !isUser { Spacer(minLength: 40) }
         }
@@ -221,9 +222,10 @@ struct AIChatView: View {
                 .onSubmit { chat.send() }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 7)
-                .background(
-                    Capsule().fill(Color(nsColor: .secondarySystemFill).opacity(0.5))
-                )
+                .notchSurface(
+                    Capsule(), stroke: 0,
+                    tint: Color(nsColor: .secondarySystemFill).opacity(0.5),
+                    glassTint: Color.black.opacity(0.28))
 
             Button {
                 chat.isThinking ? chat.cancel() : chat.send()
@@ -236,7 +238,7 @@ struct AIChatView: View {
                         chat.canSend || chat.isThinking ? Color.effectiveAccent : Color.gray
                     ))
             }
-            .buttonStyle(.plain)
+            .springyTile(hoverScale: 1.08, pressScale: 0.92, hoverBrightness: 0.1)
             .disabled(!chat.canSend && !chat.isThinking)
 
             Button {
@@ -247,7 +249,7 @@ struct AIChatView: View {
                     .foregroundStyle(.secondary)
                     .frame(width: 26, height: 26)
             }
-            .buttonStyle(.plain)
+            .springyTile(hoverScale: 1.1, pressScale: 0.9, hoverBrightness: 0.2)
             .disabled(chat.messages.isEmpty)
         }
     }
@@ -295,10 +297,10 @@ private struct ThinkingDots: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color(nsColor: .secondarySystemFill).opacity(0.6))
-        )
+        .notchSurface(
+            RoundedRectangle(cornerRadius: 12, style: .continuous), stroke: 0,
+            tint: Color(nsColor: .secondarySystemFill).opacity(0.6),
+            glassTint: Color.black.opacity(0.28))
         .onReceive(timer) { _ in
             withAnimation(.easeInOut(duration: 0.2)) { phase = (phase + 1) % 3 }
         }

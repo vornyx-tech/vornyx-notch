@@ -159,7 +159,14 @@ struct ContentView: View {
                         height: vm.notchState == .open ? openNotchContentHeight : nil,
                         alignment: .top
                     )
-                    .background(.black)
+                    // Black, or Liquid Glass under a black band that hides in
+                    // the hardware notch - see `NotchBackground`.
+                    .background {
+                        NotchBackground(
+                            isOpen: vm.notchState == .open,
+                            blackBandHeight: max(vm.effectiveClosedNotchHeight, 24),
+                            shape: currentNotchShape)
+                    }
                     .clipShape(currentNotchShape)
                     .overlay(alignment: .top) {
                         Rectangle()
@@ -1098,4 +1105,81 @@ struct GeneralDropTargetDelegate: DropDelegate {
     return ContentView()
         .environmentObject(vm)
         .frame(width: vm.notchSize.width, height: vm.notchSize.height)
+}
+
+// MARK: - Notch background
+
+/// What the notch is made of.
+///
+/// Black while closed, so it disappears into the hardware notch. Open, with
+/// Liquid Glass on, the notch turns to glass below a black band as tall as the
+/// hardware notch, which fades out downwards - so the glass seems to pour out
+/// of the notch, rather than a glass panel sitting under a black one.
+///
+/// The glass itself is the clear variant - the one that bends what is behind it
+/// the most, which is what reads as liquid. Clear glass is meant to sit over a
+/// dimming layer, and here the dimming is held steady through the middle, where
+/// the header and the player's text are, and only lets go over the last stretch
+/// so the glass turns properly clear right at the bottom edge.
+private struct NotchBackground: View {
+    let isOpen: Bool
+    let blackBandHeight: CGFloat
+    /// The notch's own outline, so the glass's edge highlight runs along its
+    /// rounded corners instead of being cut off by them.
+    let shape: NotchShape
+
+    @Default(.liquidGlassNotch) private var liquidGlass
+
+    /// How far the black takes to fade down to the middle dimming.
+    private let fadeHeight: CGFloat = 90
+    /// Dimming through the middle, where most of the white text sits.
+    private let middleDim: Double = 0.60
+    /// How tall the last stretch is, over which the dimming lets go.
+    private let clearingHeight: CGFloat = 64
+    /// Dimming at the bottom edge, where the glass is left nearly clear.
+    private let bottomDim: Double = 0.40
+
+    var body: some View {
+        ZStack(alignment: .top) {
+            if #available(macOS 26.0, *), liquidGlass {
+                Rectangle()
+                    .fill(.clear)
+                    .glassEffect(.clear, in: shape)
+
+                // One gradient, not a stack of pieces. Stacked, every seam
+                // landed on a fractional pixel while the notch animated its
+                // height, the edges of neighbouring pieces were smoothed
+                // separately, and the glass showed through as a thin bright
+                // line at each seam until the animation settled.
+                GeometryReader { proxy in
+                    let height = max(proxy.size.height, 1)
+                    let bandEnd = min(1, blackBandHeight / height)
+                    let fadeEnd = min(1, (blackBandHeight + fadeHeight) / height)
+                    let clearingStart = min(1, max(fadeEnd, 1 - clearingHeight / height))
+
+                    LinearGradient(
+                        stops: [
+                            .init(color: .black, location: 0),
+                            .init(color: .black, location: bandEnd),
+                            .init(color: .black.opacity(middleDim), location: fadeEnd),
+                            .init(color: .black.opacity(middleDim), location: clearingStart),
+                            .init(color: .black.opacity(bottomDim), location: 1),
+                        ],
+                        startPoint: .top, endPoint: .bottom)
+                }
+            }
+
+            // Over the glass, and faded rather than removed, so opening and
+            // closing cross-fade between the two instead of snapping.
+            Color.black
+                .opacity(showsGlass ? 0 : 1)
+        }
+        .animation(.smooth(duration: 0.35), value: showsGlass)
+    }
+
+    private var showsGlass: Bool {
+        guard isOpen, liquidGlass else { return false }
+        if #available(macOS 26.0, *) { return true }
+        return false
+    }
 }

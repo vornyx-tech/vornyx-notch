@@ -115,7 +115,7 @@ struct MonthCalendarView: View {
                 .monospacedDigit()
                 .padding(.horizontal, 5)
                 .padding(.vertical, 2)
-                .background(Capsule().fill(.white.opacity(0.08)))
+                .notchSurface(Capsule(), fill: 0.08, stroke: 0)
 
             Spacer(minLength: 0)
         }
@@ -369,6 +369,7 @@ struct DayAgendaView: View {
             .opacity(status == .ended ? 0.4 : 1)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        // A full-width row: barely any lift, or it would crowd the rows around it.
+        .springyTile(hoverScale: 1.02, pressScale: 0.98, hoverBrightness: 0.06)
     }
 }

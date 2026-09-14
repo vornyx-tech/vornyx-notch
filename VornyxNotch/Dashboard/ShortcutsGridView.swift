@@ -52,10 +52,9 @@ struct ShortcutsGridView: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 6)
-            .background(
-                RoundedRectangle(cornerRadius: nestedCornerRadius(inset: 4), style: .continuous)
-                    .fill(.white.opacity(0.07))
-            )
+            .notchSurface(
+                RoundedRectangle(cornerRadius: nestedCornerRadius(inset: 4), style: .continuous),
+                fill: 0.07, stroke: 0)
         }
         .springyTile()
         .help(shortcut.url.absoluteString)

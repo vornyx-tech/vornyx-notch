@@ -15,6 +15,10 @@ struct AudioDevice: Identifiable, Equatable {
     let name: String
     let transport: UInt32
 
+    var isBluetooth: Bool {
+        transport == kAudioDeviceTransportTypeBluetooth || transport == kAudioDeviceTransportTypeBluetoothLE
+    }
+
     /// The glyph that matches how it is plugged in. Transport type rather than
     /// a guess from the name: "MacBook Pro Speakers" and "Vania's AirPods" are
     /// only distinguishable by name in English.

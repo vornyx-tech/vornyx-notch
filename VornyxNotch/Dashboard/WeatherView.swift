@@ -167,7 +167,7 @@ struct WeatherView: View {
         .foregroundStyle(.white.opacity(0.75))
         .padding(.horizontal, 6)
         .padding(.vertical, 3)
-        .background(Capsule().fill(.white.opacity(0.10)))
+        .notchSurface(Capsule(), fill: 0.10, stroke: 0)
     }
 
     private func detail(_ symbol: String, _ value: String) -> some View {
@@ -182,7 +182,7 @@ struct WeatherView: View {
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 3)
-        .background(Capsule().fill(.white.opacity(0.07)))
+        .notchSurface(Capsule(), fill: 0.07, stroke: 0)
     }
 
     // MARK: Days
@@ -206,15 +206,11 @@ struct WeatherView: View {
         }
         .padding(6)
         .frame(width: width)
-        .background(
-            shape
-                // Dark first, then the usual wash on top: the black is what
-                // holds the sky and the rain back off the type, and the white
-                // is what keeps it looking like the app's other panels.
-                .fill(.black.opacity(0.38))
-                .overlay(shape.fill(.white.opacity(0.06)))
-                .overlay(shape.strokeBorder(.white.opacity(0.09), lineWidth: 1))
-        )
+        // Dark under the usual wash: the black holds the sky and the rain back
+        // off the type, and the white keeps it looking like the other panels.
+        // As glass, the glass does both.
+        .notchSurface(shape, fill: 0.06, stroke: 0.09)
+        .background(shape.fill(.black.opacity(NotchGlass.isActive ? 0 : 0.38)))
     }
 
     private func dayRow(

@@ -150,7 +150,7 @@ struct BatteryMenuView: View {
                     .fontWeight(.regular)
             }
             .frame(maxWidth: .infinity)
-            .buttonStyle(.plain)
+            .springyTile(hoverScale: 1.03, pressScale: 0.97, hoverBrightness: 0.1)
             .padding(.vertical, 8)
         }
         .padding()

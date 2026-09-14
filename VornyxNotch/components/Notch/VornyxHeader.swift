@@ -15,6 +15,7 @@ struct VornyxHeader: View {
     @StateObject var tvm = ShelfStateViewModel.shared
     @ObservedObject var audio = AudioDeviceManager.shared
     @ObservedObject var pods = AirPodsManager.shared
+    @State private var audioMenuHovering = false
     var body: some View {
         HStack(spacing: 0) {
             HStack {
@@ -137,33 +138,88 @@ struct VornyxHeader: View {
     /// of them ticked, which is exactly what a menu is for, and an NSMenu opens
     /// from a non-activating panel where a popover of ours would have to fight
     /// for key status first.
+    /// The sound menu, laid out like the one in Control Center: the connected
+    /// pair and its levels first, then where the sound goes, then the way to
+    /// the system's own settings.
+    ///
+    /// Listening mode, spatial audio and conversation awareness are missing on
+    /// purpose. macOS keeps them behind entitlements only Apple's own apps are
+    /// signed with; the calls that look like they set them change a value in
+    /// this process and never reach the pair.
     private var audioOutputMenu: some View {
         Menu {
-            ForEach(audio.devices) { device in
-                Button {
-                    audio.select(device)
-                } label: {
-                    // The tick is drawn rather than set, because a menu built
-                    // from a non-key panel does not get the system's own.
-                    Label(
-                        device.id == audio.currentID ? "✓  \(device.name)" : "     \(device.name)",
-                        systemImage: device.symbol
-                    )
+            if let pair = pods.device {
+                Section {
+                    Label(pair.name, systemImage: pair.model.symbol)
+                    Text(batterySummary(pair))
                 }
             }
-            if audio.devices.isEmpty {
-                Text("No output devices")
+
+            Section("Output") {
+                ForEach(audio.devices) { device in
+                    Button {
+                        audio.select(device)
+                    } label: {
+                        // The tick is drawn rather than set, because a menu built
+                        // from a non-key panel does not get the system's own.
+                        Label(
+                            device.id == audio.currentID ? "✓  \(device.name)" : "     \(device.name)",
+                            systemImage: symbol(for: device)
+                        )
+                    }
+                }
+                if audio.devices.isEmpty {
+                    Text("No output devices")
+                }
+            }
+
+            Divider()
+            Button("Sound Settings…") {
+                openSystemSettings("x-apple.systempreferences:com.apple.preference.sound")
+            }
+            Button("Bluetooth Settings…") {
+                openSystemSettings("x-apple.systempreferences:com.apple.preferences.Bluetooth")
             }
         } label: {
-            Image(systemName: audio.current?.symbol ?? "speaker.wave.2.fill")
+            Image(systemName: audio.current.map(symbol(for:)) ?? "speaker.wave.2.fill")
                 .foregroundStyle(.white.opacity(0.6))
                 .imageScale(.small)
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .frame(width: headerIconSize.width, height: headerIconSize.height)
+        // A menu takes no button style, so the lift the icon buttons beside it
+        // get from `springyTile` is given to it directly.
+        .scaleEffect(audioMenuHovering ? 1.08 : 1)
+        .brightness(audioMenuHovering ? 0.12 : 0)
+        .animation(.spring(response: 0.26, dampingFraction: 0.7), value: audioMenuHovering)
+        .onHover { audioMenuHovering = $0 }
         .help(audio.current.map { "Output: \($0.name)" } ?? "Sound output")
         .onAppear { audio.start() }
+    }
+
+    /// A Bluetooth output that is the connected pair gets that pair's own
+    /// drawing - Pro, Max - rather than one generic set of earbuds for all.
+    private func symbol(for device: AudioDevice) -> String {
+        if device.isBluetooth, let pair = pods.device,
+           device.name.localizedCaseInsensitiveContains(pair.name) {
+            return pair.model.symbol
+        }
+        return device.symbol
+    }
+
+    private func batterySummary(_ pair: AirPodsBattery) -> String {
+        var parts: [String] = []
+        if let left = pair.left { parts.append("L \(left)%") }
+        if let right = pair.right { parts.append("R \(right)%") }
+        if let caseLevel = pair.caseLevel { parts.append("Case \(caseLevel)%") }
+        if let single = pair.single { parts.append("\(single)%") }
+        return parts.joined(separator: "   ")
+    }
+
+    private func openSystemSettings(_ address: String) {
+        guard let url = URL(string: address) else { return }
+        NSWorkspace.shared.open(url)
     }
 
     /// The shape every trailing header icon wears.
@@ -193,7 +249,8 @@ struct VornyxHeader: View {
                 }
                 .contentShape(Capsule())
         }
-        .buttonStyle(PlainButtonStyle())
+        // No `.plain` in front of this: a button style nearer the button wins,
+        // and `.plain` there left the springy hover with nothing to do.
         .springyTile(hoverScale: 1.08, pressScale: 0.92, hoverBrightness: 0.12)
         .animation(.smooth(duration: 0.18), value: isActive)
     }

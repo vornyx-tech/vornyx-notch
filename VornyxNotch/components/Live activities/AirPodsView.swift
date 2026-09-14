@@ -204,11 +204,7 @@ struct AirPodsWidgetView: View {
         }
         .padding(.horizontal, 8)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(
-            shape
-                .fill(.white.opacity(0.05))
-                .overlay(shape.strokeBorder(.white.opacity(0.06), lineWidth: 1))
-        )
+        .notchSurface(shape, fill: 0.05, stroke: 0.06)
         .animation(.smooth(duration: 0.3), value: pods.device?.caseLevel == nil)
     }
 

@@ -99,7 +99,10 @@ struct DayTimeline: View {
 
             ZStack(alignment: .topLeading) {
                 RoundedRectangle(cornerRadius: height / 3, style: .continuous)
-                    .fill(.white.opacity(0.05))
+                    .fill(.clear)
+                    .notchSurface(
+                        RoundedRectangle(cornerRadius: height / 3, style: .continuous),
+                        fill: 0.05, stroke: 0)
 
                 ForEach(ticks(for: width), id: \.self) { tick in
                     Rectangle()
@@ -238,7 +241,7 @@ private struct EventRow: View {
             .opacity(event.isCompletedReminder || event.eventStatus == .ended ? 0.45 : 1)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .springyTile(hoverScale: 1.02, pressScale: 0.98, hoverBrightness: 0.06)
     }
 
     private var timeLabel: String {
@@ -328,7 +331,7 @@ private struct WeekStrip: View {
                             .fill(isSelected ? Color.effectiveAccent : .white.opacity(0.06))
                     )
                 }
-                .buttonStyle(.plain)
+                .springyTile(hoverScale: 1.1, pressScale: 0.92, hoverBrightness: 0.08)
             }
         }
     }
@@ -497,7 +500,7 @@ struct ReminderToggle: View {
                 Circle().fill(Color.black.opacity(0.001)).frame(width: 14, height: 14)
             }
         }
-        .buttonStyle(.plain)
+        .springyTile(hoverScale: 1.2, pressScale: 0.85, hoverBrightness: 0.15)
         .accessibilityLabel(isOn ? "Mark as incomplete" : "Mark as complete")
     }
 }

@@ -23,7 +23,7 @@ struct VornyxLargeButtons: View {
                         Text(title).font(.body)
                     }
                 }
-            }).buttonStyle(PlainButtonStyle()).shadow(color: .black.opacity(0.5), radius: 10)
+            }).springyTile(hoverScale: 1.05, pressScale: 0.95, hoverBrightness: 0.08).shadow(color: .black.opacity(0.5), radius: 10)
     }
 }
 
@@ -67,7 +67,7 @@ struct VornyxExtrasMenu : View {
                 }
             }
         }
-        .buttonStyle(PlainButtonStyle()).shadow(color: .black.opacity(0.5), radius: 10)
+        .springyTile(hoverScale: 1.05, pressScale: 0.95, hoverBrightness: 0.08).shadow(color: .black.opacity(0.5), radius: 10)
     }
     
     var hide: some View {

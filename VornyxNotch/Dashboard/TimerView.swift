@@ -123,7 +123,6 @@ struct TimerView: View {
                         .foregroundStyle(prominent ? .black.opacity(0.85) : .white.opacity(0.8))
                 }
         }
-        .buttonStyle(.plain)
         .springyTile(hoverScale: 1.12, pressScale: 0.9, hoverBrightness: 0.12)
     }
 
@@ -175,7 +174,6 @@ struct TimerView: View {
                         .fill(selected ? Color.effectiveAccent.opacity(0.22) : .white.opacity(0.07))
                 )
         }
-        .buttonStyle(.plain)
         .springyTile(hoverScale: 1.07, pressScale: 0.93, hoverBrightness: 0.10)
         .help("\(minutes) minute\(minutes == 1 ? "" : "s")")
     }

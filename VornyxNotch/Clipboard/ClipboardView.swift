@@ -369,10 +369,12 @@ struct ClipboardView: View {
             }
             .padding(padding)
             .frame(width: size.width, height: size.height)
-            .background(
-                RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .fill(.white.opacity(copied ? 0.16 : (isHovered ? 0.12 : 0.07)))
-            )
+            .notchSurface(
+                RoundedRectangle(cornerRadius: radius, style: .continuous),
+                fill: copied ? 0.16 : (isHovered ? 0.12 : 0.07), stroke: 0,
+                glassTint: copied
+                    ? Color.effectiveAccent.opacity(0.35)
+                    : (isHovered ? Color.white.opacity(0.1) : nil))
             .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
@@ -394,7 +396,7 @@ struct ClipboardView: View {
                             .frame(width: 17, height: 17)
                             .background(Circle().fill(.black.opacity(0.6)))
                     }
-                    .buttonStyle(.plain)
+                    .springyTile(hoverScale: 1.15, pressScale: 0.88, hoverBrightness: 0.15)
                     .padding(5)
                     .transition(.scale.combined(with: .opacity))
                 }

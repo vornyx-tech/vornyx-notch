@@ -101,7 +101,7 @@ struct LocalSendLiveActivity: View {
                 .background(Circle().fill(prominent ? Color.effectiveAccent : .white.opacity(0.16)))
                 .contentShape(Circle())
         }
-        .buttonStyle(.plain)
+        .springyTile(hoverScale: 1.12, pressScale: 0.9, hoverBrightness: 0.12)
         .help(help)
     }
 

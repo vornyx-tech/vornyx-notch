@@ -70,13 +70,17 @@ struct ShelfView: View {
         // this is a plain surface; the dashes appear only while a drag is over
         // it, which is the moment they actually mean something.
         RoundedRectangle(cornerRadius: innerPanelCornerRadius, style: .continuous)
-            .fill(.white.opacity(vm.dragDetectorTargeting ? 0.10 : 0.05))
+            .fill(.clear)
+            .notchSurface(
+                RoundedRectangle(cornerRadius: innerPanelCornerRadius, style: .continuous),
+                fill: vm.dragDetectorTargeting ? 0.10 : 0.05, stroke: 0,
+                glassTint: vm.dragDetectorTargeting ? Color.effectiveAccent.opacity(0.3) : nil)
             .overlay(
                 RoundedRectangle(cornerRadius: innerPanelCornerRadius, style: .continuous)
                     .strokeBorder(
                         vm.dragDetectorTargeting
                             ? Color.effectiveAccent.opacity(0.95)
-                            : Color.white.opacity(0.08),
+                            : Color.white.opacity(NotchGlass.isActive ? 0 : 0.08),
                         style: vm.dragDetectorTargeting
                             ? StrokeStyle(lineWidth: 2, lineCap: .round, dash: [7, 5])
                             : StrokeStyle(lineWidth: 1)
