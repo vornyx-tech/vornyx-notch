@@ -33,14 +33,16 @@ struct VornyxHeader: View {
             .blur(radius: vm.notchState == .closed ? 20 : 0)
             .zIndex(2)
 
-            if vm.notchState == .open {
-                Rectangle()
-                    .fill(NSScreen.screen(withUUID: coordinator.selectedScreenUUID)?.safeAreaInsets.top ?? 0 > 0 ? .black : .clear)
-                    .frame(width: vm.closedNotchSize.width)
-                    .mask {
-                        NotchShape()
-                    }
-            }
+            // Always in the row, and only its fill follows the notch state.
+            // Removed on close, the gap vanished in the first frame of the
+            // animation, the row closed up, and the tab icons jumped towards
+            // the middle while they were still fading out.
+            Rectangle()
+                .fill(fillsCutOut ? .black : .clear)
+                .frame(width: vm.closedNotchSize.width)
+                .mask {
+                    NotchShape()
+                }
 
             HStack(spacing: 4) {
                 if vm.notchState == .open {
@@ -112,6 +114,12 @@ struct VornyxHeader: View {
     /// the two icon groups share the remaining width with maxWidth: .infinity
     /// meant that once they outgrew it they spilled inwards, putting icons
     /// underneath the cut-out where they cannot be seen or clicked.
+    /// Black behind the hardware cut-out while open, on a screen that has one.
+    private var fillsCutOut: Bool {
+        let top = NSScreen.screen(withUUID: coordinator.selectedScreenUUID)?.safeAreaInsets.top ?? 0
+        return vm.notchState == .open && top > 0
+    }
+
     private var sideWidth: CGFloat {
         let outerInset = Defaults[.cornerRadiusScaling]
             ? cornerRadiusInsets.opened.top

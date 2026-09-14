@@ -970,6 +970,10 @@ struct ContentView: View {
             
             guard vm.notchState == .closed,
                   !coordinator.sneakPeek.show,
+                  // A LocalSend banner has buttons to reach: moving the pointer
+                  // onto Accept or Decline must not open the notch over them.
+                  // Hover opens again once the banner has gone.
+                  !showsLocalSendBanner,
                   Defaults[.openNotchOnHover] else { return }
             
             hoverTask = Task {
@@ -979,7 +983,10 @@ struct ContentView: View {
                 await MainActor.run {
                     guard self.vm.notchState == .closed,
                           self.isHovering,
-                          !self.coordinator.sneakPeek.show else { return }
+                          !self.coordinator.sneakPeek.show,
+                          // Checked again after the hover delay: the banner may
+                          // have appeared while the pointer was already resting.
+                          !self.showsLocalSendBanner else { return }
                     
                     self.doOpen()
                 }
