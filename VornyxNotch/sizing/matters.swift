@@ -281,6 +281,13 @@ enum AlbumArtStyle {
         static let driftRadius: CGFloat = 28
         static let opacitySwing: Double = 0.22
 
+        /// How much stronger the glow is when the notch is Liquid Glass.
+        ///
+        /// Over black the glow has nothing to compete with. Over glass, with
+        /// whatever is behind the notch showing through, the same glow washes
+        /// out - so it is turned up there, and only there. 1 is the black look.
+        static let liquidGlassIntensity: Double = 2.5
+
         /// Seconds per cycle. Deliberately not multiples of one another, so
         /// the combined motion takes minutes to repeat and never reads as a
         /// loop.
