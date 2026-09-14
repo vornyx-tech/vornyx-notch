@@ -58,7 +58,8 @@ struct AlbumArtView: View {
                     appIconOverlay
                 }
             }
-            .buttonStyle(PlainButtonStyle())
+            // No brightness: the artwork's glow is drawn from it, and would flash.
+            .springyTile(hoverScale: 1.03, pressScale: 0.96, hoverBrightness: 0)
             .scaleEffect(musicManager.isPlaying ? 1 : 0.85)
             
             albumArtDarkOverlay
@@ -407,7 +408,7 @@ struct VolumeControlView: View {
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(musicManager.volumeControlSupported ? .white : .gray)
             }
-            .buttonStyle(PlainButtonStyle())
+            .springyTile(hoverScale: 1.15, pressScale: 0.9, hoverBrightness: 0.15)
             .disabled(!musicManager.volumeControlSupported)
             .frame(width: 24)
 

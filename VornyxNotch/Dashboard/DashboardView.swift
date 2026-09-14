@@ -137,7 +137,8 @@ struct DashboardView: View {
                         .frame(width: 5, height: 5)
                         .contentShape(Circle().inset(by: -5))
                 }
-                .buttonStyle(.plain)
+                // A 5pt dot needs a far bigger lift than a tile to be seen moving.
+                .springyTile(hoverScale: 1.6, pressScale: 0.8, hoverBrightness: 0.3)
                 .help(page.name)
             }
         }

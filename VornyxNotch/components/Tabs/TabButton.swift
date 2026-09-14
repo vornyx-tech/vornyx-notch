@@ -16,6 +16,8 @@ struct TabButton: View {
     let selected: Bool
     let onClick: () -> Void
 
+    @State private var hovering = false
+
     /// Matches the optical height of the SF Symbols in the same pill.
     private let artworkHeight: CGFloat = 14
     /// The trimmed logo's own proportions. Fixing height alone let the pill's
@@ -37,8 +39,15 @@ struct TabButton: View {
             }
             .padding(.horizontal, 11)
             .contentShape(Capsule())
+            // Scale and brightness rather than a background of its own: the
+            // selected tab's capsule slides between tabs underneath, and a
+            // second capsule here would fight it.
+            .brightness(hovering && !selected ? 0.25 : 0)
+            .scaleEffect(hovering && !selected ? 1.12 : 1)
+            .animation(.spring(response: 0.26, dampingFraction: 0.7), value: hovering)
         }
         .buttonStyle(PlainButtonStyle())
+        .onHover { hovering = $0 }
     }
 }
 

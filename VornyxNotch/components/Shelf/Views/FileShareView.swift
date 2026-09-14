@@ -19,12 +19,20 @@ struct FileShareView: View {
     @State private var interactionNonce: UUID = .init()
     @State private var isProcessing = false
     
+    @State private var hovering = false
+
     private var selectedProvider: QuickShareProvider {
         quickShare.availableProviders.first(where: { $0.id == quickShareProvider }) ?? QuickShareProvider(id: "System Share Menu", imageData: nil, supportsRawText: true)
     }
 
     var body: some View {
         dropArea
+            // It opens the share picker when clicked, so it answers the
+            // pointer the way the buttons do.
+            .brightness(hovering ? 0.06 : 0)
+            .scaleEffect(hovering ? 1.02 : 1)
+            .animation(.spring(response: 0.26, dampingFraction: 0.7), value: hovering)
+            .onHover { hovering = $0 }
             .background(NSViewHost(view: $hostView))
             .onDrop(of: [.fileURL, .url, .utf8PlainText, .plainText, .data, .image], isTargeted: $vm.dropZoneTargeting) { providers in
                 interactionNonce = .init()
@@ -42,13 +50,17 @@ struct FileShareView: View {
     private var dropArea: some View {
         ZStack {
             RoundedRectangle(cornerRadius: innerPanelCornerRadius, style: .continuous)
-                .fill(.white.opacity(vm.dropZoneTargeting ? 0.10 : 0.05))
+                .fill(.clear)
+                .notchSurface(
+                    RoundedRectangle(cornerRadius: innerPanelCornerRadius, style: .continuous),
+                    fill: vm.dropZoneTargeting ? 0.10 : 0.05, stroke: 0,
+                    glassTint: vm.dropZoneTargeting ? Color.effectiveAccent.opacity(0.3) : nil)
                 .overlay(
                     RoundedRectangle(cornerRadius: innerPanelCornerRadius, style: .continuous)
                         .strokeBorder(
                             vm.dropZoneTargeting
                                 ? Color.effectiveAccent.opacity(0.95)
-                                : Color.white.opacity(0.08),
+                                : Color.white.opacity(NotchGlass.isActive ? 0 : 0.08),
                             style: vm.dropZoneTargeting
                                 ? StrokeStyle(lineWidth: 2, lineCap: .round, dash: [7, 5])
                                 : StrokeStyle(lineWidth: 1)

@@ -1344,6 +1344,12 @@ struct Appearance: View {
     @State private var name: String = ""
     @State private var url: String = ""
     @State private var speed: CGFloat = 1.0
+
+    private static var supportsLiquidGlass: Bool {
+        if #available(macOS 26.0, *) { return true }
+        return false
+    }
+
     var body: some View {
         Form {
             Section {
@@ -1351,6 +1357,15 @@ struct Appearance: View {
                 Defaults.Toggle(key: .settingsIconInNotch) {
                     Text("Show settings icon in notch")
                 }
+                Defaults.Toggle(key: .liquidGlassNotch) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Liquid Glass")
+                        Text("The open notch fades from black into glass. Needs macOS 26 or later.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .disabled(!Self.supportsLiquidGlass)
 
             } header: {
                 SettingsSectionHeader("General", icon: "gearshape.fill", tint: .blue)

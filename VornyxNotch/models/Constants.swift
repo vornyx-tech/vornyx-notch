@@ -168,6 +168,9 @@ extension Defaults.Keys {
     static let lightingEffect = Key<Bool>("lightingEffect", default: true)
     static let enableShadow = Key<Bool>("enableShadow", default: true)
     static let cornerRadiusScaling = Key<Bool>("cornerRadiusScaling", default: true)
+    /// The open notch as Liquid Glass under a black band. macOS 26 and later;
+    /// earlier systems keep the black notch whatever this says.
+    static let liquidGlassNotch = Key<Bool>("liquidGlassNotch", default: true)
 
 
     static let showNotHumanFace = Key<Bool>("showNotHumanFace", default: false)
