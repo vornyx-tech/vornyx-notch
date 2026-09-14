@@ -51,6 +51,9 @@ struct SettingsView: View {
                 NavigationLink(value: "Shelf") {
                     Label("Shelf", systemImage: "books.vertical")
                 }
+                NavigationLink(value: "LocalSend") {
+                    Label("LocalSend", systemImage: "antenna.radiowaves.left.and.right")
+                }
                 NavigationLink(value: "Clipboard") {
                     Label("Clipboard", systemImage: "doc.on.clipboard")
                 }
@@ -91,6 +94,8 @@ struct SettingsView: View {
                     Charge()
                 case "Shelf":
                     Shelf()
+                case "LocalSend":
+                    LocalSendSettings()
                 case "Clipboard":
                     ClipboardSettings()
                 case "AI":
@@ -474,7 +479,7 @@ struct Charge: View {
                 Defaults.Toggle(key: .showAirPodsWidget) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Show AirPods on the home page")
-                        Text("Keeps the levels beside the player. Widens the open notch a little.")
+                        Text("Shows the levels beside the player while a pair is connected. The notch widens a little to make room.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -2089,6 +2094,89 @@ struct ClipboardSettings: View {
         }
         .accentColor(.effectiveAccent)
         .navigationTitle("Clipboard")
+    }
+}
+
+// MARK: - LocalSend settings
+
+struct LocalSendSettings: View {
+    @Default(.localSendEnabled) var enabled
+    @Default(.localSendAlias) var alias
+    @ObservedObject private var localSend = LocalSendManager.shared
+
+    var body: some View {
+        Form {
+            Section {
+                Defaults.Toggle(key: .localSendEnabled) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Enable LocalSend")
+                        Text("Send and receive files with anything running LocalSend on the same network - phones, Windows, Linux or other Macs.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                TextField("Device name", text: $alias, prompt: Text(localSend.alias))
+                    .disabled(!enabled)
+                Defaults.Toggle(key: .localSendAutoAccept) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Accept files automatically")
+                        Text("Otherwise the notch asks first. Anyone on the network can offer you a file.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .disabled(!enabled)
+                Defaults.Toggle(key: .localSendAddToShelf) {
+                    Text("Put received files on the shelf")
+                }
+                .disabled(!enabled)
+            } header: {
+                SettingsSectionHeader("LocalSend", icon: "antenna.radiowaves.left.and.right", tint: .teal)
+            } footer: {
+                Text("Received files are saved to Downloads. macOS asks once for permission to use the local network.")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+            }
+
+            Section {
+                HStack {
+                    Text("Status")
+                    Spacer()
+                    Text(statusText)
+                        .foregroundStyle(.secondary)
+                }
+                HStack {
+                    Text("Devices found")
+                    Spacer()
+                    Text("\(localSend.devices.count)")
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
+                HStack {
+                    Text("Fingerprint")
+                    Spacer()
+                    Text(localSend.fingerprint.isEmpty ? "-" : String(localSend.fingerprint.prefix(16)) + "...")
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                }
+                Button("Look for devices") {
+                    localSend.refresh()
+                }
+                .disabled(!localSend.isRunning || localSend.isScanning)
+            }
+        }
+        .accentColor(.effectiveAccent)
+        .navigationTitle("LocalSend")
+    }
+
+    private var statusText: String {
+        switch localSend.availability {
+        case .off: return String(localized: "Off")
+        case .starting: return String(localized: "Starting...")
+        case .running(let port): return String(localized: "Running on port \(port)")
+        case .failed(let message): return message
+        }
     }
 }
 

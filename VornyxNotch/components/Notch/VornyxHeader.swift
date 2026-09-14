@@ -14,6 +14,7 @@ struct VornyxHeader: View {
     @ObservedObject var coordinator = VornyxViewCoordinator.shared
     @StateObject var tvm = ShelfStateViewModel.shared
     @ObservedObject var audio = AudioDeviceManager.shared
+    @ObservedObject var pods = AirPodsManager.shared
     var body: some View {
         HStack(spacing: 0) {
             HStack {
@@ -114,7 +115,7 @@ struct VornyxHeader: View {
         let outerInset = Defaults[.cornerRadiusScaling]
             ? cornerRadiusInsets.opened.top
             : cornerRadiusInsets.opened.bottom
-        let content = openNotchWidth(for: coordinator.currentView) - 2 * outerInset - 24
+        let content = openNotchWidth(for: coordinator.currentView, showingAirPods: pods.widgetShowing) - 2 * outerInset - 24
         return max(70, (content - vm.closedNotchSize.width) / 2)
     }
 

@@ -31,14 +31,18 @@ let homeNotchBaseWidth: CGFloat = 560
 let airPodsWidgetWidth: CGFloat = 112
 let airPodsWidgetGap: CGFloat = 15
 
-/// How far the home page reaches out, allowing for the AirPods panel.
+/// How far the home page reaches out, with or without the AirPods panel.
 ///
-/// Keyed off the setting rather than off whether a pair is connected: the notch
-/// changing width every time you put an earbud back in its case would be far
-/// more distracting than a panel that says "Not connected" for a minute.
+/// The panel only takes its room while a pair is connected. Taking one ear out
+/// keeps the pair connected, so the notch widens once per connection rather
+/// than with every earbud.
+func homePageWidth(showingAirPods: Bool) -> CGFloat {
+    homeNotchBaseWidth + (showingAirPods ? airPodsWidgetWidth + airPodsWidgetGap : 0)
+}
+
+/// The widest the home page can get - what the window has to be able to hold.
 var homeNotchWidth: CGFloat {
-    homeNotchBaseWidth
-        + (Defaults[.showAirPodsWidget] ? airPodsWidgetWidth + airPodsWidgetGap : 0)
+    homePageWidth(showingAirPods: Defaults[.showAirPodsWidget])
 }
 
 /// Width of the open notch for a given tab. Only the home page follows the
@@ -114,10 +118,10 @@ func openNotchHeight(for view: NotchViews) -> CGFloat {
     view == .dashboard ? dashboardNotchHeight : defaultOpenNotchSize.height
 }
 
-func openNotchWidth(for view: NotchViews) -> CGFloat {
+func openNotchWidth(for view: NotchViews, showingAirPods: Bool) -> CGFloat {
     switch view {
     case .home:
-        return homeNotchWidth
+        return homePageWidth(showingAirPods: showingAirPods)
     case .dashboard:
         return dashboardNotchWidth
     case .shelf, .clipboard:
@@ -134,6 +138,17 @@ let mirrorBigScreenHeightRange: ClosedRange<CGFloat> = 120...420
 var mirrorBigScreenReservedHeight: CGFloat {
     guard Defaults[.showMirror], Defaults[.mirrorDisplayMode] == .bigScreen else { return 0 }
     return Defaults[.mirrorBigScreenHeight].clamped(to: mirrorBigScreenHeightRange)
+}
+
+/// The LocalSend strip under the open notch's page: devices to drop onto, or
+/// the transfer in flight.
+let localSendStripHeight: CGFloat = 84
+
+/// Room the window keeps for that strip, the same way it does for the mirror:
+/// the window cannot resize mid-animation, so the room has to already be there
+/// the moment a drag makes the strip appear.
+var localSendReservedHeight: CGFloat {
+    Defaults[.localSendEnabled] ? localSendStripHeight + 8 : 0
 }
 
 /// Margin of error around the *open* notch: how far the pointer may stray past
@@ -165,6 +180,7 @@ var openNotchSize: CGSize {
         // clipboard opened out to all its rows.
         height: max(defaultOpenNotchSize.height, dashboardNotchMaxHeight, clipboardMaxHeight)
             + mirrorBigScreenReservedHeight
+            + localSendReservedHeight
             + openNotchHoverSlack
     )
 }

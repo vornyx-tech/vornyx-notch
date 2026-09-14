@@ -38,6 +38,4 @@ Notch shape is configurable under **Settings → Appearance → Notch corner rad
 
 ## Credits & license
 
-Vornyx Notch is a fork of [boring.notch](https://github.com/TheBoredTeam/boring.notch) by The Bored Team and its contributors, and would not exist without their work.
-
 Licensed under the **GNU General Public License v3.0** — see [LICENSE](LICENSE). Third-party dependency licenses are listed in [THIRD_PARTY_LICENSES](THIRD_PARTY_LICENSES). Per-file copyright notices name the original authors and are retained.

@@ -273,8 +273,9 @@ extension Defaults.Keys {
     // MARK: AirPods
     /// Announce a pair connecting in the closed notch.
     static let airPodsSneakPeek = Key<Bool>("airPodsSneakPeek", default: true)
-    /// Keep the levels beside the player on the home page. Off by default: it
-    /// widens the home notch, which is not something to do uninvited.
+    /// Show the levels beside the player on the home page while a pair is
+    /// connected. Off by default: it widens the home notch, which is not
+    /// something to do uninvited.
     static let showAirPodsWidget = Key<Bool>("showAirPodsWidget", default: false)
 
     // MARK: Sound output
@@ -323,6 +324,19 @@ extension Defaults.Keys {
     static let copyOnDrag = Key<Bool>("copyOnDrag", default: false)
     static let autoRemoveShelfItems = Key<Bool>("autoRemoveShelfItems", default: false)
     static let expandedDragDetection = Key<Bool>("expandedDragDetection", default: true)
+
+    // MARK: LocalSend
+    /// Off by default: turning it on starts a server on the local network and
+    /// raises macOS's local network prompt, neither of which should happen to
+    /// someone who never asked for it.
+    static let localSendEnabled = Key<Bool>("localSendEnabled", default: false)
+    /// The name other devices see. Empty means "Vornyx Notch".
+    static let localSendAlias = Key<String>("localSendAlias", default: "")
+    /// Take incoming files without asking. Off: anyone on the network can
+    /// offer a file, and saying yes should be a decision.
+    static let localSendAutoAccept = Key<Bool>("localSendAutoAccept", default: false)
+    /// Put received files on the shelf as well as in Downloads.
+    static let localSendAddToShelf = Key<Bool>("localSendAddToShelf", default: true)
     
     // MARK: Calendar
     static let calendarSelectionState = Key<CalendarSelectionState>("calendarSelectionState", default: .all)

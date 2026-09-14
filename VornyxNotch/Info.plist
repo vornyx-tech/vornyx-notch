@@ -7,8 +7,12 @@
 		<key>NSAllowsArbitraryLoads</key>
 		<true/>
 	</dict>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Vornyx Notch reads the battery levels of your connected AirPods to show them in the notch.</string>
 	<key>NSFocusStatusUsageDescription</key>
 	<string>Vornyx Notch shows a light in the notch while a Focus is on.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Vornyx Notch finds devices running LocalSend on your network, so you can send files to them from the notch and receive files from them.</string>
 	<key>NSLocationUsageDescription</key>
 	<string>Vornyx Notch uses your location to show the local forecast on the dashboard. You can name a place in Settings instead.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
