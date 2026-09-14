@@ -94,6 +94,10 @@ struct ContentView: View {
             : cornerRadiusInsets.closed.top
     }
 
+    private var currentNotchBottomRadius: CGFloat {
+        usesOpenedRadii ? cornerRadiusInsets.opened.bottom : cornerRadiusInsets.closed.bottom
+    }
+
     private var currentNotchShape: NotchShape {
         NotchShape(
             topCornerRadius: topCornerRadius,
@@ -165,7 +169,8 @@ struct ContentView: View {
                         NotchBackground(
                             isOpen: vm.notchState == .open,
                             blackBandHeight: max(vm.effectiveClosedNotchHeight, 24),
-                            shape: currentNotchShape)
+                            topRadius: topCornerRadius,
+                            bottomRadius: currentNotchBottomRadius)
                     }
                     .clipShape(currentNotchShape)
                     .overlay(alignment: .top) {
@@ -1111,22 +1116,38 @@ struct GeneralDropTargetDelegate: DropDelegate {
 
 /// What the notch is made of.
 ///
-/// Black while closed, so it disappears into the hardware notch. Open, with
-/// Liquid Glass on, the notch turns to glass below a black band as tall as the
-/// hardware notch, which fades out downwards - so the glass seems to pour out
-/// of the notch, rather than a glass panel sitting under a black one.
+/// Two layers, both always there while Liquid Glass is on: the glass
+/// underneath, and the black the notch has always been on top of it. Opening
+/// and closing only change how much of the glass the black covers - it fades
+/// out as the notch opens and back in as it closes, riding the notch's own
+/// spring - so neither layer comes or goes in the middle of an animation.
+/// When the glass was taken away at the start of a close, the notch spent the
+/// close with no background at all, and its text and artwork shrank on their
+/// own. Closed, the black covers the glass completely, so the closed notch is
+/// the same black as the hardware notch.
 ///
-/// The glass itself is the clear variant - the one that bends what is behind it
-/// the most, which is what reads as liquid. Clear glass is meant to sit over a
-/// dimming layer, and here the dimming is held steady through the middle, where
-/// the header and the player's text are, and only lets go over the last stretch
-/// so the glass turns properly clear right at the bottom edge.
-private struct NotchBackground: View {
+/// Animatable over its corner radii. The glass is shaped by a modifier, and a
+/// modifier is handed only the end value: its corners jumped straight to the
+/// closed radius while the notch around it was still easing there. As an
+/// animatable view it is redrawn every frame with the radii in between - the
+/// same values the notch's own clip is drawn with.
+///
+/// Over the glass, a black band as tall as the hardware notch fades into it so
+/// it hides in the cut-out; the dimming holds through the middle for the white
+/// text and lets go towards the bottom edge.
+private struct NotchBackground: View, Animatable {
     let isOpen: Bool
     let blackBandHeight: CGFloat
-    /// The notch's own outline, so the glass's edge highlight runs along its
-    /// rounded corners instead of being cut off by them.
-    let shape: NotchShape
+    var topRadius: CGFloat
+    var bottomRadius: CGFloat
+
+    var animatableData: AnimatablePair<CGFloat, CGFloat> {
+        get { .init(topRadius, bottomRadius) }
+        set {
+            topRadius = newValue.first
+            bottomRadius = newValue.second
+        }
+    }
 
     @Default(.liquidGlassNotch) private var liquidGlass
 
@@ -1139,24 +1160,20 @@ private struct NotchBackground: View {
     /// Dimming at the bottom edge, where the glass is left nearly clear.
     private let bottomDim: Double = 0.40
 
+    /// The notch's outline at this frame's radii.
+    private var shape: NotchShape {
+        NotchShape(topCornerRadius: topRadius, bottomCornerRadius: bottomRadius)
+    }
+
     var body: some View {
         ZStack(alignment: .top) {
-            // Only while open. Glass is drawn in a layer of its own that does not
-            // follow the notch's clip while the corners animate, so kept under
-            // the black through the close it came out as a square-cornered
-            // block - and redrawing it every frame of the shrink made the close
-            // stutter. Gone the moment closing starts, the close is exactly the
-            // plain black one Liquid Glass off always had.
-            if #available(macOS 26.0, *), showsGlass {
+            if #available(macOS 26.0, *), liquidGlass {
                 Rectangle()
                     .fill(.clear)
                     .glassEffect(.clear, in: shape)
 
-                // One gradient, not a stack of pieces. Stacked, every seam
-                // landed on a fractional pixel while the notch animated its
-                // height, the edges of neighbouring pieces were smoothed
-                // separately, and the glass showed through as a thin bright
-                // line at each seam until the animation settled.
+                // One gradient, not a stack of pieces: stacked, every seam
+                // flashed as a thin bright line while the notch resized.
                 GeometryReader { proxy in
                     let height = max(proxy.size.height, 1)
                     let bandEnd = min(1, blackBandHeight / height)
@@ -1173,20 +1190,19 @@ private struct NotchBackground: View {
                         ],
                         startPoint: .top, endPoint: .bottom)
                 }
+                .clipShape(shape)
             }
 
-            // Over the glass, and faded rather than removed, so opening and
-            // closing cross-fade between the two instead of snapping.
-            Color.black
-                .opacity(showsGlass ? 0 : 1)
+            // No animation of its own: the change arrives with the notch's open
+            // or close spring from `mainLayout`, so the black fades exactly as
+            // fast as the notch moves.
+            shape.fill(.black)
+                .opacity(isOpen && glassAvailable ? 0 : 1)
         }
-        // Fade into glass on the way open; on the way closed the black is back
-        // at once, or there would be frames with neither glass nor black.
-        .animation(showsGlass ? .smooth(duration: 0.35) : nil, value: showsGlass)
     }
 
-    private var showsGlass: Bool {
-        guard isOpen, liquidGlass else { return false }
+    private var glassAvailable: Bool {
+        guard liquidGlass else { return false }
         if #available(macOS 26.0, *) { return true }
         return false
     }

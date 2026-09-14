@@ -187,7 +187,7 @@ private struct HorizontalSwipeMonitor: NSViewRepresentable {
         private var monitor: Any?
         private weak var hostView: NSView?
         private var accumulated: CGFloat = 0
-        /// One page per gesture: latched until the fingers lift.
+        /// One page per gesture: latched until the next touch begins.
         private var fired = false
         private var idleTask: Task<Void, Never>?
 
@@ -233,13 +233,25 @@ private struct HorizontalSwipeMonitor: NSViewRepresentable {
         }
 
         private func handleScroll(_ event: NSEvent) {
-            if event.phase == .ended || event.phase == .cancelled || event.momentumPhase == .ended {
+            // Momentum: the scroll events macOS keeps sending for a while after
+            // the fingers lift. They are the tail of a swipe that has already
+            // paged. Counting them was the bug - the latch had just been reset
+            // when the fingers lifted, so the momentum paged again, and a single
+            // flick ran through two or three pages.
+            guard event.momentumPhase.isEmpty else { return }
+
+            // Only a new touch re-arms the latch. Lifting the fingers keeps it
+            // set, so nothing that trails a swipe can page a second time.
+            if event.phase.contains(.began) || event.phase.contains(.mayBegin) {
                 reset()
+            }
+            if event.phase.contains(.ended) || event.phase.contains(.cancelled) {
+                accumulated = 0
                 return
             }
 
             guard pointerIsOverHost(event) else {
-                reset()
+                accumulated = 0
                 return
             }
 
@@ -252,14 +264,15 @@ private struct HorizontalSwipeMonitor: NSViewRepresentable {
             let scale: CGFloat = event.hasPreciseScrollingDeltas ? 1 : 8
             accumulated += dx * scale
 
-            // Restart the gesture if it idles, so a second flick pages again.
-            idleTask?.cancel()
-            idleTask = Task { @MainActor [weak self] in
-                // Long enough that a slow swipe at low sensitivity stays one
-                // gesture, short enough that a second flick still pages.
-                try? await Task.sleep(for: .milliseconds(600))
-                guard !Task.isCancelled else { return }
-                self?.reset()
+            // A mouse wheel has no touches to begin or end, so it is re-armed by
+            // going quiet instead - long enough that one spin stays one page.
+            if event.phase.isEmpty {
+                idleTask?.cancel()
+                idleTask = Task { @MainActor [weak self] in
+                    try? await Task.sleep(for: .milliseconds(600))
+                    guard !Task.isCancelled else { return }
+                    self?.reset()
+                }
             }
 
             guard !fired, abs(accumulated) >= threshold else { return }

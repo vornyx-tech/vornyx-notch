@@ -139,6 +139,8 @@ private struct LivingGlow: View {
     var body: some View {
         let g = AlbumArtStyle.Glow.self
         let t = tick + phase
+        // Stronger over Liquid Glass, untouched over black - see `liquidGlassIntensity`.
+        let intensity = NotchGlass.isActive ? g.liquidGlassIntensity : 1
 
         Group {
             let breathe = sin(t / g.breathePeriod)
@@ -159,7 +161,7 @@ private struct LivingGlow: View {
                 .rotationEffect(.degrees(g.baseRotation + g.rotationSwing * rotate))
                 .offset(x: g.driftRadius * sway, y: g.driftRadius * bob)
                 .blur(radius: g.blur)
-                .opacity(isActive ? g.baseOpacity + g.opacitySwing * shimmer : 0)
+                .opacity(isActive ? min(1, (g.baseOpacity + g.opacitySwing * shimmer) * intensity) : 0)
                 .animation(.easeInOut(duration: 0.6), value: isActive)
         }
         .onReceive(clock) { date in
