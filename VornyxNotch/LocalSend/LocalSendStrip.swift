@@ -144,7 +144,11 @@ struct LocalSendStrip: View {
             .disabled(localSend.isScanning)
             .help("Look for devices")
         }
-        .padding(.horizontal, 12)
+        // More room on the left than the right: the label is text, and text
+        // this close to the strip's rounded corner looks jammed against it,
+        // where the round refresh button on the right sits fine at 12.
+        .padding(.leading, 20)
+        .padding(.trailing, 12)
     }
 }
 
@@ -249,12 +253,20 @@ private struct DeviceTile: View {
                 .lineLimit(1)
                 .truncationMode(.middle)
         }
-        .foregroundStyle(targeted ? Color.effectiveAccent : .white.opacity(0.88))
+        // White on the accent glass: accent-coloured type on accent-tinted glass
+        // would all but disappear.
+        .foregroundStyle(targeted && !NotchGlass.isActive ? Color.effectiveAccent : .white.opacity(0.92))
         .padding(.horizontal, 8)
         .frame(width: 104, height: localSendStripHeight - 24)
+        // Tinted in the accent colour, so the devices you can send to stand
+        // out from the grey panels around them - and deeper while a drop
+        // hovers over one, so it is plain which device will get it.
         .notchSurface(
             shape, fill: targeted ? 0.14 : 0.07, stroke: 0,
-            glassTint: targeted ? Color.effectiveAccent.opacity(0.35) : nil)
+            // The same glass as every other surface, with the accent colour as
+            // its tint - strong enough to actually see, the way the Send text
+            // button's is. At a fifth, the colour vanished into the glass.
+            glassTint: Color.effectiveAccent.opacity(targeted ? 0.8 : 0.55))
         .overlay(
             shape.strokeBorder(
                 targeted ? Color.effectiveAccent.opacity(0.95) : .white.opacity(NotchGlass.isActive ? 0 : 0.08),

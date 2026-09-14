@@ -197,7 +197,7 @@ struct WeatherView: View {
     /// `content`.
     private func days(_ snapshot: WeatherSnapshot, width: CGFloat) -> some View {
         let range = temperatureRange(snapshot.days)
-        let shape = RoundedRectangle(cornerRadius: nestedCornerRadius(inset: 4), style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
 
         return VStack(spacing: 2) {
             ForEach(snapshot.days.prefix(4)) { day in
