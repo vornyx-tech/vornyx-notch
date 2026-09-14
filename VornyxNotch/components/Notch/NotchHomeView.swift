@@ -479,6 +479,7 @@ struct VolumeControlView: View {
 
 struct NotchHomeView: View {
     @EnvironmentObject var vm: VornyxViewModel
+    @ObservedObject private var pods = AirPodsManager.shared
     @ObservedObject var webcamManager = WebcamManager.shared
     @ObservedObject var batteryModel = BatteryStatusViewModel.shared
     @ObservedObject var coordinator = VornyxViewCoordinator.shared
@@ -503,11 +504,10 @@ struct NotchHomeView: View {
         Defaults[.showCalendar]
     }
 
-    /// The AirPods panel is opt-in, and the home width is reserved for it in
-    /// `homeNotchWidth` off the same setting - so this must follow the setting
-    /// exactly, connected or not, or the page and the notch disagree.
+    /// Opt-in, and only while a pair is connected. `ContentView` sizes the notch
+    /// off the same `widgetShowing`, so the page and the notch agree.
     private var shouldShowAirPods: Bool {
-        Defaults[.showAirPodsWidget]
+        pods.widgetShowing
     }
 
     private var mainContent: some View {
@@ -538,6 +538,7 @@ struct NotchHomeView: View {
                     .animation(.interactiveSpring(response: 0.32, dampingFraction: 0.76, blendDuration: 0), value: shouldShowCamera)
             }
         }
+        .animation(.smooth(duration: 0.3), value: shouldShowAirPods)
         // No transition of its own: the page slide at the call site owns how
         // this arrives, and a .move(edge: .top) here fought it, which is why
         // home dropped in from above while the other tabs slid sideways.

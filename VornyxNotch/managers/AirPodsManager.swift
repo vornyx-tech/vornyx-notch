@@ -5,10 +5,11 @@
 //  Battery for the AirPods - or Beats - currently connected.
 //
 
+import AppKit
 import Combine
 import Defaults
 import Foundation
-import IOKit
+import IOBluetooth
 
 /// What a connected pair reports about itself.
 ///
@@ -21,6 +22,10 @@ struct AirPodsBattery: Equatable {
     var right: Int?
     var caseLevel: Int?
     var single: Int?
+    /// Apple's Bluetooth product ID. This, not the name, is what tells the
+    /// Pros from the Max from the plain ones: the name is whatever the owner
+    /// typed.
+    var productID: UInt16?
 
     var leftCharging = false
     var rightCharging = false
@@ -44,14 +49,97 @@ struct AirPodsBattery: Equatable {
     var isCharging: Bool {
         singleCharging || leftCharging || rightCharging
     }
+
+    var model: AirPodsModel {
+        AirPodsModel(productID: productID, name: name, hasEars: hasEars)
+    }
+}
+
+/// Which kind of pair it is, for drawing the right one.
+enum AirPodsModel: Equatable {
+    case airPods, airPods3, airPods4, pro, max, beatsEarbuds, beatsHeadphones, headphones
+
+    init(productID: UInt16?, name: String, hasEars: Bool) {
+        switch productID {
+        case 0x200E, 0x2014, 0x2024: self = .pro
+        case 0x200A, 0x201F: self = .max
+        case 0x2013: self = .airPods3
+        case 0x2019, 0x201B: self = .airPods4
+        case 0x2002, 0x200F: self = .airPods
+        default:
+            // A model newer than this table, or Beats. The name is a guess,
+            // but it is the product name unless someone renamed the pair.
+            let lowered = name.lowercased()
+            if lowered.contains("max") {
+                self = .max
+            } else if lowered.contains("airpods") && lowered.contains("pro") {
+                self = .pro
+            } else if lowered.contains("beats") {
+                self = hasEars ? .beatsEarbuds : .beatsHeadphones
+            } else {
+                self = hasEars ? .airPods : .headphones
+            }
+        }
+    }
+
+    /// The pair as a whole.
+    var symbol: String {
+        switch self {
+        case .airPods: return "airpods"
+        case .airPods3: return "airpods.gen3"
+        case .airPods4: return Self.available("airpods.gen4", or: "airpods.gen3")
+        case .pro: return "airpods.pro"
+        case .max: return "airpodsmax"
+        case .beatsEarbuds: return Self.available("beats.earphones", or: "earbuds")
+        case .beatsHeadphones: return Self.available("beats.headphones", or: "headphones")
+        case .headphones: return "headphones"
+        }
+    }
+
+    /// One ear, when there is a drawing of this model's bud.
+    var leftSymbol: String? {
+        switch self {
+        case .pro: return Self.available("airpodpro.left", or: "airpod.left")
+        case .airPods3, .airPods4: return Self.available("airpod.gen3.left", or: "airpod.left")
+        case .airPods: return "airpod.left"
+        default: return nil
+        }
+    }
+
+    var rightSymbol: String? {
+        switch self {
+        case .pro: return Self.available("airpodpro.right", or: "airpod.right")
+        case .airPods3, .airPods4: return Self.available("airpod.gen3.right", or: "airpod.right")
+        case .airPods: return "airpod.right"
+        default: return nil
+        }
+    }
+
+    var caseSymbol: String? {
+        switch self {
+        case .pro: return Self.available("airpods.pro.chargingcase.wireless", or: "airpodspro.chargingcase.wireless")
+        case .airPods3, .airPods4: return Self.available("airpods.gen3.chargingcase.wireless", or: "airpods.chargingcase.wireless")
+        case .airPods: return "airpods.chargingcase.wireless"
+        case .beatsEarbuds: return Self.available("earbuds.case", or: "airpods.chargingcase")
+        default: return nil
+        }
+    }
+
+    /// Newer symbols fall back to older ones on the macOS versions without them.
+    private static func available(_ name: String, or fallback: String) -> String {
+        NSImage(systemSymbolName: name, accessibilityDescription: nil) != nil ? name : fallback
+    }
 }
 
 /// Watches for Apple audio devices connecting and reads their battery.
 ///
-/// The levels come from the IO registry rather than any Bluetooth API: a
-/// connected pair publishes an `AppleDeviceManagementHIDEventService` entry
-/// carrying its own battery keys, and reading the registry needs no entitlement
-/// and no permission prompt - which matters, because the app is sandboxed.
+/// The levels come from `IOBluetoothDevice`. This used to read them out of the
+/// IO registry, where a connected pair published an
+/// `AppleDeviceManagementHIDEventService` entry carrying battery keys - current
+/// macOS no longer publishes it at all, and the widget sat on "Not connected"
+/// with a pair in both ears. The battery getters are not in the public
+/// headers, so each one is checked for before it is called: a macOS that drops
+/// one loses that number, not the app.
 @MainActor
 final class AirPodsManager: ObservableObject {
     static let shared = AirPodsManager()
@@ -59,95 +147,67 @@ final class AirPodsManager: ObservableObject {
     /// The connected pair, or nil when there is none.
     @Published private(set) var device: AirPodsBattery?
 
-    private var notifyPort: IONotificationPortRef?
-    private var publishedIterator: io_iterator_t = 0
-    private var terminatedIterator: io_iterator_t = 0
+    /// Whether the home page shows the panel: asked for, and a pair connected.
+    /// The page and the notch's width both follow this, so they cannot disagree.
+    var widgetShowing: Bool {
+        Defaults[.showAirPodsWidget] && device != nil
+    }
+
+    private let observer = BluetoothObserver()
+    private var connectNotification: IOBluetoothUserNotification?
     private var refreshTimer: Timer?
     private var settleTask: Task<Void, Never>?
     /// Which pair the notch has already announced, so re-reads stay quiet.
     private var announcedDevice: String?
+    /// Registering for connections reports the ones that already exist, which
+    /// is not news - a pair worn before launch should not be announced.
+    private var quietUntil = Date.distantPast
 
     private init() {}
 
     // MARK: - Lifecycle
 
     func start() {
-        guard notifyPort == nil else { return }
+        guard connectNotification == nil else { return }
+        quietUntil = Date().addingTimeInterval(3)
 
-        // Two notifications rather than a poll: connecting a pair should show
-        // up now, not on the next tick of some timer.
-        let port = IONotificationPortCreate(kIOMainPortDefault)
-        IONotificationPortSetDispatchQueue(port, .main)
-        notifyPort = port
-
-        let context = Unmanaged.passUnretained(self).toOpaque()
-        let callback: IOServiceMatchingCallback = { refcon, iterator in
-            // A C callback captures nothing, so this names the type outright.
-            AirPodsManager.drain(iterator)
-            guard let refcon else { return }
-            let manager = Unmanaged<AirPodsManager>.fromOpaque(refcon).takeUnretainedValue()
-            Task { @MainActor in manager.deviceSetChanged() }
+        // Notifications rather than a poll: connecting a pair should show up
+        // now, not on the next tick of some timer.
+        observer.onChange = { [weak self] in
+            Task { @MainActor in self?.deviceSetChanged() }
         }
+        connectNotification = IOBluetoothDevice.register(
+            forConnectNotifications: observer,
+            selector: #selector(BluetoothObserver.connected(_:device:)))
 
-        // One matching dictionary per registration: the call consumes a
-        // reference to it. The first drain of each iterator arms the
-        // notification and reports what is already connected, which is how a
-        // pair worn before launch is picked up.
-        IOServiceAddMatchingNotification(
-            port, kIOMatchedNotification, IOServiceMatching(Self.serviceClass),
-            callback, context, &publishedIterator
-        )
-        Self.drain(publishedIterator)
-
-        IOServiceAddMatchingNotification(
-            port, kIOTerminatedNotification, IOServiceMatching(Self.serviceClass),
-            callback, context, &terminatedIterator
-        )
-        Self.drain(terminatedIterator)
-
-        // Levels move slowly, so this is a backstop rather than the mechanism.
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: 120, repeats: true) { _ in
+        // Nothing announces a change in the levels themselves, so this is what
+        // keeps the numbers moving while a pair stays connected.
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { _ in
             Task { @MainActor [weak self] in self?.refresh(announce: false) }
         }
 
         refresh(announce: false)
+        announcedDevice = device?.name
     }
 
     func stop() {
         settleTask?.cancel()
         refreshTimer?.invalidate()
         refreshTimer = nil
-        for iterator in [publishedIterator, terminatedIterator] where iterator != 0 {
-            IOObjectRelease(iterator)
-        }
-        publishedIterator = 0
-        terminatedIterator = 0
-        if let notifyPort {
-            IONotificationPortDestroy(notifyPort)
-            self.notifyPort = nil
-        }
-    }
-
-    /// Empty an iterator. Not optional: an undrained iterator never fires again.
-    private nonisolated static func drain(_ iterator: io_iterator_t) {
-        var entry = IOIteratorNext(iterator)
-        while entry != 0 {
-            IOObjectRelease(entry)
-            entry = IOIteratorNext(iterator)
-        }
+        connectNotification?.unregister()
+        connectNotification = nil
     }
 
     // MARK: - Reading
 
-    /// A pair has just appeared or gone. Re-read, and let the notch say so.
+    /// A device has just connected or gone. Re-read, and let the notch say so.
     private func deviceSetChanged() {
-        // A pair that has only just connected publishes its service before it
-        // publishes its battery, so the first read often comes back empty.
-        // Read again over the next few seconds rather than reporting a device
-        // with no levels and then correcting it.
+        // A pair reports its levels a little after it connects, so the first
+        // read often comes back empty. Read again over the next few seconds
+        // rather than reporting a device with no levels and then correcting it.
         settleTask?.cancel()
         settleTask = Task { @MainActor [weak self] in
-            for delay in [0, 400, 1200, 2500] {
+            for delay in [0, 500, 1500, 3000, 6000] {
                 if delay > 0 {
                     try? await Task.sleep(for: .milliseconds(delay))
                     guard !Task.isCancelled else { return }
@@ -173,74 +233,83 @@ final class AirPodsManager: ObservableObject {
         // name is the latch, so swapping the Pros for the Max still announces.
         guard announce, announcedDevice != found.name, found.headline != nil else { return }
         announcedDevice = found.name
-        guard Defaults[.airPodsSneakPeek] else { return }
+        guard Date() >= quietUntil, Defaults[.airPodsSneakPeek] else { return }
         VornyxViewCoordinator.shared.announceAirPods()
     }
 
-    private static let serviceClass = "AppleDeviceManagementHIDEventService"
-
-    /// The connected pair, read straight out of the registry.
+    /// The first connected device that reports what a pair reports.
     private static func read() -> AirPodsBattery? {
-        var iterator: io_iterator_t = 0
-        guard IOServiceGetMatchingServices(
-            kIOMainPortDefault, IOServiceMatching(serviceClass), &iterator
-        ) == KERN_SUCCESS else { return nil }
-        defer { IOObjectRelease(iterator) }
-
-        var entry = IOIteratorNext(iterator)
-        while entry != 0 {
-            defer {
-                IOObjectRelease(entry)
-                entry = IOIteratorNext(iterator)
-            }
-            var unmanaged: Unmanaged<CFMutableDictionary>?
-            guard IORegistryEntryCreateCFProperties(entry, &unmanaged, kCFAllocatorDefault, 0)
-                    == KERN_SUCCESS,
-                  let properties = unmanaged?.takeRetainedValue() as? [String: Any],
-                  let candidate = device(from: properties)
-            else { continue }
-            return candidate
+        let paired = (IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice]) ?? []
+        for candidate in paired where candidate.isConnected() {
+            if let battery = battery(of: candidate) { return battery }
         }
         return nil
     }
 
-    /// Turn one registry entry into a pair, or reject it.
+    /// Turn one device into a pair, or reject it.
     ///
-    /// The same service class carries the built-in keyboard and trackpad, so
-    /// the entry has to earn its place: either it reports per-ear levels, which
-    /// nothing else does, or it names itself as Apple audio hardware.
-    private static func device(from properties: [String: Any]) -> AirPodsBattery? {
-        let name = (properties["Product"] as? String) ?? "AirPods"
+    /// Keyboards and mice report a single level too, so a device has to earn
+    /// its place: per-ear levels, which nothing else has, or a single level
+    /// from audio hardware - major device class 0x04, "Audio/Video".
+    private static func battery(of device: IOBluetoothDevice) -> AirPodsBattery? {
+        let left = level(device, "batteryPercentLeft")
+        let right = level(device, "batteryPercentRight")
+        let caseLevel = level(device, "batteryPercentCase")
+        let single = level(device, "batteryPercentSingle") ?? level(device, "batteryPercentCombined")
 
-        func level(_ keys: [String]) -> Int? {
-            for key in keys {
-                if let value = properties[key] as? Int, (1...100).contains(value) { return value }
-            }
-            return nil
-        }
-        func flag(_ keys: [String]) -> Bool {
-            keys.contains { (properties[$0] as? Bool) == true || (properties[$0] as? Int) == 1 }
-        }
-
-        let left = level(["BatteryPercentLeft"])
-        let right = level(["BatteryPercentRight"])
-        let caseLevel = level(["BatteryPercentCase"])
-        let single = level(["BatteryPercentSingle", "BatteryPercentCombined", "BatteryPercent"])
-
-        let looksLikeAudio = ["airpod", "beats", "powerbeats", "solo", "studio", "flex"]
-            .contains { name.lowercased().contains($0) }
-        guard left != nil || right != nil || (single != nil && looksLikeAudio) else { return nil }
+        let hasEars = left != nil || right != nil
+        guard hasEars || (single != nil && device.deviceClassMajor == 0x04) else { return nil }
 
         return AirPodsBattery(
-            name: name,
+            name: device.name ?? "AirPods",
             left: left,
             right: right,
             caseLevel: caseLevel,
-            single: single,
-            leftCharging: flag(["BatteryChargingLeft"]),
-            rightCharging: flag(["BatteryChargingRight"]),
-            caseCharging: flag(["BatteryChargingCase"]),
-            singleCharging: flag(["BatteryChargingSingle", "BatteryIsCharging"])
-        )
+            single: hasEars ? nil : single,
+            productID: appleProductID(device))
+    }
+
+    /// The Bluetooth product ID, when the vendor is Apple - Beats included.
+    private static func appleProductID(_ device: IOBluetoothDevice) -> UInt16? {
+        func read(_ name: String) -> UInt16? {
+            let selector = NSSelectorFromString(name)
+            guard device.responds(to: selector), let implementation = device.method(for: selector) else {
+                return nil
+            }
+            typealias Getter = @convention(c) (AnyObject, Selector) -> UInt16
+            return unsafeBitCast(implementation, to: Getter.self)(device, selector)
+        }
+        guard read("vendorID") == 0x004C, let product = read("productID"), product != 0 else { return nil }
+        return product
+    }
+
+    /// One battery getter. They return an unsigned char, so the call goes
+    /// through the implementation pointer: `perform` is only defined for
+    /// methods that return objects. Zero means "not reported" - the case reads
+    /// zero whenever its lid is shut.
+    private static func level(_ device: IOBluetoothDevice, _ name: String) -> Int? {
+        let selector = NSSelectorFromString(name)
+        guard device.responds(to: selector), let implementation = device.method(for: selector) else {
+            return nil
+        }
+        typealias Getter = @convention(c) (AnyObject, Selector) -> UInt8
+        let value = Int(unsafeBitCast(implementation, to: Getter.self)(device, selector))
+        return (1...100).contains(value) ? value : nil
+    }
+}
+
+/// Target for IOBluetooth's selector-based notifications, which are delivered
+/// on the main run loop.
+private final class BluetoothObserver: NSObject {
+    var onChange: (() -> Void)?
+
+    @objc func connected(_ notification: IOBluetoothUserNotification, device: IOBluetoothDevice) {
+        device.register(forDisconnectNotification: self, selector: #selector(disconnected(_:device:)))
+        onChange?()
+    }
+
+    @objc func disconnected(_ notification: IOBluetoothUserNotification, device: IOBluetoothDevice) {
+        notification.unregister()
+        onChange?()
     }
 }

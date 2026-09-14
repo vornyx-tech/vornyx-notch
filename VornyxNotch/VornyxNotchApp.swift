@@ -324,6 +324,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // header's picker, which only appears once the notch has been opened -
         // the route banner has to work before that ever happens.
         AudioDeviceManager.shared.start()
+        // Follows its own setting: nothing touches the network until it is on.
+        LocalSendManager.shared.activate()
 
         NotificationCenter.default.addObserver(
             self,

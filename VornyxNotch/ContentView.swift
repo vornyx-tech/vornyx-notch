@@ -24,6 +24,8 @@ struct ContentView: View {
     @ObservedObject var brightnessManager = BrightnessManager.shared
     @ObservedObject var volumeManager = VolumeManager.shared
     @ObservedObject var countdown = CountdownManager.shared
+    @ObservedObject var localSend = LocalSendManager.shared
+    @ObservedObject var pods = AirPodsManager.shared
     @State private var hoverTask: Task<Void, Never>?
     @State private var isHovering: Bool = false
     @State private var resizeHoldTask: Task<Void, Never>?
@@ -51,6 +53,10 @@ struct ContentView: View {
     /// changes, so a page always opens at its natural size and grows from there.
     @State private var dashboardGrowth: CGFloat = 0
     @State private var anyDropDebounceTask: Task<Void, Never>?
+    /// Holds the LocalSend strip up for the length of a drag on tabs other than
+    /// the shelf, and a moment after. See `updateLocalSendDragPin`.
+    @State private var localSendDragPinned: Bool = false
+    @State private var localSendLingerTask: Task<Void, Never>?
 
     @State private var gestureProgress: CGFloat = .zero
 
@@ -67,6 +73,7 @@ struct ContentView: View {
     @Default(.showMirror) var showMirror
     @Default(.mirrorDisplayMode) var mirrorDisplayMode
     @Default(.mirrorBigScreenHeight) var mirrorBigScreenHeight
+    @Default(.localSendEnabled) var localSendEnabled
 
     // Observed so the notch re-renders the moment a corner radius slider moves.
     @Default(.cornerRadiusScaling) var cornerRadiusScaling
@@ -147,7 +154,7 @@ struct ContentView: View {
                     // fell out of the hover area without ever leaving the black.
                     .frame(
                         width: vm.notchState == .open
-                            ? openNotchWidth(for: coordinator.currentView)
+                            ? openNotchWidth(for: coordinator.currentView, showingAirPods: pods.widgetShowing)
                             : nil,
                         height: vm.notchState == .open ? openNotchContentHeight : nil,
                         alignment: .top
@@ -185,6 +192,7 @@ struct ContentView: View {
                             .animation(notchResizeAnimation, value: coordinator.currentView)
                             // The notch growing/shrinking for the big screen mirror.
                             .animation(notchResizeAnimation, value: showsBigScreenMirror)
+                            .animation(notchResizeAnimation, value: pods.widgetShowing)
                             .animation(notchResizeAnimation, value: openNotchContentHeight)
                     }
                     .contentShape(Rectangle())
@@ -327,6 +335,185 @@ struct ContentView: View {
         }
     }
 
+    /// A sneak peek pins the layout to its own size: a standard-style music
+    /// peek, or any non-music peek, while the notch is closed.
+    private var sneakPeekUsesFixedSize: Bool {
+        let peek = coordinator.sneakPeek
+        guard peek.show, vm.notchState == .closed else { return false }
+        if peek.type == .music {
+            return !vm.hideOnClosed && Defaults[.sneakPeekStyles] == .standard
+        }
+        return true
+    }
+
+    /// The closed notch's banners, and the header once it opens.
+    ///
+    /// LocalSend is checked first and on its own. Added as one more arm of the
+    /// chain, it pushed that expression past what the type checker will solve
+    /// in reasonable time; wrapped around it, the chain stays exactly as it
+    /// compiled before.
+    @ViewBuilder
+    private func closedNotchContent() -> some View {
+        // Ahead of the other banners: an offer is someone waiting on an
+        // answer, and the rest are only news.
+        if showsLocalSendBanner {
+            LocalSendLiveActivity()
+                .environmentObject(vm)
+                .transition(.opacity)
+        } else {
+            notchBannerChain()
+        }
+    }
+
+    @ViewBuilder
+    private func notchBannerChain() -> some View {
+        if coordinator.expandingView.type == .battery && coordinator.expandingView.show
+            && vm.notchState == .closed && Defaults[.showPowerStatusNotifications]
+        {
+            HStack(spacing: 0) {
+                HStack {
+                    Text(batteryModel.statusText)
+                        .font(.subheadline)
+                        .foregroundStyle(.white)
+                }
+
+                Rectangle()
+                    .fill(.black)
+                    .frame(width: vm.closedNotchSize.width + 10)
+
+                HStack {
+                    VornyxBatteryView(
+                        batteryWidth: 30,
+                        isCharging: batteryModel.isCharging,
+                        isInLowPowerMode: batteryModel.isInLowPowerMode,
+                        isPluggedIn: batteryModel.isPluggedIn,
+                        levelBattery: batteryModel.levelBattery,
+                        isForNotification: true
+                    )
+                }
+                .frame(width: 76, alignment: .trailing)
+            }
+            .frame(height: vm.effectiveClosedNotchHeight, alignment: .center)
+          } else if coordinator.expandingView.type == .airpods && coordinator.expandingView.show
+                      && vm.notchState == .closed && !vm.hideOnClosed && Defaults[.airPodsSneakPeek] {
+              AirPodsLiveActivity()
+                  .environmentObject(vm)
+                  .transition(.opacity)
+          // Sound moved somewhere else. Below the pair's own
+          // banner, which says the same thing with the levels.
+          } else if coordinator.expandingView.type == .audioRoute && coordinator.expandingView.show
+                      && vm.notchState == .closed && !vm.hideOnClosed && Defaults[.audioRouteSneakPeek] {
+              AudioRouteLiveActivity()
+                  .environmentObject(vm)
+                  .transition(.opacity)
+          // A running countdown outranks the banner's own timeout:
+          // it stays for as long as it is counting, rather than
+          // showing for three seconds and leaving.
+          } else if countdown.isActive && vm.notchState == .closed && !vm.hideOnClosed
+                      && Defaults[.timerLiveActivity] {
+              TimerLiveActivity()
+                  .environmentObject(vm)
+                  .transition(.opacity)
+          } else if coordinator.expandingView.type == .timer && coordinator.expandingView.show
+                      && vm.notchState == .closed && !vm.hideOnClosed {
+              TimerLiveActivity()
+                  .environmentObject(vm)
+                  .transition(.opacity)
+          } else if coordinator.sneakPeek.show && Defaults[.inlineHUD] && (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && vm.notchState == .closed {
+              InlineHUD(type: $coordinator.sneakPeek.type, value: $coordinator.sneakPeek.value, icon: $coordinator.sneakPeek.icon, hoverAnimation: $isHovering, gestureProgress: $gestureProgress)
+                  .transition(.opacity)
+          } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .music) && vm.notchState == .closed && (musicManager.isPlaying || !musicManager.isPlayerIdle) && coordinator.musicLiveActivityEnabled && !vm.hideOnClosed {
+              MusicLiveActivity()
+                  .frame(alignment: .center)
+          } else if !coordinator.expandingView.show && vm.notchState == .closed && (!musicManager.isPlaying && musicManager.isPlayerIdle) && Defaults[.showNotHumanFace] && !vm.hideOnClosed  {
+              VornyxFaceAnimation()
+           } else if vm.notchState == .open {
+               VornyxHeader()
+                   .frame(height: max(24, vm.effectiveClosedNotchHeight))
+                   .opacity(gestureProgress != 0 ? 1.0 - min(abs(gestureProgress) * 0.1, 0.3) : 1.0)
+           } else {
+               Rectangle().fill(.clear).frame(width: vm.closedNotchSize.width - 20, height: vm.effectiveClosedNotchHeight)
+           }
+    }
+
+    /// Pins the strip when a drag arrives, and lets go only a moment after the
+    /// last one leaves.
+    ///
+    /// Reading `anyDropZoneTargeting` directly was the bug: the flag drops to
+    /// false for a frame each time the pointer passes from one drop target to
+    /// the next, the strip vanished in that frame, the notch shrank under the
+    /// pointer, and the device being aimed at went with it.
+    private func updateLocalSendDragPin(dragging: Bool) {
+        localSendLingerTask?.cancel()
+        guard !dragging else {
+            localSendDragPinned = true
+            return
+        }
+        localSendLingerTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1.5))
+            guard !Task.isCancelled else { return }
+            localSendDragPinned = false
+        }
+    }
+
+    /// The open notch's page, with the mirror and the LocalSend strip under it
+    /// when they are showing. Its own function for the same reason as
+    /// `closedNotchContent`: inline, `NotchLayout` outgrew the type checker.
+    @ViewBuilder
+    private func openNotchStack() -> some View {
+        VStack(spacing: 8) {
+            ZStack {
+                tabContent(for: coordinator.currentView)
+                    .id(coordinator.currentView)
+                    .transition(pageTransition)
+            }
+            // No .clipped() here: the album art's lighting effect is a
+            // blurred, oversized copy of the artwork that deliberately
+            // bleeds past the content bounds. mainLayout already clips
+            // everything to the notch silhouette, so clipping again here
+            // only cuts the glow.
+            .animation(VornyxViewCoordinator.tabChangeAnimation, value: coordinator.currentView)
+            // Pages claim the scroll gesture per region rather than
+            // wholesale; see `scrollableNotchContent()`.
+            .environment(\.notchScrollableHover, $pointerOverContent)
+            .onPreferenceChange(NotchContentFitKey.self) { fit in
+                applyContentFit(fit)
+            }
+
+            if showsBigScreenMirror {
+                BigScreenMirrorView(
+                    webcamManager: webcamManager,
+                    height: Defaults[.mirrorBigScreenHeight]
+                        .clamped(to: mirrorBigScreenHeightRange)
+                )
+                .environmentObject(vm)
+                .transition(
+                    .move(edge: .top)
+                        .combined(with: .opacity)
+                        .combined(with: .scale(scale: 0.96, anchor: .top))
+                )
+            }
+
+            if showsLocalSendStrip {
+                LocalSendStrip()
+                    .environmentObject(vm)
+                    .transition(
+                        .move(edge: .top)
+                            .combined(with: .opacity)
+                            .combined(with: .scale(scale: 0.96, anchor: .top))
+                    )
+            }
+        }
+        .animation(VornyxViewCoordinator.tabChangeAnimation, value: showsBigScreenMirror)
+        .animation(VornyxViewCoordinator.tabChangeAnimation, value: showsLocalSendStrip)
+        // Here rather than on `NotchLayout`: both only matter while the notch
+        // is open, and that modifier chain is already at the type checker's limit.
+        .onChange(of: showsLocalSendStrip) { _, _ in holdOpenAfterResize() }
+        .onChange(of: vm.anyDropZoneTargeting) { _, dragging in updateLocalSendDragPin(dragging: dragging) }
+        // A pair connecting or going widens or narrows the home page.
+        .onChange(of: pods.widgetShowing) { _, _ in holdOpenAfterResize() }
+    }
+
     @ViewBuilder
     func NotchLayout() -> some View {
         VStack(alignment: .leading) {
@@ -342,73 +529,7 @@ struct ContentView: View {
                     .padding(.top, 40)
                     Spacer()
                 } else {
-                    if coordinator.expandingView.type == .battery && coordinator.expandingView.show
-                        && vm.notchState == .closed && Defaults[.showPowerStatusNotifications]
-                    {
-                        HStack(spacing: 0) {
-                            HStack {
-                                Text(batteryModel.statusText)
-                                    .font(.subheadline)
-                                    .foregroundStyle(.white)
-                            }
-
-                            Rectangle()
-                                .fill(.black)
-                                .frame(width: vm.closedNotchSize.width + 10)
-
-                            HStack {
-                                VornyxBatteryView(
-                                    batteryWidth: 30,
-                                    isCharging: batteryModel.isCharging,
-                                    isInLowPowerMode: batteryModel.isInLowPowerMode,
-                                    isPluggedIn: batteryModel.isPluggedIn,
-                                    levelBattery: batteryModel.levelBattery,
-                                    isForNotification: true
-                                )
-                            }
-                            .frame(width: 76, alignment: .trailing)
-                        }
-                        .frame(height: vm.effectiveClosedNotchHeight, alignment: .center)
-                      } else if coordinator.expandingView.type == .airpods && coordinator.expandingView.show
-                                  && vm.notchState == .closed && !vm.hideOnClosed && Defaults[.airPodsSneakPeek] {
-                          AirPodsLiveActivity()
-                              .environmentObject(vm)
-                              .transition(.opacity)
-                      // Sound moved somewhere else. Below the pair's own
-                      // banner, which says the same thing with the levels.
-                      } else if coordinator.expandingView.type == .audioRoute && coordinator.expandingView.show
-                                  && vm.notchState == .closed && !vm.hideOnClosed && Defaults[.audioRouteSneakPeek] {
-                          AudioRouteLiveActivity()
-                              .environmentObject(vm)
-                              .transition(.opacity)
-                      // A running countdown outranks the banner's own timeout:
-                      // it stays for as long as it is counting, rather than
-                      // showing for three seconds and leaving.
-                      } else if countdown.isActive && vm.notchState == .closed && !vm.hideOnClosed
-                                  && Defaults[.timerLiveActivity] {
-                          TimerLiveActivity()
-                              .environmentObject(vm)
-                              .transition(.opacity)
-                      } else if coordinator.expandingView.type == .timer && coordinator.expandingView.show
-                                  && vm.notchState == .closed && !vm.hideOnClosed {
-                          TimerLiveActivity()
-                              .environmentObject(vm)
-                              .transition(.opacity)
-                      } else if coordinator.sneakPeek.show && Defaults[.inlineHUD] && (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && vm.notchState == .closed {
-                          InlineHUD(type: $coordinator.sneakPeek.type, value: $coordinator.sneakPeek.value, icon: $coordinator.sneakPeek.icon, hoverAnimation: $isHovering, gestureProgress: $gestureProgress)
-                              .transition(.opacity)
-                      } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .music) && vm.notchState == .closed && (musicManager.isPlaying || !musicManager.isPlayerIdle) && coordinator.musicLiveActivityEnabled && !vm.hideOnClosed {
-                          MusicLiveActivity()
-                              .frame(alignment: .center)
-                      } else if !coordinator.expandingView.show && vm.notchState == .closed && (!musicManager.isPlaying && musicManager.isPlayerIdle) && Defaults[.showNotHumanFace] && !vm.hideOnClosed  {
-                          VornyxFaceAnimation()
-                       } else if vm.notchState == .open {
-                           VornyxHeader()
-                               .frame(height: max(24, vm.effectiveClosedNotchHeight))
-                               .opacity(gestureProgress != 0 ? 1.0 - min(abs(gestureProgress) * 0.1, 0.3) : 1.0)
-                       } else {
-                           Rectangle().fill(.clear).frame(width: vm.closedNotchSize.width - 20, height: vm.effectiveClosedNotchHeight)
-                       }
+                    closedNotchContent()
 
                       if coordinator.sneakPeek.show {
                           if (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && !Defaults[.inlineHUD] && vm.notchState == .closed {
@@ -447,46 +568,13 @@ struct ContentView: View {
                       }
                   }
               }
-              .conditionalModifier((coordinator.sneakPeek.show && (coordinator.sneakPeek.type == .music) && vm.notchState == .closed && !vm.hideOnClosed && Defaults[.sneakPeekStyles] == .standard) || (coordinator.sneakPeek.show && (coordinator.sneakPeek.type != .music) && (vm.notchState == .closed))) { view in
+              .conditionalModifier(sneakPeekUsesFixedSize) { view in
                   view
                       .fixedSize()
               }
               .zIndex(2)
             if vm.notchState == .open {
-                VStack(spacing: 8) {
-                    ZStack {
-                        tabContent(for: coordinator.currentView)
-                            .id(coordinator.currentView)
-                            .transition(pageTransition)
-                    }
-                    // No .clipped() here: the album art's lighting effect is a
-                    // blurred, oversized copy of the artwork that deliberately
-                    // bleeds past the content bounds. mainLayout already clips
-                    // everything to the notch silhouette, so clipping again here
-                    // only cuts the glow.
-                    .animation(VornyxViewCoordinator.tabChangeAnimation, value: coordinator.currentView)
-                    // Pages claim the scroll gesture per region rather than
-                    // wholesale; see `scrollableNotchContent()`.
-                    .environment(\.notchScrollableHover, $pointerOverContent)
-                    .onPreferenceChange(NotchContentFitKey.self) { fit in
-                        applyContentFit(fit)
-                    }
-
-                    if showsBigScreenMirror {
-                        BigScreenMirrorView(
-                            webcamManager: webcamManager,
-                            height: Defaults[.mirrorBigScreenHeight]
-                                .clamped(to: mirrorBigScreenHeightRange)
-                        )
-                        .environmentObject(vm)
-                        .transition(
-                            .move(edge: .top)
-                                .combined(with: .opacity)
-                                .combined(with: .scale(scale: 0.96, anchor: .top))
-                        )
-                    }
-                }
-                .animation(VornyxViewCoordinator.tabChangeAnimation, value: showsBigScreenMirror)
+                openNotchStack()
                 .transition(
                     .scale(scale: 0.8, anchor: .top)
                     .combined(with: .opacity)
@@ -590,7 +678,10 @@ struct ContentView: View {
                   // opinion about whether the notch should still be here.
                   !coordinator.keyboardSession,
                   !vm.isBatteryPopoverActive,
-                  !SharingStateManager.shared.preventNotchClose
+                  !SharingStateManager.shared.preventNotchClose,
+                  // Mid-drag the pointer is on the notch, but hover is not
+                  // tracked during a drag, so `isHovering` says it is not.
+                  !vm.anyDropZoneTargeting
             else { return }
             vm.close()
         }
@@ -611,6 +702,7 @@ struct ContentView: View {
             + (showsBigScreenMirror
                ? mirrorBigScreenHeight.clamped(to: mirrorBigScreenHeightRange) + 8
                : 0)
+            + (showsLocalSendStrip ? localSendStripHeight + 8 : 0)
     }
 
     /// Room for the clipboard's extra rows, which it opens out to on a press of
@@ -645,6 +737,27 @@ struct ContentView: View {
     private var showsBigScreenMirror: Bool {
         showMirror && mirrorDisplayMode == .bigScreen && vm.isCameraExpanded
             && webcamManager.cameraAvailable
+    }
+
+    /// Whether LocalSend has a transfer that needs to be seen.
+    private var hasLocalSendActivity: Bool {
+        localSend.pendingRequest != nil || localSend.incoming != nil || localSend.outgoing != nil
+            || localSend.message != nil
+    }
+
+    /// The strip under the open notch: always on the shelf, where it can be
+    /// found; on other tabs while a drag is pinning it; and anywhere for as
+    /// long as a transfer needs it.
+    private var showsLocalSendStrip: Bool {
+        guard localSendEnabled, localSend.isRunning, vm.notchState == .open else { return false }
+        return coordinator.currentView == .shelf || localSendDragPinned || hasLocalSendActivity
+    }
+
+    /// The banner in the closed notch. A separate property because the
+    /// banner chain it sits in is already at the edge of what the type
+    /// checker will solve in one expression.
+    private var showsLocalSendBanner: Bool {
+        localSendEnabled && vm.notchState == .closed && !vm.hideOnClosed && hasLocalSendActivity
     }
 
     @ViewBuilder
