@@ -75,9 +75,6 @@ struct ContentView: View {
     @Default(.mirrorBigScreenHeight) var mirrorBigScreenHeight
     @Default(.localSendEnabled) var localSendEnabled
 
-    // Observed so the notch re-renders the moment a corner radius slider moves.
-    @Default(.cornerRadiusScaling) var cornerRadiusScaling
-
     // Shared interactive spring for movement/resizing to avoid conflicting animations
     private let animationSpring = Animation.interactiveSpring(response: 0.38, dampingFraction: 0.8, blendDuration: 0)
 
@@ -85,7 +82,7 @@ struct ContentView: View {
     private let zeroHeightHoverPadding: CGFloat = 10
 
     private var usesOpenedRadii: Bool {
-        (vm.notchState == .open) && cornerRadiusScaling
+        vm.notchState == .open
     }
 
     private var topCornerRadius: CGFloat {
@@ -144,8 +141,7 @@ struct ContentView: View {
                     .padding(
                         .horizontal,
                         vm.notchState == .open
-                        ? Defaults[.cornerRadiusScaling]
-                        ? (cornerRadiusInsets.opened.top) : (cornerRadiusInsets.opened.bottom)
+                        ? cornerRadiusInsets.opened.top
                         : cornerRadiusInsets.closed.bottom
                     )
                     .padding([.horizontal, .bottom], vm.notchState == .open ? 12 : 0)
@@ -181,8 +177,12 @@ struct ContentView: View {
                     }
                     .shadow(
                         color: ((vm.notchState == .open || isHovering) && Defaults[.enableShadow])
-                            ? .black.opacity(0.7) : .clear, radius: Defaults[.cornerRadiusScaling] ? 6 : 4
+                            ? .black.opacity(0.7) : .clear, radius: 6
                     )
+                    .overlay {
+                        NotchEdgeLight(
+                            shape: currentNotchShape, isOpen: vm.notchState == .open)
+                    }
                     .padding(
                         .bottom,
                         vm.effectiveClosedNotchHeight == 0 ? 10 : 0
@@ -824,12 +824,7 @@ struct ContentView: View {
     @ViewBuilder
     func MusicLiveActivity() -> some View {
         HStack {
-            Image(nsImage: musicManager.albumArt)
-                .resizable()
-                .clipped()
-                .clipShape(
-                    RoundedRectangle(cornerRadius: AlbumArtStyle.closedCornerRadius)
-                )
+            ClosedNotchArtwork(cornerRadius: AlbumArtStyle.closedCornerRadius)
                 .matchedGeometryEffect(id: "albumArt", in: albumArtNamespace)
                 .frame(
                     width: max(0, vm.effectiveClosedNotchHeight - 12),
@@ -914,6 +909,10 @@ struct ContentView: View {
                 ),
                 alignment: .center
             )
+            .modifier(TrackChangeGlow(
+                trigger: ObjectIdentifier(musicManager.albumArt),
+                color: Color(nsColor: musicManager.avgColor),
+                radius: 5))
         }
         .frame(
             height: vm.effectiveClosedNotchHeight,

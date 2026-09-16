@@ -22,6 +22,23 @@ xcodebuild -project VornyxNotch.xcodeproj -scheme VornyxNotch -configuration Deb
 
 The built app is `VornyxNotch.app`; it shows up as **Vornyx Notch** in Finder, Spotlight and the menu bar.
 
+## DMG installer
+
+```sh
+./Configuration/dmg/build_local_dmg.sh          # version from the project
+./Configuration/dmg/build_local_dmg.sh 2.8.0    # or name one
+```
+
+This archives a universal Release build and packs it into `build/VornyxNotch-<version>.dmg`. No Apple developer account is needed: the app is signed ad-hoc. Open the DMG and drag **VornyxNotch** into **Applications**.
+
+Because the app is not notarized, macOS blocks the first launch of a copy downloaded from elsewhere. Allow it under **System Settings → Privacy & Security → Open Anyway**, or clear the quarantine flag:
+
+```sh
+xattr -dr com.apple.quarantine /Applications/VornyxNotch.app
+```
+
+Accessibility and other permissions are tied to the app's signature, and an ad-hoc signature changes with every build: after installing a new build, turn Vornyx Notch off and on again under **Privacy & Security → Accessibility**.
+
 ## Layout
 
 | Path | What's in it |

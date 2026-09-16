@@ -121,9 +121,7 @@ struct VornyxHeader: View {
     }
 
     private var sideWidth: CGFloat {
-        let outerInset = Defaults[.cornerRadiusScaling]
-            ? cornerRadiusInsets.opened.top
-            : cornerRadiusInsets.opened.bottom
+        let outerInset = cornerRadiusInsets.opened.top
         let content = openNotchWidth(for: coordinator.currentView, showingAirPods: pods.widgetShowing) - 2 * outerInset - 24
         return max(70, (content - vm.closedNotchSize.width) / 2)
     }

@@ -376,6 +376,18 @@ struct ClipboardView: View {
                     ? Color.effectiveAccent.opacity(0.35)
                     : (isHovered ? Color.white.opacity(0.1) : nil))
             .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+            // The selection's light, thrown inwards from the card's own edge:
+            // a thick accent stroke, blurred, clipped back to the card so only
+            // the half falling inside is left. About six points deep.
+            .overlay {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: radius, style: .continuous)
+                        .stroke(Color.effectiveAccent.opacity(0.5), lineWidth: 12)
+                        .blur(radius: 5)
+                        .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+                        .allowsHitTesting(false)
+                }
+            }
             .overlay(
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
                     .strokeBorder(
@@ -451,12 +463,17 @@ struct ClipboardView: View {
     /// at a readable size, which is enough to tell two screenshots apart.
     private func thumbnail(_ item: ClipboardItem, radius: CGFloat, size: CGSize) -> some View {
         Group {
-            if let image = clipboard.image(for: item) {
+            switch clipboard.thumbnail(for: item) {
+            case .ready(let image):
                 Image(nsImage: image)
                     .resizable()
                     .interpolation(.high)
                     .aspectRatio(contentMode: .fill)
-            } else {
+            case .loading:
+                // Decoding off the main thread: a quiet tile rather than a
+                // spinner, since it is usually gone within a frame or two.
+                Color.white.opacity(0.04)
+            case .missing:
                 // The file is gone - deleted underneath us, or the history
                 // outlived it. Say so rather than showing an empty hole.
                 Image(systemName: "photo.badge.exclamationmark")
@@ -487,7 +504,7 @@ struct ClipboardView: View {
                 .background(Circle().fill(tint(for: item).opacity(0.20)))
 
             if let bundleID = item.sourceBundleID {
-                AppIcon(for: bundleID)
+                Image(nsImage: SourceAppIcon.image(for: bundleID))
                     .resizable()
                     .frame(width: 16, height: 16)
                     .clipShape(RoundedRectangle(cornerRadius: 3.5, style: .continuous))
@@ -566,7 +583,7 @@ struct ClipboardView: View {
             guard let width = item.imageWidth, let height = item.imageHeight else { return "" }
             return "\(width)×\(height)"
         }
-        return "\(item.text.count)"
+        return "\(item.summary.characterCount)"
     }
 
     private func bodyFontSize(for item: ClipboardItem) -> CGFloat {
@@ -595,5 +612,25 @@ struct ClipboardView: View {
                 if justCopied == item.id { justCopied = nil }
             }
         }
+    }
+}
+
+/// App icons by bundle id, looked up once.
+///
+/// `AppIcon(for:)` asks Launch Services and reads the icon on every call, every
+/// hover redraws every card, and Launch Services is among the first things to
+/// stall when the machine is busy.
+@MainActor
+private enum SourceAppIcon {
+    private static var cache: [String: NSImage] = [:]
+
+    static func image(for bundleID: String) -> NSImage {
+        if let cached = cache[bundleID] { return cached }
+        let workspace = NSWorkspace.shared
+        let icon = workspace.urlForApplication(withBundleIdentifier: bundleID)
+            .map { workspace.icon(forFile: $0.path) }
+            ?? workspace.icon(for: .applicationBundle)
+        cache[bundleID] = icon
+        return icon
     }
 }

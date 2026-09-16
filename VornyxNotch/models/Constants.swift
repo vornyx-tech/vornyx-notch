@@ -114,6 +114,14 @@ enum MediaControllerType: String, CaseIterable, Identifiable, Defaults.Serializa
     var id: String { self.rawValue }
 }
 
+/// How the home page's artwork changes over to the next track.
+enum TrackChangeAnimation: String, CaseIterable, Identifiable, Defaults.Serializable {
+    case blur = "Blur"
+    case flip = "Flip and shine"
+
+    var id: String { rawValue }
+}
+
 // Sneak peek styles for selection in settings
 enum SneakPeekStyle: String, CaseIterable, Identifiable, Defaults.Serializable {
     case standard = "Default"
@@ -167,7 +175,6 @@ extension Defaults.Keys {
     static let settingsIconInNotch = Key<Bool>("settingsIconInNotch", default: true)
     static let lightingEffect = Key<Bool>("lightingEffect", default: true)
     static let enableShadow = Key<Bool>("enableShadow", default: true)
-    static let cornerRadiusScaling = Key<Bool>("cornerRadiusScaling", default: true)
     /// The open notch as Liquid Glass under a black band. macOS 26 and later;
     /// earlier systems keep the black notch whatever this says.
     static let liquidGlassNotch = Key<Bool>("liquidGlassNotch", default: true)
@@ -186,9 +193,17 @@ extension Defaults.Keys {
     // MARK: Indicators
     /// A light while the camera or the microphone is in use by anything.
     static let showPrivacyIndicators = Key<Bool>("showPrivacyIndicators", default: true)
-    /// A light while a Focus is on. Asks for the Focus Status permission once.
+    /// A light while a Focus is on. Read from Control Center's menu bar item.
     static let showFocusIndicator = Key<Bool>("showFocusIndicator", default: false)
     static let showCapsLockIndicator = Key<Bool>("showCapsLockIndicator", default: true)
+    /// The notch outlining itself while the camera or microphone is in use.
+    static let recordingGlow = Key<Bool>("recordingGlow", default: true)
+    /// The outline filling as a LocalSend transfer or the timer runs.
+    static let notchEdgeProgress = Key<Bool>("notchEdgeProgress", default: true)
+    /// The outline colouring when the battery fills or runs low.
+    static let notchEdgeBattery = Key<Bool>("notchEdgeBattery", default: true)
+    /// The closed notch lit in the current cover's colour while music plays.
+    static let notchEdgeAmbient = Key<Bool>("notchEdgeAmbient", default: true)
 
     // MARK: Timer
     /// Seconds the last countdown was set to, so the same one is one tap away.
@@ -205,6 +220,8 @@ extension Defaults.Keys {
     static let clipboardEnabled = Key<Bool>("clipboardEnabled", default: false)
     static let clipboardHistoryLimit = Key<Int>("clipboardHistoryLimit", default: 30)
     static let clipboardPersistHistory = Key<Bool>("clipboardPersistHistory", default: true)
+    /// Double-tapping right Option opens the clipboard tab.
+    static let clipboardDoubleTapRightOption = Key<Bool>("clipboardDoubleTapRightOption", default: true)
 
     // MARK: AI
     static let aiEnabled = Key<Bool>("aiEnabled", default: false)
@@ -241,6 +258,9 @@ extension Defaults.Keys {
     /// Glow behind the played portion of the music slider, like the HUD's.
     static let sliderGlow = Key<Bool>("sliderGlow", default: false)
     static let useMusicVisualizer = Key<Bool>("useMusicVisualizer", default: true)
+    /// Drive the visualizer from the audio actually playing. Off by default:
+    /// it needs the system audio permission, and the bars work without it.
+    static let realAudioSpectrum = Key<Bool>("realAudioSpectrum", default: false)
     static let customVisualizers = Key<[CustomVisualizer]>("customVisualizers", default: [])
     static let selectedVisualizer = Key<CustomVisualizer?>("selectedVisualizer", default: nil)
     
@@ -258,6 +278,8 @@ extension Defaults.Keys {
     static let sneakPeekDuration = Key<Double>("sneakPeekDuration", default: 1.5)
     static let showShuffleAndRepeat = Key<Bool>("showShuffleAndRepeat", default: false)
     static let enableLyrics = Key<Bool>("enableLyrics", default: false)
+    /// How the artwork changes when the track does.
+    static let trackChangeAnimation = Key<TrackChangeAnimation>("trackChangeAnimation", default: .blur)
     static let musicControlSlots = Key<[MusicControlButton]>(
         "musicControlSlots",
         default: MusicControlButton.defaultLayout
@@ -340,6 +362,8 @@ extension Defaults.Keys {
     static let localSendAutoAccept = Key<Bool>("localSendAutoAccept", default: false)
     /// Put received files on the shelf as well as in Downloads.
     static let localSendAddToShelf = Key<Bool>("localSendAddToShelf", default: true)
+    /// A short sound when a send goes through and when something arrives.
+    static let localSendSounds = Key<Bool>("localSendSounds", default: true)
     
     // MARK: Calendar
     static let calendarSelectionState = Key<CalendarSelectionState>("calendarSelectionState", default: .all)

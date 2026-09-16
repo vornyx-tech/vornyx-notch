@@ -7,10 +7,22 @@
 		<key>NSAllowsArbitraryLoads</key>
 		<true/>
 	</dict>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Vornyx Notch asks Music and Spotify what is playing, and sends play, pause and skip when you use the notch's controls.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Vornyx Notch shows your next events on the dashboard. They are read on this Mac and never leave it.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>Vornyx Notch shows your next events on the dashboard. They are read on this Mac and never leave it.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Vornyx Notch shows a live mirror inside the notch when you open it. Nothing is recorded or sent anywhere.</string>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>Vornyx Notch shows your reminders beside your events on the dashboard.</string>
+	<key>NSRemindersUsageDescription</key>
+	<string>Vornyx Notch shows your reminders beside your events on the dashboard.</string>
+	<key>NSAudioCaptureUsageDescription</key>
+	<string>Vornyx Notch reads the levels of the audio playing so the bars in the notch move with it. No audio is recorded, and nothing on screen is captured.</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>Vornyx Notch reads the battery levels of your connected AirPods to show them in the notch.</string>
-	<key>NSFocusStatusUsageDescription</key>
-	<string>Vornyx Notch shows a light in the notch while a Focus is on.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Vornyx Notch finds devices running LocalSend on your network, so you can send files to them from the notch and receive files from them.</string>
 	<key>NSLocationUsageDescription</key>

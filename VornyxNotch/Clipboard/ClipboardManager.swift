@@ -7,6 +7,7 @@ import AppKit
 import Combine
 import Defaults
 import Foundation
+import ImageIO
 import UniformTypeIdentifiers
 
 struct ClipboardItem: Identifiable, Codable, Equatable {
@@ -18,20 +19,28 @@ struct ClipboardItem: Identifiable, Codable, Equatable {
     /// File name of this entry's PNG in the image store, for a screenshot or
     /// any other copied image. Nil for text - and nil for history written
     /// before images were kept, which decodes fine because it is optional.
-    var imageFileName: String?
+    let imageFileName: String?
     /// Pixel dimensions, so a card can label the image without opening it.
-    var imageWidth: Int?
-    var imageHeight: Int?
+    let imageWidth: Int?
+    let imageHeight: Int?
+    /// What a card shows, worked out once when the entry is made or read back.
+    ///
+    /// These used to be computed properties. A card asks for them several times
+    /// a draw, and every hover redraws every card, so a copied log file was
+    /// being trimmed, lowercased and searched megabytes at a time on each
+    /// movement of the pointer.
+    let summary: Summary
 
-    var isImage: Bool { imageFileName != nil }
-
-    var preview: String {
-        text.trimmingCharacters(in: .whitespacesAndNewlines)
-            .replacingOccurrences(of: "\n", with: " ")
+    struct Summary: Equatable {
+        let kind: Kind
+        /// The start of the text on one line - all a card or its tooltip shows.
+        let preview: String
+        let lineCount: Int
+        let characterCount: Int
     }
 
     /// What the entry looks like, so a card can label itself.
-    enum Kind {
+    enum Kind: Equatable {
         case image
         case link(String)
         case code
@@ -39,17 +48,77 @@ struct ClipboardItem: Identifiable, Codable, Equatable {
         case text
     }
 
-    var kind: Kind {
-        if isImage { return .image }
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    var isImage: Bool { imageFileName != nil }
+    var kind: Kind { summary.kind }
+    var preview: String { summary.preview }
+    var lineCount: Int { summary.lineCount }
 
-        if trimmed.lowercased().hasPrefix("http"),
-           let url = URL(string: trimmed), let host = url.host() {
-            return .link(host)
+    init(
+        id: UUID = UUID(), text: String, date: Date = .now, sourceBundleID: String?,
+        imageFileName: String? = nil, imageWidth: Int? = nil, imageHeight: Int? = nil
+    ) {
+        self.id = id
+        self.text = text
+        self.date = date
+        self.sourceBundleID = sourceBundleID
+        self.imageFileName = imageFileName
+        self.imageWidth = imageWidth
+        self.imageHeight = imageHeight
+        summary = Self.summarize(text, isImage: imageFileName != nil)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, text, date, sourceBundleID, imageFileName, imageWidth, imageHeight
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            id: try container.decode(UUID.self, forKey: .id),
+            text: try container.decode(String.self, forKey: .text),
+            date: try container.decode(Date.self, forKey: .date),
+            sourceBundleID: try container.decodeIfPresent(String.self, forKey: .sourceBundleID),
+            imageFileName: try container.decodeIfPresent(String.self, forKey: .imageFileName),
+            imageWidth: try container.decodeIfPresent(Int.self, forKey: .imageWidth),
+            imageHeight: try container.decodeIfPresent(Int.self, forKey: .imageHeight))
+    }
+
+    /// How much of a copy is read to describe it. A card shows three lines, and
+    /// no link, number or code marker worth spotting starts further in.
+    private static let summaryWindow = 4_000
+    private static let previewLength = 300
+
+    private static func summarize(_ text: String, isImage: Bool) -> Summary {
+        guard !isImage else {
+            return Summary(kind: .image, preview: "", lineCount: 0, characterCount: 0)
         }
-        if !trimmed.isEmpty, trimmed.count < 40,
-           trimmed.allSatisfy({ $0.isNumber || "+-() .".contains($0) }) {
-            return .number
+        let head = text.prefix(summaryWindow)
+        let trimmed = head.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        return Summary(
+            kind: kind(of: trimmed, isWholeCopy: head.endIndex == text.endIndex),
+            preview: String(trimmed.prefix(previewLength))
+                .replacingOccurrences(of: "\n", with: " "),
+            // Counted in bytes: a newline is one byte in UTF-8, and this walks
+            // the copy once instead of splitting it into substrings.
+            lineCount: text.utf8.reduce(into: 1) { count, byte in
+                if byte == 0x0A { count += 1 }
+            },
+            characterCount: text.count)
+    }
+
+    private static func kind(of trimmed: String, isWholeCopy: Bool) -> Kind {
+        // A link or a number is the entire copy, so one longer than the window
+        // is neither.
+        if isWholeCopy {
+            if trimmed.lowercased().hasPrefix("http"),
+               let url = URL(string: trimmed), let host = url.host() {
+                return .link(host)
+            }
+            if !trimmed.isEmpty, trimmed.count < 40,
+               trimmed.allSatisfy({ $0.isNumber || "+-() .".contains($0) }) {
+                return .number
+            }
         }
         let codeMarkers = ["{", "}", "();", "=>", "func ", "def ", "const ", "import ", "</"]
         if codeMarkers.contains(where: trimmed.contains) {
@@ -57,34 +126,48 @@ struct ClipboardItem: Identifiable, Codable, Equatable {
         }
         return .text
     }
-
-    var lineCount: Int {
-        text.split(separator: "\n", omittingEmptySubsequences: false).count
-    }
 }
 
-/// Watches the general pasteboard and keeps a short history of text copies.
+/// Watches the general pasteboard and keeps a short history of copies.
 ///
 /// AppKit gives no change notification for the pasteboard, so this polls
 /// `changeCount` - the same approach every clipboard manager on macOS uses.
 /// Polling only runs while the feature is switched on.
+///
+/// Only the pasteboard itself is touched on the main thread. Describing a copy,
+/// converting and writing images, decoding thumbnails and saving the history
+/// all happen in `ClipboardStore`, so on a busy machine a new entry turns up a
+/// moment later instead of the notch stuttering.
 @MainActor
 final class ClipboardManager: ObservableObject {
     static let shared = ClipboardManager()
 
     @Published private(set) var items: [ClipboardItem] = []
+    /// Small decoded pictures for image entries, by file name.
+    @Published private(set) var thumbnails: [String: NSImage] = [:]
+    /// Image entries whose file could not be read.
+    @Published private(set) var missingImages: Set<String> = []
 
+    enum Thumbnail {
+        case ready(NSImage)
+        case loading
+        case missing
+    }
+
+    private let store = ClipboardStore()
+    private let launchDate = Date()
     private var lastChangeCount: Int = NSPasteboard.general.changeCount
     private var timer: Timer?
     private var cancellable: AnyCancellable?
-    /// Set while we write to the pasteboard ourselves, so re-copying an item
-    /// does not push a duplicate back onto the history.
-    private var isWritingOurselves = false
+    /// Copies still being described, chained so they land in the order made.
+    private var ingestion: Task<Void, Never>?
+    private var pendingSave: Task<Void, Never>?
+    /// Saving waits for the stored history, or a copy made during launch would
+    /// overwrite it with a history of one.
+    private var historyLoaded = false
+    private var loadingThumbnails: Set<String> = []
 
     private init() {
-        load()
-        sweepOrphanedImages()
-
         cancellable = Defaults.publisher(.clipboardEnabled)
             .sink { [weak self] change in
                 Task { @MainActor in
@@ -93,6 +176,7 @@ final class ClipboardManager: ObservableObject {
             }
 
         if Defaults[.clipboardEnabled] { start() }
+        loadHistory()
     }
 
     // MARK: - Watching
@@ -103,6 +187,8 @@ final class ClipboardManager: ObservableObject {
         let timer = Timer(timeInterval: 0.6, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.poll() }
         }
+        // Lets the system fold the tick in with its other wake-ups.
+        timer.tolerance = 0.15
         RunLoop.main.add(timer, forMode: .common)
         self.timer = timer
     }
@@ -117,165 +203,153 @@ final class ClipboardManager: ObservableObject {
         guard pasteboard.changeCount != lastChangeCount else { return }
         lastChangeCount = pasteboard.changeCount
 
-        guard !isWritingOurselves else {
-            isWritingOurselves = false
-            return
-        }
-
         // Respect the marker apps like password managers set on secrets.
         if pasteboard.types?.contains(.init("org.nspasteboard.ConcealedType")) == true { return }
 
+        let source = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+
         if let text = pasteboard.string(forType: .string),
-           !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            add(text)
+           text.contains(where: { !$0.isWhitespace }) {
+            enqueue { [store] in
+                let item = await store.describe(text, source: source)
+                self.add(item)
+            }
             return
         }
 
         // Screenshots and other copied images. Checked after text on purpose:
         // copying from a rich editor puts both on the pasteboard, and the text
-        // is what you meant.
-        if let image = Self.imageOnPasteboard(pasteboard) {
-            add(image)
+        // is what you meant. Only the bytes are taken here.
+        if let image = Self.imageData(on: pasteboard) {
+            enqueue { [store] in
+                guard let stored = await store.storeImage(image.data, isPNG: image.isPNG) else { return }
+                self.insert(ClipboardItem(
+                    text: "", sourceBundleID: source, imageFileName: stored.fileName,
+                    imageWidth: stored.width, imageHeight: stored.height))
+            }
         }
     }
 
-    /// PNG data for whatever image is on the pasteboard, if any.
+    /// Runs `work` once every copy before it has landed, so two copies in quick
+    /// succession keep their order even when the first takes longer to describe.
+    private func enqueue(_ work: @escaping @MainActor () async -> Void) {
+        let previous = ingestion
+        ingestion = Task {
+            await previous?.value
+            await work()
+        }
+    }
+
+    /// The image on the pasteboard as raw bytes, if there is one.
     ///
-    /// A screenshot arrives as TIFF, an image dragged from a browser as PNG,
-    /// and neither carries a string - which is why the clipboard used to ignore
-    /// both. Everything is normalised to PNG so the store holds one format.
-    private static func imageOnPasteboard(_ pasteboard: NSPasteboard) -> NSImage? {
-        guard pasteboard.canReadItem(withDataConformingToTypes: [
-            UTType.png.identifier, UTType.tiff.identifier,
-        ]) else { return nil }
-
-        guard let image = NSImage(pasteboard: pasteboard), image.size != .zero else {
-            return nil
-        }
-        return image
+    /// A screenshot arrives as TIFF and an image dragged from a browser as PNG,
+    /// and neither carries a string. Converting waits for the store.
+    private static func imageData(on pasteboard: NSPasteboard) -> (data: Data, isPNG: Bool)? {
+        if let png = pasteboard.data(forType: .png) { return (png, true) }
+        if let tiff = pasteboard.data(forType: .tiff) { return (tiff, false) }
+        return nil
     }
 
-    private func add(_ text: String) {
+    private func add(_ item: ClipboardItem) {
         // A repeat copy moves the existing entry to the top instead of stacking.
-        // Text only: see `add(_ image:)`.
-        items.removeAll { !$0.isImage && $0.text == text }
-        insert(
-            ClipboardItem(
-                id: UUID(),
-                text: text,
-                date: .now,
-                sourceBundleID: NSWorkspace.shared.frontmostApplication?.bundleIdentifier
-            )
-        )
+        // Text only: two screenshots of the same window are not the same copy,
+        // and comparing the pixels of every entry would cost more than it saves.
+        items.removeAll { !$0.isImage && $0.text == item.text }
+        insert(item)
     }
 
-    /// Puts an entry at the top and trims the history to the user's limit,
-    /// taking any images that fall off the end with it.
+    /// Puts an entry at the top and trims the history to the user's limit.
     private func insert(_ item: ClipboardItem) {
         items.insert(item, at: 0)
-
-        let limit = max(1, Defaults[.clipboardHistoryLimit])
-        if items.count > limit {
-            for dropped in items.suffix(items.count - limit) { discardImage(of: dropped) }
-            items.removeLast(items.count - limit)
-        }
-
+        trimToLimit()
         save()
     }
 
-    /// Files a copied image. Unlike text, images are never de-duplicated: two
-    /// screenshots of the same window are not the same copy, and comparing the
-    /// pixels of every entry on every copy would cost more than it saves.
-    private func add(_ image: NSImage) {
-        guard let png = Self.pngData(from: image) else { return }
-
-        let fileName = "\(UUID().uuidString).png"
-        do {
-            try png.write(to: imageStore.appendingPathComponent(fileName), options: .atomic)
-        } catch {
-            NSLog("Clipboard: could not store copied image: \(error.localizedDescription)")
-            return
-        }
-
-        let pixels = Self.pixelSize(of: image)
-        insert(
-            ClipboardItem(
-                id: UUID(),
-                text: "",
-                date: .now,
-                sourceBundleID: NSWorkspace.shared.frontmostApplication?.bundleIdentifier,
-                imageFileName: fileName,
-                imageWidth: pixels.map(\.width),
-                imageHeight: pixels.map(\.height)
-            )
-        )
+    private func trimToLimit() {
+        let limit = max(1, Defaults[.clipboardHistoryLimit])
+        guard items.count > limit else { return }
+        discardImages(of: Array(items.suffix(items.count - limit)))
+        items.removeLast(items.count - limit)
     }
 
-    private static func pngData(from image: NSImage) -> Data? {
-        guard let tiff = image.tiffRepresentation,
-              let rep = NSBitmapImageRep(data: tiff)
-        else { return nil }
-        return rep.representation(using: .png, properties: [:])
-    }
-
-    /// The image's real pixel dimensions, which are not its `size` on a Retina
-    /// display - `size` is in points, and a screenshot is twice that.
-    private static func pixelSize(of image: NSImage) -> (width: Int, height: Int)? {
-        guard let rep = image.representations.first else { return nil }
-        return (rep.pixelsWide, rep.pixelsHigh)
-    }
-
-    // MARK: - Image store
-
-    /// Images live as files beside the history rather than inside it: the
-    /// history is JSON, and a base64 screenshot in it would be megabytes
-    /// rewritten on every single copy.
-    private var imageStore: URL {
-        let directory = storeDirectory.appendingPathComponent("images", isDirectory: true)
-        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        return directory
-    }
+    // MARK: - Images
 
     func imageURL(for item: ClipboardItem) -> URL? {
-        item.imageFileName.map { imageStore.appendingPathComponent($0) }
+        item.imageFileName.map { ClipboardStore.imagesDirectory.appendingPathComponent($0) }
     }
 
-    /// Loaded images, so scrolling the row does not re-read PNGs from disk.
-    private let imageCache = NSCache<NSString, NSImage>()
+    /// The picture for an image card: downsampled to about the size it is
+    /// drawn, decoded off the main thread, and kept.
+    ///
+    /// Reading the full PNG in the view's body, then scaling a 5K screenshot
+    /// down to a card on every frame of the hover animation, is what made the
+    /// row stutter. `.loading` until it is ready; the result is published,
+    /// which redraws the card.
+    func thumbnail(for item: ClipboardItem) -> Thumbnail {
+        guard let fileName = item.imageFileName else { return .missing }
+        if let image = thumbnails[fileName] { return .ready(image) }
+        if missingImages.contains(fileName) { return .missing }
+        guard !loadingThumbnails.contains(fileName) else { return .loading }
 
-    func image(for item: ClipboardItem) -> NSImage? {
-        guard let fileName = item.imageFileName else { return nil }
-        if let cached = imageCache.object(forKey: fileName as NSString) { return cached }
-        guard let url = imageURL(for: item), let image = NSImage(contentsOf: url) else {
-            return nil
+        loadingThumbnails.insert(fileName)
+        let maxPixelSize = Self.thumbnailPixelSize(width: item.imageWidth, height: item.imageHeight)
+        Task { [store] in
+            let image = await store.thumbnail(named: fileName, maxPixelSize: maxPixelSize)
+            loadingThumbnails.remove(fileName)
+            // Deleted while it was decoding.
+            guard items.contains(where: { $0.imageFileName == fileName }) else { return }
+            if let image {
+                thumbnails[fileName] = NSImage(cgImage: image, size: .zero)
+            } else {
+                missingImages.insert(fileName)
+            }
         }
-        imageCache.setObject(image, forKey: fileName as NSString)
-        return image
+        return .loading
     }
 
-    /// Deletes the file behind an entry. Called wherever an entry leaves the
-    /// history, or the store grows without bound.
-    private func discardImage(of item: ClipboardItem) {
-        guard let fileName = item.imageFileName else { return }
-        imageCache.removeObject(forKey: fileName as NSString)
-        try? FileManager.default.removeItem(at: imageStore.appendingPathComponent(fileName))
+    /// Longest side, in pixels, that keeps the shorter side covering the
+    /// biggest card twice over for Retina - `.fill` scales by the shorter side.
+    private static func thumbnailPixelSize(width: Int?, height: Int?) -> Int {
+        let cover = 520
+        guard let width, let height, width > 0, height > 0 else { return 1_024 }
+        let long = max(width, height)
+        let short = min(width, height)
+        guard short > cover else { return long }
+        return min(long * cover / short, 4_096)
+    }
+
+    /// Forgets the pictures of entries leaving the history, and their files.
+    private func discardImages(of dropped: [ClipboardItem]) {
+        let names = dropped.compactMap(\.imageFileName)
+        guard !names.isEmpty else { return }
+        for name in names {
+            thumbnails[name] = nil
+            missingImages.remove(name)
+        }
+        Task { [store] in await store.deleteImages(names) }
     }
 
     // MARK: - Actions
 
     func copy(_ item: ClipboardItem) {
-        isWritingOurselves = true
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
-        if let image = image(for: item) {
-            pasteboard.writeObjects([image])
+        if let url = imageURL(for: item) {
+            // The stored PNG as it is. Handing AppKit an NSImage had it decode
+            // the whole picture and re-encode it as TIFF, on the main thread.
+            if let png = try? Data(contentsOf: url, options: .mappedIfSafe) {
+                pasteboard.setData(png, forType: .png)
+            }
         } else {
             pasteboard.setString(item.text, forType: .string)
         }
+        // Our own write: the next poll sees nothing new, so it is not filed
+        // again. This alone is enough - a separate "writing ourselves" flag used
+        // to stay set after this and swallow the next real copy.
         lastChangeCount = pasteboard.changeCount
 
         // Move it back to the top so the most recently used is first.
-        if let index = items.firstIndex(of: item), index != 0 {
+        if let index = items.firstIndex(where: { $0.id == item.id }), index != 0 {
             items.remove(at: index)
             items.insert(item, at: 0)
             save()
@@ -283,65 +357,177 @@ final class ClipboardManager: ObservableObject {
     }
 
     func remove(_ item: ClipboardItem) {
-        discardImage(of: item)
+        discardImages(of: [item])
         items.removeAll { $0.id == item.id }
         save()
     }
 
     func clear() {
-        for item in items { discardImage(of: item) }
+        discardImages(of: items)
         items.removeAll()
         save()
     }
 
     // MARK: - Persistence
 
-    private var storeDirectory: URL {
-        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-        let directory = (support ?? FileManager.default.temporaryDirectory)
-            .appendingPathComponent("VornyxNotch", isDirectory: true)
-        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        return directory
-    }
-
-    private var storeURL: URL {
-        storeDirectory.appendingPathComponent("clipboard.json")
-    }
-
+    /// Saves a moment after the last change, not on every one, and off the
+    /// main thread: re-encoding and rewriting the whole history on each copy
+    /// held the main thread for as long as the history was big.
     private func save() {
-        guard Defaults[.clipboardPersistHistory] else { return }
-        guard let data = try? JSONEncoder().encode(items) else { return }
-        try? data.write(to: storeURL, options: .atomic)
+        guard historyLoaded, Defaults[.clipboardPersistHistory] else { return }
+        pendingSave?.cancel()
+        let snapshot = items
+        pendingSave = Task { [store] in
+            try? await Task.sleep(for: .milliseconds(400))
+            guard !Task.isCancelled else { return }
+            await store.saveHistory(snapshot)
+        }
     }
 
-    private func load() {
-        guard Defaults[.clipboardPersistHistory],
-              let data = try? Data(contentsOf: storeURL),
-              let stored = try? JSONDecoder().decode([ClipboardItem].self, from: data)
-        else { return }
-        items = stored
+    /// Reads the saved history in the background, under anything copied while
+    /// it was loading.
+    private func loadHistory() {
+        let persisted = Defaults[.clipboardPersistHistory]
+        Task { [store, launchDate] in
+            let stored = persisted ? await store.loadHistory() : nil
+            let copiedMeanwhile = !items.isEmpty
+            if let stored {
+                let fresh = Set(items.map(\.id))
+                items.append(contentsOf: stored.filter { !fresh.contains($0.id) })
+                trimToLimit()
+            }
+            historyLoaded = true
+            if copiedMeanwhile { save() }
+
+            // Files from before this launch that no entry points at: left by a
+            // crash between writing a PNG and saving the history, and otherwise
+            // invisible and never reclaimed.
+            await store.sweepImages(
+                keeping: Set(items.compactMap(\.imageFileName)), modifiedBefore: launchDate)
+        }
     }
 
     func forgetStoredHistory() {
-        try? FileManager.default.removeItem(at: storeURL)
-        try? FileManager.default.removeItem(at: imageStore)
-        imageCache.removeAllObjects()
+        pendingSave?.cancel()
+        thumbnails.removeAll()
+        missingImages.removeAll()
+        Task { [store] in await store.forget() }
+    }
+}
+
+// MARK: - Store
+
+/// The clipboard's disk, and the work too heavy for the main thread:
+/// describing big copies, converting images, decoding thumbnails, and reading
+/// and writing the history. An actor, so writes land in the order asked for.
+actor ClipboardStore {
+    nonisolated static let directory: URL = {
+        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+        return (support ?? FileManager.default.temporaryDirectory)
+            .appendingPathComponent("VornyxNotch", isDirectory: true)
+    }()
+
+    /// Images live as files beside the history rather than inside it: the
+    /// history is JSON, and a base64 screenshot in it would be megabytes
+    /// rewritten on every save.
+    nonisolated static let imagesDirectory = directory.appendingPathComponent("images", isDirectory: true)
+    private nonisolated static let historyURL = directory.appendingPathComponent("clipboard.json")
+
+    struct StoredImage: Sendable {
+        let fileName: String
+        let width: Int
+        let height: Int
     }
 
-    /// Deletes image files no entry points at any more.
-    ///
-    /// Nothing should leave one behind - every path that drops an entry deletes
-    /// its file - but a crash between writing the PNG and saving the history
-    /// would, and those files are invisible to the user and never reclaimed.
-    private func sweepOrphanedImages() {
-        let live = Set(items.compactMap(\.imageFileName))
-        let onDisk = (try? FileManager.default.contentsOfDirectory(
-            at: imageStore, includingPropertiesForKeys: nil
+    func describe(_ text: String, source: String?) -> ClipboardItem {
+        ClipboardItem(text: text, sourceBundleID: source)
+    }
+
+    /// Files a copied image as PNG. PNG bytes are kept as they came; anything
+    /// else - a screenshot's TIFF - is converted.
+    func storeImage(_ data: Data, isPNG: Bool) -> StoredImage? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let width = properties[kCGImagePropertyPixelWidth] as? Int,
+              let height = properties[kCGImagePropertyPixelHeight] as? Int,
+              width > 0, height > 0
+        else { return nil }
+
+        let png: Data
+        if isPNG {
+            png = data
+        } else {
+            guard let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return nil }
+            let output = NSMutableData()
+            guard let destination = CGImageDestinationCreateWithData(
+                output, UTType.png.identifier as CFString, 1, nil)
+            else { return nil }
+            CGImageDestinationAddImage(destination, image, nil)
+            guard CGImageDestinationFinalize(destination) else { return nil }
+            png = output as Data
+        }
+
+        let fileName = "\(UUID().uuidString).png"
+        do {
+            try FileManager.default.createDirectory(at: Self.imagesDirectory, withIntermediateDirectories: true)
+            try png.write(to: Self.imagesDirectory.appendingPathComponent(fileName), options: .atomic)
+        } catch {
+            NSLog("Clipboard: could not store copied image: \(error.localizedDescription)")
+            return nil
+        }
+        return StoredImage(fileName: fileName, width: width, height: height)
+    }
+
+    func thumbnail(named fileName: String, maxPixelSize: Int) -> CGImage? {
+        let url = Self.imagesDirectory.appendingPathComponent(fileName)
+        guard let source = CGImageSourceCreateWithURL(
+            url as CFURL, [kCGImageSourceShouldCache: false] as CFDictionary)
+        else { return nil }
+        return CGImageSourceCreateThumbnailAtIndex(source, 0, [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
+        ] as CFDictionary)
+    }
+
+    func deleteImages(_ names: [String]) {
+        for name in names {
+            try? FileManager.default.removeItem(at: Self.imagesDirectory.appendingPathComponent(name))
+        }
+    }
+
+    func loadHistory() -> [ClipboardItem]? {
+        guard let data = try? Data(contentsOf: Self.historyURL) else { return nil }
+        return try? JSONDecoder().decode([ClipboardItem].self, from: data)
+    }
+
+    func saveHistory(_ items: [ClipboardItem]) {
+        guard let data = try? JSONEncoder().encode(items) else { return }
+        try? FileManager.default.createDirectory(at: Self.directory, withIntermediateDirectories: true)
+        try? data.write(to: Self.historyURL, options: .atomic)
+    }
+
+    /// Deletes image files no entry points at. Only ones older than `cutoff`,
+    /// so an image copied while the history was loading is never mistaken for
+    /// an orphan.
+    func sweepImages(keeping live: Set<String>, modifiedBefore cutoff: Date) {
+        let files = (try? FileManager.default.contentsOfDirectory(
+            at: Self.imagesDirectory, includingPropertiesForKeys: [.contentModificationDateKey]
         )) ?? []
 
-        for url in onDisk where !live.contains(url.lastPathComponent) {
+        for url in files where !live.contains(url.lastPathComponent) {
+            guard let modified = try? url.resourceValues(forKeys: [.contentModificationDateKey])
+                .contentModificationDate,
+                  modified < cutoff
+            else { continue }
             try? FileManager.default.removeItem(at: url)
         }
+    }
+
+    func forget() {
+        try? FileManager.default.removeItem(at: Self.historyURL)
+        try? FileManager.default.removeItem(at: Self.imagesDirectory)
     }
 }
 

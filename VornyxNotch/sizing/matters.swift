@@ -201,8 +201,7 @@ typealias NotchCornerRadiusInsets = (
 /// - `top` is the radius where the notch meets the screen edge - the outward
 ///   flare at the top corners.
 /// - `bottom` is the radius of its lower corners.
-/// - The `opened` pair is used only while `Defaults[.cornerRadiusScaling]` is
-///   on; with it off the notch keeps the `closed` values in both states.
+/// - The `opened` pair is used while the notch is open, `closed` otherwise.
 ///
 /// `NotchShape` caps whatever it is given against the box it draws into, so a
 /// value too large for the current notch height simply stops having an effect
@@ -219,11 +218,7 @@ extension Comparable {
 }
 
 /// The open notch's own outer corner radius, as actually drawn.
-var openNotchCornerRadius: CGFloat {
-    Defaults[.cornerRadiusScaling]
-        ? cornerRadiusInsets.opened.bottom
-        : cornerRadiusInsets.closed.bottom
-}
+var openNotchCornerRadius: CGFloat { cornerRadiusInsets.opened.bottom }
 
 /// Gap between the notch's inner edge and the panels drawn inside it.
 let notchContentInset: CGFloat = 12

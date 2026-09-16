@@ -9,6 +9,7 @@ import Foundation
 import ApplicationServices
 import IOKit
 import CoreGraphics
+import AppKit
 
 class VornyxNotchXPCHelper: NSObject, VornyxNotchXPCHelperProtocol {
     
@@ -137,6 +138,51 @@ class VornyxNotchXPCHelper: NSObject, VornyxNotchXPCHelperProtocol {
             return
         }
         reply(false)
+    }
+
+    // MARK: - Focus
+
+    /// Whether Control Center has its Focus item in the menu bar.
+    ///
+    /// Stands in for `INFocusStatusCenter`, which answers only apps signed with
+    /// the Communication Notifications capability. With Focus set to show in
+    /// the menu bar "When Active" - the default - the item exists exactly while
+    /// a Focus is on. Nil when Accessibility is not granted or there is no
+    /// Control Center menu bar to read.
+    @objc func isFocusMenuExtraShowing(with reply: @escaping (NSNumber?) -> Void) {
+        guard AXIsProcessTrusted(),
+              let controlCenter = NSRunningApplication
+                .runningApplications(withBundleIdentifier: "com.apple.controlcenter").first
+        else { return reply(nil) }
+
+        let app = AXUIElementCreateApplication(controlCenter.processIdentifier)
+        var extras: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(app, "AXExtrasMenuBar" as CFString, &extras) == .success,
+              let bar = extras, CFGetTypeID(bar) == AXUIElementGetTypeID()
+        else { return reply(nil) }
+
+        var children: CFTypeRef?
+        AXUIElementCopyAttributeValue(bar as! AXUIElement, "AXChildren" as CFString, &children)
+        let identifiers = (children as? [AXUIElement] ?? []).compactMap { item -> String? in
+            var identifier: CFTypeRef?
+            AXUIElementCopyAttributeValue(item, "AXIdentifier" as CFString, &identifier)
+            return identifier as? String
+        }
+        logMenuExtras(identifiers)
+        reply(NSNumber(value: identifiers.contains { $0.localizedCaseInsensitiveContains("focus") }))
+    }
+
+    private let menuExtrasLock = NSLock()
+    private var loggedMenuExtras: [String]?
+
+    /// Logged on change only, so the identifiers can be checked in Console
+    /// without a line every second.
+    private func logMenuExtras(_ identifiers: [String]) {
+        menuExtrasLock.lock()
+        defer { menuExtrasLock.unlock() }
+        guard identifiers != loggedMenuExtras else { return }
+        loggedMenuExtras = identifiers
+        NSLog("FOCUS: menu extras %@", identifiers.joined(separator: ", "))
     }
 
     // MARK: - Private helpers for DisplayServices / IOKit access
