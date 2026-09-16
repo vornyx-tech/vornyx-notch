@@ -69,6 +69,9 @@ struct SettingsView: View {
                 NavigationLink(value: "Advanced") {
                     Label("Advanced", systemImage: "gearshape.2")
                 }
+                NavigationLink(value: "Permissions") {
+                    Label("Permissions", systemImage: "lock.shield")
+                }
                 NavigationLink(value: "About") {
                     Label("About", systemImage: "info.circle")
                 }
@@ -106,6 +109,9 @@ struct SettingsView: View {
                     GeneralSettings()
                 case "Advanced":
                     Advanced()
+                case "Permissions":
+                    PermissionsChecklistView()
+                        .navigationTitle("Permissions")
                 case "About":
                     if let controller = updaterController {
                         About(updaterController: controller)
@@ -385,7 +391,6 @@ struct GeneralSettings: View {
 }
 
 struct Charge: View {
-    @Default(.showFocusIndicator) var showFocusIndicator
     @Default(.audioRouteSneakPeek) var audioRouteSneakPeek
     @Default(.audioRouteSneakPeekStyle) var audioRouteSneakPeekStyle
 
@@ -420,19 +425,48 @@ struct Charge: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                Defaults.Toggle(key: .recordingGlow) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Glow while recording")
+                        Text("The notch outlines itself in green for the camera, orange for the microphone. Follows the setting above.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Defaults.Toggle(key: .notchEdgeProgress) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Progress on the notch's edge")
+                        Text("The outline fills as a LocalSend transfer runs, and empties as the timer counts down.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Defaults.Toggle(key: .notchEdgeBattery) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Battery on the notch's edge")
+                        Text("Green when it reaches full, red below 20% on battery. Nothing while charging.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Defaults.Toggle(key: .notchEdgeAmbient) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Album colour on the notch's edge")
+                        Text("While music plays, the closed notch is lit in the cover's own colour.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 Defaults.Toggle(key: .showCapsLockIndicator) {
                     Text("Caps Lock light")
                 }
                 Defaults.Toggle(key: .showFocusIndicator) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Focus light")
-                        Text("Asks for the Focus Status permission the first time.")
+                        Text("Needs Accessibility, and Focus shown in the menu bar while it is on.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
-                }
-                .onChange(of: showFocusIndicator) { _, on in
-                    if on { IndicatorsManager.shared.refreshFocusAuthorization() }
                 }
                 Defaults.Toggle(key: .showAudioPicker) {
                     VStack(alignment: .leading, spacing: 2) {
@@ -736,6 +770,7 @@ struct Media: View {
     @Default(.sneakPeekDuration) var sneakPeekDuration
 
     @Default(.enableLyrics) var enableLyrics
+    @Default(.trackChangeAnimation) var trackChangeAnimation
 
     var body: some View {
         Form {
@@ -775,6 +810,20 @@ struct Media: View {
                 }
             }
             
+            Section {
+                Picker("Track change animation", selection: $trackChangeAnimation) {
+                    ForEach(TrackChangeAnimation.allCases) { style in
+                        Text(style.rawValue).tag(style)
+                    }
+                }
+            } header: {
+                SettingsSectionHeader("Player", icon: "music.note", tint: .pink)
+            } footer: {
+                Text("Blur softens the old cover into the new one. Flip and shine turns the cover over to the next track, then runs a glint across it.")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+            }
+
             Section {
                 Toggle(
                     "Show music live activity",
@@ -1786,14 +1835,6 @@ struct Advanced: View {
                 Defaults.Toggle(key: .enableShadow) {
                     Text("Enable window shadow")
                 }
-                Defaults.Toggle(key: .cornerRadiusScaling) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Use separate corner radii when open")
-                        Text("With this off the open notch keeps the closed radii. The radii themselves are set in code.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
             } header: {
                 SettingsSectionHeader("Window Appearance", icon: "macwindow", tint: .teal)
             }
@@ -2084,6 +2125,19 @@ struct ClipboardSettings: View {
                     Text("Remember history between launches")
                 }
                 .disabled(!clipboardEnabled)
+                Defaults.Toggle(key: .clipboardDoubleTapRightOption) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Double-tap right Option to show")
+                        Text("Opens the clipboard tab from anywhere. Needs Accessibility access, like the media keys.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .onChange { isOn in
+                    guard isOn else { return }
+                    Task { _ = await XPCHelperClient.shared.ensureAccessibilityAuthorization(promptIfNeeded: true) }
+                }
+                .disabled(!clipboardEnabled)
             } header: {
                 SettingsSectionHeader("Clipboard", icon: "doc.on.clipboard.fill", tint: .yellow)
             } footer: {
@@ -2143,6 +2197,10 @@ struct LocalSendSettings: View {
                 .disabled(!enabled)
                 Defaults.Toggle(key: .localSendAddToShelf) {
                     Text("Put received files on the shelf")
+                }
+                .disabled(!enabled)
+                Defaults.Toggle(key: .localSendSounds) {
+                    Text("Play sounds when sending and receiving")
                 }
                 .disabled(!enabled)
             } header: {

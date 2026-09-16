@@ -501,6 +501,7 @@ final class LocalSendManager: ObservableObject {
     private func finishOutgoing(_ phase: Outgoing.Phase) {
         guard let id = outgoing?.id else { return }
         outgoing?.phase = phase
+        if phase == .finished { playSound(.sent) }
         Task {
             try? await Task.sleep(for: .seconds(4))
             // Animated, like every other banner leaving: without a transaction
@@ -509,6 +510,20 @@ final class LocalSendManager: ObservableObject {
                 withAnimation(.smooth) { outgoing = nil }
             }
         }
+    }
+
+    /// Apple's own sounds, played from where macOS keeps them rather than
+    /// copied into the app: Messages' send for a send that went through, the
+    /// Droplet tone for something arriving.
+    private enum Sound: String {
+        case sent = "/System/Library/Components/CoreAudio.component/Contents/SharedSupport/SystemSounds/system/SentMessage.caf"
+        case received = "/System/Library/PrivateFrameworks/ToneLibrary.framework/Versions/A/Resources/AlertTones/EncoreInfinitum/Droplet-EncoreInfinitum.caf"
+    }
+
+    private func playSound(_ sound: Sound) {
+        guard Defaults[.localSendSounds] else { return }
+        // These paths can move between releases: a missing file is silence, not a crash.
+        NSSound(contentsOfFile: sound.rawValue, byReference: true)?.play()
     }
 
     // MARK: - Receiving
@@ -561,7 +576,7 @@ extension LocalSendManager: LocalSendServerDelegate {
     func localSendDidReceiveMessage(_ text: String, from sender: LocalSendInfo) {
         let received = Message(senderName: sender.alias, text: text)
         withAnimation(.smooth) { message = received }
-
+        playSound(.received)
 
         Task {
             try? await Task.sleep(for: .seconds(8))
@@ -620,6 +635,7 @@ extension LocalSendManager: LocalSendServerDelegate {
     func localSendSessionDidEnd(sessionID: String, cancelled: Bool) {
         guard incoming?.sessionID == sessionID else { return }
         incoming?.phase = cancelled ? .cancelled : .finished
+        if !cancelled, incoming?.receivedFiles.isEmpty == false { playSound(.received) }
         Task {
             try? await Task.sleep(for: .seconds(4))
             if incoming?.sessionID == sessionID {

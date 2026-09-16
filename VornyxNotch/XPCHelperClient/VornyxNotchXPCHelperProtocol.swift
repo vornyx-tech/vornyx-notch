@@ -20,5 +20,7 @@ import Foundation
     func isScreenBrightnessAvailable(with reply: @escaping (Bool) -> Void)
     func currentScreenBrightness(with reply: @escaping (NSNumber?) -> Void)
     func setScreenBrightness(_ value: Float, with reply: @escaping (Bool) -> Void)
+    // Focus, read from Control Center's menu bar item (performed by the helper)
+    func isFocusMenuExtraShowing(with reply: @escaping (NSNumber?) -> Void)
 }
 

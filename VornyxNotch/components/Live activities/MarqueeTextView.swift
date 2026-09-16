@@ -30,12 +30,15 @@ struct MarqueeText: View {
     let backgroundColor: Color
     let minDuration: Double
     let frameWidth: CGFloat
+    /// When set, a new text pushes the old one out, coming in from this edge.
+    /// Nil keeps the old instant swap, for the places that want no motion.
+    let pushFrom: Edge?
     
     @State private var animate = false
     @State private var textSize: CGSize = .zero
     @State private var offset: CGFloat = 0
     
-    init(_ text: Binding<String>, font: Font = .body, nsFont: NSFont.TextStyle = .body, textColor: Color = .primary, backgroundColor: Color = .clear, minDuration: Double = 3.0, frameWidth: CGFloat = 200) {
+    init(_ text: Binding<String>, font: Font = .body, nsFont: NSFont.TextStyle = .body, textColor: Color = .primary, backgroundColor: Color = .clear, minDuration: Double = 3.0, frameWidth: CGFloat = 200, pushFrom: Edge? = nil) {
         _text = text
         self.font = font
         self.nsFont = nsFont
@@ -43,6 +46,7 @@ struct MarqueeText: View {
         self.backgroundColor = backgroundColor
         self.minDuration = minDuration
         self.frameWidth = frameWidth
+        self.pushFrom = pushFrom
     }
     
     private var needsScrolling: Bool {
@@ -58,6 +62,7 @@ struct MarqueeText: View {
                         .opacity(needsScrolling ? 1 : 0)
                 }
                 .id(text)
+                .transition(pushFrom.map { AnyTransition.push(from: $0) } ?? .identity)
                 .font(font)
                 .foregroundColor(textColor)
                 .fixedSize(horizontal: true, vertical: false)
@@ -84,6 +89,7 @@ struct MarqueeText: View {
                     }
                 }
             }
+            .animation(pushFrom == nil ? nil : .smooth(duration: 0.4), value: text)
             .frame(width: frameWidth, alignment: .leading)
             .clipped()
         }

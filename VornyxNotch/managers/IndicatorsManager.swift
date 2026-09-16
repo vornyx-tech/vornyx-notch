@@ -12,7 +12,6 @@ import CoreAudio
 import CoreMediaIO
 import Defaults
 import Foundation
-import Intents
 
 /// Whether each indicator is currently on.
 struct SystemIndicators: Equatable {
@@ -31,24 +30,24 @@ struct SystemIndicators: Equatable {
 /// and a second's lag on "the camera came on" is not a second anybody notices.
 ///
 /// Every source here works inside the app sandbox. That rules out the way this
-/// is usually done for Focus - reading `~/Library/DoNotDisturb/DB` - so Focus
-/// comes from `INFocusStatusCenter`, which asks the user once and then answers
-/// honestly.
+/// is usually done for Focus - reading `~/Library/DoNotDisturb/DB` - and the
+/// Focus Status API answers only apps entitled by a paid developer team, so
+/// Focus is read from Control Center's menu bar item, by the helper.
 @MainActor
 final class IndicatorsManager: ObservableObject {
     static let shared = IndicatorsManager()
 
     @Published private(set) var indicators = SystemIndicators()
-    /// Nil until asked. Focus is the only indicator that needs permission.
-    @Published private(set) var focusAuthorized: Bool?
 
     private var ticker: AnyCancellable?
+    /// Last answer from the helper, and the question still out, if any.
+    private var focusFromMenuBar = false
+    private var focusQuery: Task<Void, Never>?
 
     private init() {}
 
     func start() {
         guard ticker == nil else { return }
-        requestFocusAuthorizationIfNeeded()
         poll()
         ticker = Timer.publish(every: 1, on: .main, in: .common)
             .autoconnect()
@@ -58,6 +57,8 @@ final class IndicatorsManager: ObservableObject {
     func stop() {
         ticker?.cancel()
         ticker = nil
+        focusQuery?.cancel()
+        focusQuery = nil
     }
 
     // MARK: - Polling
@@ -69,8 +70,9 @@ final class IndicatorsManager: ObservableObject {
             next.camera = Self.cameraInUse()
             next.microphone = Self.microphoneInUse()
         }
-        if Defaults[.showFocusIndicator], focusAuthorized == true {
-            next.focus = INFocusStatusCenter.default.focusStatus.isFocused ?? false
+        if Defaults[.showFocusIndicator] {
+            next.focus = focusFromMenuBar
+            refreshFocusFromMenuBar()
         }
         if Defaults[.showCapsLockIndicator] {
             // No permission and no monitor: the modifier flags are readable at
@@ -82,26 +84,21 @@ final class IndicatorsManager: ObservableObject {
         indicators = next
     }
 
-    private func requestFocusAuthorizationIfNeeded() {
-        guard Defaults[.showFocusIndicator] else { return }
-
-        let current = INFocusStatusCenter.default.authorizationStatus
-        switch current {
-        case .authorized:
-            focusAuthorized = true
-        case .denied, .restricted:
-            focusAuthorized = false
-        default:
-            INFocusStatusCenter.default.requestAuthorization { [weak self] status in
-                Task { @MainActor in self?.focusAuthorized = status == .authorized }
-            }
+    /// Asks the helper. The answer would land on the next tick anyway;
+    /// publishing it here saves the wait.
+    private func refreshFocusFromMenuBar() {
+        guard focusQuery == nil else { return }
+        focusQuery = Task { [weak self] in
+            let showing = await XPCHelperClient.shared.isFocusMenuExtraShowing()
+            guard let self, !Task.isCancelled else { return }
+            self.focusQuery = nil
+            let focused = showing ?? false
+            guard focused != self.focusFromMenuBar else { return }
+            self.focusFromMenuBar = focused
+            var next = self.indicators
+            next.focus = focused && Defaults[.showFocusIndicator]
+            if next != self.indicators { self.indicators = next }
         }
-    }
-
-    /// Ask again after the setting is turned on, since the first request only
-    /// happens at start-up.
-    func refreshFocusAuthorization() {
-        requestFocusAuthorizationIfNeeded()
     }
 
     // MARK: - Camera

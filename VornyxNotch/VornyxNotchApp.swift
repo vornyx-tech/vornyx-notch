@@ -60,6 +60,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var whatsNewWindow: NSWindow?
     var timer: Timer?
     var closeNotchTask: Task<Void, Never>?
+    private var clipboardDoubleTap: RightOptionDoubleTap?
+    private var clipboardDoubleTapCancellable: AnyCancellable?
     private var previousScreens: [NSScreen]?
     private var onboardingWindowController: NSWindowController?
     private var screenLockedObserver: Any?
@@ -445,30 +447,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         KeyboardShortcuts.onKeyDown(for: .showClipboard) { [weak self] in
             Task { @MainActor [weak self] in
-                guard let self = self else { return }
-                // Nothing to show if the tab is off - and switching to it would
-                // land the notch on a page its own header does not list.
-                guard Defaults[.clipboardEnabled] else { return }
+                self?.toggleClipboard()
+            }
+        }
 
-                let viewModel = self.viewModelUnderMouse()
-
-                self.closeNotchTask?.cancel()
-                self.closeNotchTask = nil
-
-                // A second press on the clipboard puts it away; pressing it
-                // while another tab is open switches to the clipboard instead,
-                // which is what "show clipboard" should do from anywhere.
-                if viewModel.notchState == .open && self.coordinator.currentView == .clipboard {
-                    viewModel.close()
+        let clipboardDoubleTap = RightOptionDoubleTap { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.toggleClipboard()
+            }
+        }
+        self.clipboardDoubleTap = clipboardDoubleTap
+        clipboardDoubleTapCancellable = Defaults.publisher(
+            keys: .clipboardEnabled, .clipboardDoubleTapRightOption
+        )
+        .sink { [weak clipboardDoubleTap] in
+            Task { @MainActor [weak clipboardDoubleTap] in
+                if Defaults[.clipboardEnabled] && Defaults[.clipboardDoubleTapRightOption] {
+                    clipboardDoubleTap?.start()
                 } else {
-                    // Opened from the keyboard, so it answers the keyboard.
-                    self.coordinator.keyboardSession = true
-                    withAnimation(VornyxViewCoordinator.tabChangeAnimation) {
-                        self.coordinator.currentView = .clipboard
-                    }
-                    if viewModel.notchState == .closed {
-                        viewModel.open()
-                    }
+                    clipboardDoubleTap?.stop()
                 }
             }
         }
@@ -540,6 +537,36 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     /// The notch a keyboard shortcut should act on: the one on the screen the
     /// pointer is over, when the notch is showing on every display, and the
     /// single notch otherwise.
+    /// Opens the notch on the clipboard tab, or puts it away if it is already
+    /// showing. Shared by the recorded shortcut and the right Option double tap.
+    @MainActor
+    private func toggleClipboard() {
+        // Nothing to show if the tab is off - and switching to it would
+        // land the notch on a page its own header does not list.
+        guard Defaults[.clipboardEnabled] else { return }
+
+        let viewModel = viewModelUnderMouse()
+
+        closeNotchTask?.cancel()
+        closeNotchTask = nil
+
+        // A second press on the clipboard puts it away; pressing it
+        // while another tab is open switches to the clipboard instead,
+        // which is what "show clipboard" should do from anywhere.
+        if viewModel.notchState == .open && coordinator.currentView == .clipboard {
+            viewModel.close()
+        } else {
+            // Opened from the keyboard, so it answers the keyboard.
+            coordinator.keyboardSession = true
+            withAnimation(VornyxViewCoordinator.tabChangeAnimation) {
+                coordinator.currentView = .clipboard
+            }
+            if viewModel.notchState == .closed {
+                viewModel.open()
+            }
+        }
+    }
+
     func viewModelUnderMouse() -> VornyxViewModel {
         guard Defaults[.showOnAllDisplays] else { return vm }
 

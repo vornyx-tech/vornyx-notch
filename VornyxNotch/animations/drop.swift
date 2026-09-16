@@ -18,7 +18,7 @@ public class VornyxAnimations {
     
     var animation: Animation {
         if #available(macOS 14.0, *), notchStyle == .notch {
-            Animation.spring(.bouncy(duration: 0.6))
+            Animation.spring(.bouncy(duration: 0.2))
         } else {
             Animation.timingCurve(0.16, 1, 0.3, 1, duration: 0.7)
         }

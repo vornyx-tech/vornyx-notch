@@ -241,6 +241,24 @@ final class XPCHelperClient: NSObject {
             return false
         }
     }
+
+    // MARK: - Focus
+
+    nonisolated func isFocusMenuExtraShowing() async -> Bool? {
+        do {
+            let service = await MainActor.run {
+                ensureRemoteService()
+            }
+            let result: NSNumber? = try await service.withContinuation { service, continuation in
+                service.isFocusMenuExtraShowing { value in
+                    continuation.resume(returning: value)
+                }
+            }
+            return result?.boolValue
+        } catch {
+            return nil
+        }
+    }
 }
 
 extension Notification.Name {

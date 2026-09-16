@@ -55,6 +55,12 @@ class MusicManager: ObservableObject {
     @Published var isFavoriteTrack: Bool = false
 
     private var artworkData: Data? = nil
+    /// Bumped every time a different cover is asked for. A decode that finishes
+    /// for an older request is dropped: decodes run in the background, a large
+    /// old cover can finish after a small new one, and it used to land on top -
+    /// the player showing the previous track's artwork after a skip.
+    private var artworkGeneration = 0
+    private var artworkRecheck: Task<Void, Never>?
 
     // Store last values at the time artwork was changed
     private var lastArtworkTitle: String = "I'm Handsome"
@@ -63,6 +69,13 @@ class MusicManager: ObservableObject {
     private var lastArtworkBundleIdentifier: String? = nil
 
     @Published var isFlipping: Bool = false
+
+    enum SkipDirection { case forward, backward }
+    /// Which way the last skip from the notch went, so the new title slides in
+    /// from the matching side. Only known for skips pressed here: a track
+    /// changed from the keyboard or the music app itself reads as forward.
+    @Published private(set) var skipDirection: SkipDirection = .forward
+    private var skipDirectionReset: Task<Void, Never>?
     private var flipWorkItem: DispatchWorkItem?
 
     @Published var isTransitioning: Bool = false
@@ -213,18 +226,31 @@ class MusicManager: ObservableObject {
             } else if state.artwork == nil {
                 // Try to use app icon if no artwork but track changed
                 if let appIconImage = AppIconAsNSImage(for: state.bundleIdentifier) {
+                    // Also overrules any cover still decoding for the last track.
+                    self.artworkGeneration += 1
                     self.usingAppIconForArtwork = true
                     self.updateAlbumArt(newAlbumArt: appIconImage)
                 }
             }
             self.artworkData = state.artwork
 
-            if artworkChanged || state.artwork == nil {
-                // Update last artwork change values
-                self.lastArtworkTitle = state.title
-                self.lastArtworkArtist = state.artist
-                self.lastArtworkAlbum = state.album
-                self.lastArtworkBundleIdentifier = state.bundleIdentifier
+            // Recorded on every change, not only when new artwork came with it.
+            // Held back, a track that kept the same cover - the rest of an
+            // album - was never counted as seen, and every poll after it looked
+            // like a new track again. Artwork arriving late is still caught: it
+            // is compared by its bytes, not by these.
+            let trackChanged = titleChanged || artistChanged || albumChanged || bundleChanged
+            self.lastArtworkTitle = state.title
+            self.lastArtworkArtist = state.artist
+            self.lastArtworkAlbum = state.album
+            self.lastArtworkBundleIdentifier = state.bundleIdentifier
+
+            // A new track still carrying the last track's artwork. Players often
+            // send the new cover a moment later, and some never announce it on
+            // its own - so ask again rather than wait for an update that may not
+            // come. If the cover really is the same, asking changes nothing.
+            if trackChanged && !artworkChanged && state.artwork != nil {
+                self.recheckArtworkSoon()
             }
 
             // Only update sneak peek if there's actual content and something changed
@@ -523,14 +549,32 @@ class MusicManager: ObservableObject {
     }
 
     private func updateArtwork(_ artworkData: Data) {
+        artworkGeneration += 1
+        let generation = artworkGeneration
+
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
 
             if let artworkImage = NSImage(data: artworkData) {
                 DispatchQueue.main.async { [weak self] in
-                    self?.usingAppIconForArtwork = false
-                    self?.updateAlbumArt(newAlbumArt: artworkImage)
+                    // A newer cover has been asked for since: this one is stale.
+                    guard let self, generation == self.artworkGeneration else { return }
+                    self.usingAppIconForArtwork = false
+                    self.updateAlbumArt(newAlbumArt: artworkImage)
                 }
+            }
+        }
+    }
+
+    /// Ask the player for its state again, twice, shortly after a track change
+    /// whose cover did not come with it.
+    private func recheckArtworkSoon() {
+        artworkRecheck?.cancel()
+        artworkRecheck = Task { [weak self] in
+            for delay in [800, 2000] {
+                try? await Task.sleep(for: .milliseconds(delay))
+                guard !Task.isCancelled else { return }
+                self?.forceUpdate()
             }
         }
     }
@@ -630,14 +674,28 @@ class MusicManager: ObservableObject {
     }
 
     func nextTrack() {
+        noteSkip(.forward)
         Task {
             await activeController?.nextTrack()
         }
     }
 
     func previousTrack() {
+        noteSkip(.backward)
         Task {
             await activeController?.previousTrack()
+        }
+    }
+
+    /// Held for a few seconds - long enough for the new track to arrive, short
+    /// enough that a later change from elsewhere does not inherit it.
+    private func noteSkip(_ direction: SkipDirection) {
+        skipDirection = direction
+        skipDirectionReset?.cancel()
+        skipDirectionReset = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled else { return }
+            self?.skipDirection = .forward
         }
     }
 
