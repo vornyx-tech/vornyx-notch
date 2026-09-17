@@ -173,6 +173,14 @@ final class LocalSendManager: ObservableObject {
         availability = .off
     }
 
+    func restart() {
+        Task { @MainActor in
+            stop()
+            try? await Task.sleep(for: .milliseconds(500))
+            await start()
+        }
+    }
+
     private func teardown() {
         sendTask?.cancel()
         resolveDecision(nil)

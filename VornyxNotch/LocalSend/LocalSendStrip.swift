@@ -73,10 +73,17 @@ struct LocalSendStrip: View {
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.85))
                 }
-                Text(vm.anyDropZoneTargeting ? "Drop on a device" : "Drag files onto a device")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.white.opacity(0.45))
-                    .lineLimit(1)
+                if case .failed(let error) = localSend.availability {
+                    Text(error)
+                        .font(.system(size: 10))
+                        .foregroundStyle(.red.opacity(0.8))
+                        .lineLimit(1)
+                } else {
+                    Text(vm.anyDropZoneTargeting ? "Drop on a device" : "Drag files onto a device")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.white.opacity(0.45))
+                        .lineLimit(1)
+                }
             }
             .frame(width: 108, alignment: .leading)
 
@@ -86,12 +93,19 @@ struct LocalSendStrip: View {
                         ProgressView()
                             .controlSize(.mini)
                     }
-                    Text(localSend.isScanning
-                         ? "Looking for devices..."
-                         : "Nothing found. Open LocalSend on the other device.")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.white.opacity(0.45))
-                        .lineLimit(1)
+                    if case .failed = localSend.availability {
+                        Text("LocalSend offline")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.white.opacity(0.45))
+                            .lineLimit(1)
+                    } else {
+                        Text(localSend.isScanning
+                             ? "Looking for devices..."
+                             : "Nothing found. Open LocalSend on the other device.")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.white.opacity(0.45))
+                            .lineLimit(1)
+                    }
                 }
                 Spacer(minLength: 0)
             } else {
@@ -107,42 +121,54 @@ struct LocalSendStrip: View {
                 .scrollableNotchContent()
             }
 
-            // Labelled and in the accent colour: as a bare grey glyph beside
-            // the refresh button, nobody found it.
-            Button {
-                composing = true
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "text.bubble.fill")
+            if case .failed = localSend.availability {
+                Button {
+                    localSend.restart()
+                } label: {
+                    Image(systemName: "arrow.clockwise")
                         .font(.system(size: 13, weight: .semibold))
-                    Text("Send text")
-                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.7))
+                        .frame(width: 30, height: 30)
+                        .notchSurface(Circle(), fill: 0.1, stroke: 0)
                 }
-                .foregroundStyle(.white)
-                .padding(.horizontal, 12)
-                .frame(height: 30)
-                .notchSurface(Capsule(), stroke: 0, tint: Color.effectiveAccent.opacity(0.9))
-                .contentShape(Capsule())
-            }
-            .springyTile(hoverScale: 1.05, pressScale: 0.94, hoverBrightness: 0.1)
-            .help("Send text to a device")
+                .springyTile(hoverScale: 1.08, pressScale: 0.92, hoverBrightness: 0.12)
+                .help("Restart LocalSend")
+            } else {
+                Button {
+                    composing = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "text.bubble.fill")
+                            .font(.system(size: 13, weight: .semibold))
+                        Text("Send text")
+                            .font(.system(size: 12, weight: .semibold))
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 12)
+                    .frame(height: 30)
+                    .notchSurface(Capsule(), stroke: 0, tint: Color.effectiveAccent.opacity(0.9))
+                    .contentShape(Capsule())
+                }
+                .springyTile(hoverScale: 1.05, pressScale: 0.94, hoverBrightness: 0.1)
+                .help("Send text to a device")
 
-            Button {
-                localSend.refresh()
-            } label: {
-                Image(systemName: "arrow.clockwise")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.white.opacity(localSend.isScanning ? 0.3 : 0.7))
-                    .rotationEffect(.degrees(localSend.isScanning ? 360 : 0))
-                    .animation(
-                        localSend.isScanning ? .linear(duration: 1).repeatForever(autoreverses: false) : .default,
-                        value: localSend.isScanning)
-                    .frame(width: 30, height: 30)
-                    .notchSurface(Circle(), fill: 0.1, stroke: 0)
+                Button {
+                    localSend.refresh()
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.white.opacity(localSend.isScanning ? 0.3 : 0.7))
+                        .rotationEffect(.degrees(localSend.isScanning ? 360 : 0))
+                        .animation(
+                            localSend.isScanning ? .linear(duration: 1).repeatForever(autoreverses: false) : .default,
+                            value: localSend.isScanning)
+                        .frame(width: 30, height: 30)
+                        .notchSurface(Circle(), fill: 0.1, stroke: 0)
+                }
+                .springyTile(hoverScale: 1.08, pressScale: 0.92, hoverBrightness: 0.12)
+                .disabled(localSend.isScanning)
+                .help("Look for devices")
             }
-            .springyTile(hoverScale: 1.08, pressScale: 0.92, hoverBrightness: 0.12)
-            .disabled(localSend.isScanning)
-            .help("Look for devices")
         }
         // More room on the left than the right: the label is text, and text
         // this close to the strip's rounded corner looks jammed against it,

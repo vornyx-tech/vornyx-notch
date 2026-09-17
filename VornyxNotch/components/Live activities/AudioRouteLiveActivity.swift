@@ -109,7 +109,7 @@ struct AudioRouteLiveActivity: View {
     }
 
     private var symbol: String {
-        audio.current?.symbol ?? "speaker.wave.2.fill"
+        audio.current?.symbol ?? "speaker.fill"
     }
 
     private var name: String {
