@@ -19,10 +19,23 @@ struct AudioDevice: Identifiable, Equatable {
         transport == kAudioDeviceTransportTypeBluetooth || transport == kAudioDeviceTransportTypeBluetoothLE
     }
 
-    /// The glyph that matches how it is plugged in. Transport type rather than
-    /// a guess from the name: "MacBook Pro Speakers" and "Vania's AirPods" are
-    /// only distinguishable by name in English.
+    /// The glyph that matches the device. Checks device name for specificity,
+    /// then falls back to transport type for generic glyphs.
     var symbol: String {
+        let nameLower = name.lowercased()
+
+        if nameLower.contains("airpods max") {
+            return "headphones"
+        } else if nameLower.contains("airpods pro") {
+            return "airpodspro"
+        } else if nameLower.contains("airpods") {
+            return "airpods"
+        } else if nameLower.contains("macbook") || nameLower.contains("mac mini") || nameLower.contains("mac studio") {
+            return "laptopcomputer"
+        } else if nameLower.contains("homepod") {
+            return "homepod"
+        }
+
         switch transport {
         case kAudioDeviceTransportTypeBluetooth, kAudioDeviceTransportTypeBluetoothLE:
             return "airpods.gen3"
@@ -35,7 +48,7 @@ struct AudioDevice: Identifiable, Equatable {
         case kAudioDeviceTransportTypeVirtual, kAudioDeviceTransportTypeAggregate:
             return "waveform"
         default:
-            return "laptopcomputer"
+            return "speaker.fill"
         }
     }
 }
