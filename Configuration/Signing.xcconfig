@@ -1,0 +1,19 @@
+// Signing for the app and its XPC helper.
+//
+// By default both are signed to run locally - ad hoc - exactly as before, so a
+// fresh clone builds with no certificate at all. Ad hoc has a cost when you
+// build often: macOS ties Accessibility and other privacy grants to the
+// signature, and an ad-hoc signature is the build's own hash. Every build is a
+// new app to macOS, and the HUD asks for access again.
+//
+// Run Configuration/setup_local_signing.sh once to sign with a certificate of
+// your own instead. It writes Signing.local.xcconfig next to this file - not
+// committed - and the grant then survives rebuilds. CI and the DMG script pass
+// their own signing settings on the command line, which win over both files.
+
+CODE_SIGN_STYLE = Automatic
+CODE_SIGN_IDENTITY = Apple Development
+CODE_SIGN_IDENTITY[sdk=macosx*] = -
+DEVELOPMENT_TEAM =
+
+#include? "Signing.local.xcconfig"

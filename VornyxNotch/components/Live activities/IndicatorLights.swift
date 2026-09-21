@@ -9,14 +9,10 @@ import Defaults
 import SwiftUI
 
 /// A row of small lights, shown only for what is actually on.
-///
-/// Deliberately dots rather than a banner: these are states you want to be able
-/// to check without being interrupted, and something that takes over the notch
-/// every time you unmute would be intolerable. Nothing on means nothing drawn.
 struct IndicatorLights: View {
     @ObservedObject private var monitor = IndicatorsManager.shared
 
-    /// Bigger in the open notch, where there is room and the header is calm.
+    /// Bigger in the open notch.
     var size: CGFloat = 7
 
     var body: some View {
@@ -38,8 +34,7 @@ struct IndicatorLights: View {
         let help: String
     }
 
-    /// Order is fixed rather than by arrival, so a light never moves under the
-    /// pointer as another one comes and goes.
+    /// Fixed order, so a light never moves as another comes and goes.
     private var lights: [Light] {
         let state = monitor.indicators
         var lights: [Light] = []
@@ -72,21 +67,13 @@ private enum EdgeSignal: Equatable {
     case progress(Color, Double)
     /// One thing worth noticing: charged, or nearly empty.
     case attention(Color)
-    /// Nothing is happening and music is playing: the cover's own colour,
-    /// barely there.
+    /// Music is playing: the cover's own colour, barely there.
     case ambient(Color)
 }
 
-/// The notch's edge as a status light.
-///
-/// `IndicatorLights` says some of this in the header, but only once the notch
-/// is open and only if you look at it. This is for catching out of the corner
-/// of your eye, so it traces the notch's own outline: a breathing halo while
-/// the camera or microphone is on, a line that fills as a transfer or the
-/// timer runs, and a short colour for the battery.
-///
-/// One thing at a time, in that order: privacy first, then what is running,
-/// then the battery.
+/// The notch's edge as a status light: a breathing halo while the camera or
+/// microphone is on, a line that fills as a transfer or the timer runs, and a
+/// short colour for the battery. One at a time, in that order.
 struct NotchEdgeLight: View {
     @ObservedObject private var monitor = IndicatorsManager.shared
     @ObservedObject private var localSend = LocalSendManager.shared
@@ -100,15 +87,17 @@ struct NotchEdgeLight: View {
     @Default(.notchEdgeBattery) private var edgeBattery
     @Default(.notchEdgeAmbient) private var edgeAmbient
 
-    /// True for a few seconds after the battery fills, since "charged" is a
-    /// moment rather than a state - the level simply sits at 100 afterwards.
+    /// True for a few seconds after the battery fills; the level then sits at
+    /// 100 with nothing to mark the moment.
     @State private var justCharged = false
     @State private var chargedReset: Task<Void, Never>?
 
+    /// How far past the notch the widest glow shows: a shadow fades out over
+    /// about three times its radius, and the widest here is 16.
+    private static let glowReach: CGFloat = 48
+
     let shape: NotchShape
-    /// The ambient colour is for the closed notch only: open, the glass is
-    /// already carrying the artwork, and a rim light over it is one rendering
-    /// layer too many.
+    /// The ambient colour is for the closed notch only.
     let isOpen: Bool
 
     var body: some View {
@@ -119,35 +108,27 @@ struct NotchEdgeLight: View {
                     case .recording(let tint):
                         breathing(halo(tint), duration: 1.1)
                     case .attention(let tint):
-                        // Slower: nothing here is urgent enough to flicker at you.
                         breathing(halo(tint), duration: 1.8)
                     case .progress(let tint, let fraction):
                         progress(tint, fraction)
                     case .ambient(let tint):
-                        // Slow and shallow: it should read as the notch being
-                        // lit from inside, not as something asking for you.
                         breathing(ambient(tint), duration: 3.4, from: 0.7)
                     }
                 }
-                // Nothing across the top: that edge sits under the hardware
-                // notch, and on a screen without one it drew a bright wire
-                // along the screen's top edge. Faded in rather than cut off, or
-                // the mask leaves a seam of its own for the shadows to light up.
-                //
-                // Inside the branch on purpose: a mask is a rendering layer of
-                // its own, and with nothing lit there is nothing to mask - the
-                // overlay then adds no layer over the notch's glass at all.
+                // Fade out the top edge, and keep the mask wider than the notch
+                // so it does not clip the glow the shadows throw.
                 .mask {
                     VStack(spacing: 0) {
                         LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
                             .frame(height: 18)
                         Color.black
                     }
+                    .padding(.horizontal, -Self.glowReach)
+                    .padding(.bottom, -Self.glowReach)
                 }
                 .transition(.opacity)
             }
         }
-        // Nothing here is touchable: the notch's own hit area has to stay whole.
         .allowsHitTesting(false)
         .animation(.smooth(duration: 0.3), value: signal)
         .onChange(of: battery.levelBattery) { previous, level in
@@ -184,12 +165,11 @@ struct NotchEdgeLight: View {
 
         if edgeBattery {
             if justCharged { return .attention(.green) }
-            // Deliberately silent while charging - only full, or nearly empty.
             if battery.levelBattery <= 20, !battery.isPluggedIn { return .attention(.red) }
         }
 
         if edgeAmbient, !isOpen, musicManager.isPlaying {
-            // Lifted, or a dark cover would leave nothing to see at all.
+            // Lifted, or a dark cover leaves nothing to see.
             return .ambient(
                 Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.65))
         }
@@ -200,8 +180,6 @@ struct NotchEdgeLight: View {
     private func halo(_ tint: Color) -> some View {
         shape
             .stroke(tint, lineWidth: 1.5)
-            // Two shadows: a tight one for the edge itself, a wide one for the
-            // light it throws onto the screen around it.
             .shadow(color: tint.opacity(0.9), radius: 5)
             .shadow(color: tint.opacity(0.45), radius: 14)
     }
@@ -216,8 +194,7 @@ struct NotchEdgeLight: View {
         }
     }
 
-    /// The cover's colour on the edge: much weaker than a signal, because it is
-    /// not one - it is only there while something plays.
+    /// The cover's colour on the edge, much weaker than a signal.
     private func ambient(_ tint: Color) -> some View {
         shape
             .stroke(tint.opacity(0.5), lineWidth: 1)
@@ -229,10 +206,8 @@ struct NotchEdgeLight: View {
     private func progress(_ tint: Color, _ fraction: Double) -> some View {
         GeometryReader { proxy in
             let size = proxy.size
-            // `NotchShape` starts at the top-left corner, runs down the left
-            // side, along the bottom and up the right, then closes across the
-            // top - and that closing run is the part the hardware notch hides,
-            // so a full sweep stops just before it.
+            // `NotchShape` closes across the top, which the hardware notch
+            // hides, so a full sweep stops just before that run.
             let visible = (2 * size.height + size.width)
                 / max(1, 2 * size.height + 2 * size.width)
 

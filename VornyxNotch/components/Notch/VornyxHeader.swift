@@ -29,6 +29,9 @@ struct VornyxHeader: View {
                 }
             }
             .frame(width: sideWidth, alignment: .leading)
+            // The same curve the notch resizes on, so the icons travel with
+            // the edge instead of jumping to where it will be.
+            .animation(notchResizeAnimation, value: sideWidth)
             .opacity(vm.notchState == .closed ? 0 : 1)
             .blur(radius: vm.notchState == .closed ? 20 : 0)
             .zIndex(2)
@@ -88,6 +91,7 @@ struct VornyxHeader: View {
             }
             .font(.system(.headline, design: .rounded))
             .frame(width: sideWidth, alignment: .trailing)
+            .animation(notchResizeAnimation, value: sideWidth)
             .opacity(vm.notchState == .closed ? 0 : 1)
             .blur(radius: vm.notchState == .closed ? 20 : 0)
             .zIndex(2)
@@ -170,7 +174,7 @@ struct VornyxHeader: View {
                         // from a non-key panel does not get the system's own.
                         Label(
                             device.id == audio.currentID ? "✓  \(device.name)" : "     \(device.name)",
-                            systemImage: symbol(for: device)
+                            systemImage: audio.symbol(for: device)
                         )
                     }
                 }
@@ -187,7 +191,7 @@ struct VornyxHeader: View {
                 openSystemSettings("x-apple.systempreferences:com.apple.preferences.Bluetooth")
             }
         } label: {
-            Image(systemName: audio.current.map(symbol(for:)) ?? "speaker.wave.2.fill")
+            Image(systemName: audio.current.map(audio.symbol(for:)) ?? "speaker.wave.2.fill")
                 .foregroundStyle(.white.opacity(0.6))
                 .imageScale(.small)
         }
@@ -202,16 +206,6 @@ struct VornyxHeader: View {
         .onHover { audioMenuHovering = $0 }
         .help(audio.current.map { "Output: \($0.name)" } ?? "Sound output")
         .onAppear { audio.start() }
-    }
-
-    /// A Bluetooth output that is the connected pair gets that pair's own
-    /// drawing - Pro, Max - rather than one generic set of earbuds for all.
-    private func symbol(for device: AudioDevice) -> String {
-        if device.isBluetooth, let pair = pods.device,
-           device.name.localizedCaseInsensitiveContains(pair.name) {
-            return pair.model.symbol
-        }
-        return device.symbol
     }
 
     private func batterySummary(_ pair: AirPodsBattery) -> String {
@@ -246,8 +240,11 @@ struct VornyxHeader: View {
     ) -> some View {
         Button(action: action) {
             Capsule()
-                .fill(isActive ? Color.effectiveAccent.opacity(0.30) : .clear)
+                .fill(.clear)
                 .frame(width: headerIconSize.width, height: headerIconSize.height)
+                .background {
+                    if isActive { activeIconCapsule }
+                }
                 .overlay {
                     Image(systemName: icon)
                         .foregroundStyle(isActive ? Color.effectiveAccent : .white.opacity(0.6))
@@ -263,6 +260,22 @@ struct VornyxHeader: View {
 
     /// Matches `TabButton`'s 26pt height, so both ends of the header sit on the
     /// same line.
+    /// The highlight behind an active trailing icon. Clear glass tinted with
+    /// the accent while Liquid Glass is on - the same material as the tab pill,
+    /// so the two groups in the header are made of one thing - and the accent
+    /// wash it has always been when it is off.
+    @ViewBuilder
+    private var activeIconCapsule: some View {
+        if #available(macOS 26.0, *), NotchGlass.isActive {
+            Capsule()
+                .fill(.clear)
+                .glassEffect(.clear.tint(Color.effectiveAccent.opacity(0.55)), in: Capsule())
+        } else {
+            Capsule()
+                .fill(Color.effectiveAccent.opacity(0.30))
+        }
+    }
+
     private var headerIconSize: CGSize { .init(width: 34, height: 26) }
 
     func isHUDType(_ type: SneakContentType) -> Bool {

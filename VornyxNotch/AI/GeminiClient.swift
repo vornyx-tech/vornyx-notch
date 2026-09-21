@@ -23,28 +23,22 @@ enum GeminiError: LocalizedError {
     }
 }
 
-/// Thin client over the Gemini `generateContent` endpoint. Deliberately small:
-/// one request, one reply, whole conversation sent each time.
+/// Thin client over the Gemini `generateContent` endpoint: one request, one
+/// reply, whole conversation sent each time.
 struct GeminiClient {
     var model: String
     var systemPrompt: String
-    /// Let the model reason before answering. Slower, and rarely worth it for
-    /// the one-or-two-sentence answers this window has room for.
+    /// Let the model reason before answering. Slower.
     var thinking: Bool = false
 
     private static let endpoint = "https://generativelanguage.googleapis.com/v1beta/models"
 
-    /// The newest Flash model. Flash rather than Pro on purpose: Pro cannot be
-    /// told to think less, which is the whole point of the setting below.
+    /// The newest Flash model. Pro cannot be told to think less.
     static let newestModel = "gemini-3.8-flash"
 
-    /// Opens the TLS connection to Google ahead of the first message.
-    ///
-    /// DNS plus handshake is most of a second on a cold connection, and it lands
-    /// squarely on the first thing you type. Doing it when the tab opens moves
-    /// that cost into the time you spend typing. The response is discarded -
-    /// only the pooled connection matters, and `URLSession.shared` keys its pool
-    /// by host, so the real request reuses it.
+    /// Opens the TLS connection to Google ahead of the first message. The
+    /// response is discarded; only the pooled connection matters, and
+    /// `URLSession.shared` keys its pool by host.
     static func warmUp() {
         guard let url = URL(string: "https://generativelanguage.googleapis.com/") else { return }
         var request = URLRequest(url: url)
@@ -53,12 +47,8 @@ struct GeminiClient {
         URLSession.shared.dataTask(with: request).resume()
     }
 
-    /// Streams the reply token by token via server-sent events.
-    ///
-    /// `generateContent` only answers once the whole reply is composed, which
-    /// on a long answer means staring at nothing for several seconds. This
-    /// hands back each chunk as it arrives, so text starts appearing almost
-    /// immediately even though total time is unchanged.
+    /// Streams the reply token by token via server-sent events, rather than
+    /// waiting for `generateContent` to compose the whole thing.
     func stream(
         history: [AIChatMessage],
         onDelta: @escaping @MainActor (String) -> Void
@@ -66,13 +56,9 @@ struct GeminiClient {
         do {
             try await stream(history: history, tuningThinking: true, onDelta: onDelta)
         } catch let GeminiError.badResponse(status, _) where status == 400 && !thinking {
-            // A 400 is how a model refuses the thinking level we asked for, and
-            // it says only "Request contains an invalid argument" - the field is
-            // never named, so there is nothing to match on. Models come and go
-            // faster than this app ships, so rather than track which one takes
-            // what, drop the setting and ask again. If the request was really
-            // bad for some other reason it fails the same way a second time and
-            // that error is the one the user sees. A slow reply beats no reply.
+            // A 400 is how a model refuses the thinking level we asked for,
+            // and the offending field is never named, so drop the setting and
+            // ask again.
             try await stream(history: history, tuningThinking: false, onDelta: onDelta)
         }
     }
@@ -102,8 +88,7 @@ struct GeminiClient {
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
 
         guard (200..<300).contains(status) else {
-            // The error body arrives down the same stream; collect it so the
-            // user sees Gemini's own message rather than a bare status code.
+            // The error body arrives down the same stream.
             var body = Data()
             for try await byte in bytes { body.append(byte) }
             throw GeminiError.badResponse(status: status, message: Self.errorMessage(from: body))
@@ -128,11 +113,6 @@ struct GeminiClient {
     }
 
     /// How many past messages go back to Gemini with each question.
-    ///
-    /// The whole transcript used to be resent every turn, so a long chat made
-    /// every question slower than the one before it - the model has to read the
-    /// entire history before it can start answering. A follow-up in a notch
-    /// window depends on the last few turns, not on the first one.
     private static let historyLimit = 12
 
     private func requestBody(
@@ -159,12 +139,8 @@ struct GeminiClient {
     }
 
     /// Gemini 3 cannot be told to stop thinking, only to think less, so "off"
-    /// means the lowest level rather than none.
-    ///
-    /// `low` and not `minimal`: every model that takes a thinking level accepts
-    /// `low`, while `minimal` is rejected outright by some of the Flash models.
-    /// The speed difference between the two is small next to the difference
-    /// from the default, so the one that always works wins.
+    /// means the lowest level. `low` rather than `minimal`, which some Flash
+    /// models reject outright.
     private func thinkingConfig() -> [String: Any]? {
         thinking ? nil : ["thinkingLevel": "low"]
     }

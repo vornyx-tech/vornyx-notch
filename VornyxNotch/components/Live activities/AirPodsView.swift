@@ -10,8 +10,7 @@ import SwiftUI
 
 // MARK: - Shared pieces
 
-/// A level's colour. Kept for trouble: a full battery is not a state worth
-/// colouring, so white means fine and colour means look.
+/// A level's colour: white means fine, colour means trouble.
 private func levelTint(_ level: Int, charging: Bool) -> Color {
     if charging { return .green }
     if level <= 10 { return .red }
@@ -54,10 +53,6 @@ private func parts(of device: AirPodsBattery) -> [PodPart] {
 }
 
 /// A level as a ring with the part drawn inside it.
-///
-/// Rings rather than bars, the way the Batteries widget on an iPhone shows the
-/// same numbers - which is what makes this read as "my AirPods" at a glance
-/// instead of as a stack of progress bars.
 private struct LevelRing: View {
     let part: PodPart
     let diameter: CGFloat
@@ -128,7 +123,7 @@ private struct CompactLevel: View {
 // MARK: - Closed notch
 
 /// The banner shown when a pair connects: the pair and its name on the left of
-/// the cut-out, levels on the right - the shape the battery banner uses.
+/// the cut-out, levels on the right.
 struct AirPodsLiveActivity: View {
     @EnvironmentObject var vm: VornyxViewModel
     @ObservedObject private var pods = AirPodsManager.shared
@@ -165,13 +160,8 @@ struct AirPodsLiveActivity: View {
 
 // MARK: - Home page
 
-/// The pair beside the player, while one is connected.
-///
-/// Appears and goes with the connection, and the home page makes room for it
-/// on exactly the same condition - see `homePageWidth(showingAirPods:)`. The
-/// cost is the notch widening when a pair connects, which happens once per
-/// connection: taking one ear out keeps the pair connected, so it does not
-/// flicker with every earbud.
+/// The pair beside the player, while one is connected. The home page makes
+/// room for it on the same condition, see `homePageWidth(showingAirPods:)`.
 struct AirPodsWidgetView: View {
     @ObservedObject private var pods = AirPodsManager.shared
 

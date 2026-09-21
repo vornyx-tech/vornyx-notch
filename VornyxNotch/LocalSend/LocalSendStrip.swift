@@ -10,16 +10,18 @@ import SwiftUI
 
 /// Devices to drop onto, and whatever transfer is in flight.
 ///
-/// Always there under the shelf, so it can be found at all - a drop target that
-/// only exists mid-drag is one nobody discovers. On other tabs it appears while
-/// something is dragged over the notch, stretching it down the way the camera
-/// does. One row, whichever of those it is showing, so the notch never changes
-/// height between them.
+/// Always under the shelf; on other tabs it appears while something is dragged
+/// over the notch, stretching it down the way the camera does. Always one row,
+/// so the notch never changes height between the two.
 struct LocalSendStrip: View {
     @EnvironmentObject var vm: VornyxViewModel
     @ObservedObject private var localSend = LocalSendManager.shared
+    @ObservedObject private var coordinator = VornyxViewCoordinator.shared
 
     @State private var composing = false
+    /// The device text goes to, by fingerprint. Files go to whichever tile
+    /// they are dropped on.
+    @State private var selectedFingerprint: String?
     @State private var draft = ""
     @FocusState private var draftFocused: Bool
 
@@ -45,7 +47,7 @@ struct LocalSendStrip: View {
                     .transition(.opacity)
             }
         }
-        .frame(height: localSendStripHeight)
+        .frame(height: localSendStripHeight + coordinator.localSendComposeGrowth)
         .frame(maxWidth: .infinity)
         .notchSurface(
             RoundedRectangle(cornerRadius: innerPanelCornerRadius, style: .continuous),
@@ -55,12 +57,43 @@ struct LocalSendStrip: View {
         .animation(.smooth(duration: 0.25), value: localSend.outgoing?.id)
         .animation(.smooth(duration: 0.25), value: localSend.message?.id)
         .animation(.smooth(duration: 0.2), value: composing)
-        // Devices may have come and gone since it was last on screen, and there
-        // is no periodic announcement to rely on - but not on every glance.
+        // Closing the composer gives the stretched height back.
+        .onChange(of: composing) { _, open in
+            if !open { setComposeGrowth(0) }
+        }
+        .onDisappear { coordinator.localSendComposeGrowth = 0 }
+        // There is no periodic announcement to rely on, but not on every glance.
         .onAppear { localSend.refreshIfStale() }
     }
 
     // MARK: - Devices
+
+    /// The picked device, while it is still around.
+    private var selectedDevice: LocalSendDevice? {
+        localSend.devices.first { $0.fingerprint == selectedFingerprint }
+    }
+
+    /// Where text goes: the picked device, or the only one there is.
+    private var textTarget: LocalSendDevice? {
+        selectedDevice ?? (localSend.devices.count == 1 ? localSend.devices.first : nil)
+    }
+
+    private func toggleSelection(_ device: LocalSendDevice) {
+        selectedFingerprint = selectedFingerprint == device.fingerprint ? nil : device.fingerprint
+    }
+
+    /// Not running, and not on its way up either.
+    private var isDown: Bool {
+        !localSend.isRunning && !localSend.isRestarting && localSend.availability != .starting
+    }
+
+    private var emptyStatus: LocalizedStringKey {
+        if localSend.isRestarting || localSend.availability == .starting { return "Restarting LocalSend..." }
+        if !localSend.isRunning { return "LocalSend offline" }
+        return localSend.isScanning
+            ? "Looking for devices..."
+            : "Nothing found. Open LocalSend on the other device."
+    }
 
     private var devicesRow: some View {
         HStack(spacing: 12) {
@@ -73,11 +106,12 @@ struct LocalSendStrip: View {
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.85))
                 }
-                if case .failed(let error) = localSend.availability {
+                if case .failed(let error) = localSend.availability, !localSend.isRestarting {
                     Text(error)
                         .font(.system(size: 10))
                         .foregroundStyle(.red.opacity(0.8))
                         .lineLimit(1)
+                        .help(error)
                 } else {
                     Text(vm.anyDropZoneTargeting ? "Drop on a device" : "Drag files onto a device")
                         .font(.system(size: 10))
@@ -89,51 +123,32 @@ struct LocalSendStrip: View {
 
             if localSend.devices.isEmpty {
                 HStack(spacing: 8) {
-                    if localSend.isScanning {
+                    if localSend.isScanning || localSend.isRestarting {
                         ProgressView()
                             .controlSize(.mini)
                     }
-                    if case .failed = localSend.availability {
-                        Text("LocalSend offline")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.white.opacity(0.45))
-                            .lineLimit(1)
-                    } else {
-                        Text(localSend.isScanning
-                             ? "Looking for devices..."
-                             : "Nothing found. Open LocalSend on the other device.")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.white.opacity(0.45))
-                            .lineLimit(1)
-                    }
+                    Text(emptyStatus)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.white.opacity(0.45))
+                        .lineLimit(1)
                 }
                 Spacer(minLength: 0)
             } else {
-                ScrollView(.horizontal) {
+                FadingHorizontalScroll {
                     HStack(spacing: 8) {
                         ForEach(localSend.devices) { device in
-                            DeviceTile(device: device)
+                            DeviceTile(
+                                device: device,
+                                isSelected: device.fingerprint == selectedDevice?.fingerprint,
+                                toggle: { toggleSelection(device) })
                         }
                     }
                     .padding(.vertical, 4)
                 }
-                .scrollIndicators(.never)
-                .scrollableNotchContent()
             }
 
-            if case .failed = localSend.availability {
-                Button {
-                    localSend.restart()
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.7))
-                        .frame(width: 30, height: 30)
-                        .notchSurface(Circle(), fill: 0.1, stroke: 0)
-                }
-                .springyTile(hoverScale: 1.08, pressScale: 0.92, hoverBrightness: 0.12)
-                .help("Restart LocalSend")
-            } else {
+            // Nothing to send text through while it is down.
+            if localSend.isRunning {
                 Button {
                     composing = true
                 } label: {
@@ -150,7 +165,10 @@ struct LocalSendStrip: View {
                     .contentShape(Capsule())
                 }
                 .springyTile(hoverScale: 1.05, pressScale: 0.94, hoverBrightness: 0.1)
-                .help("Send text to a device")
+                // The device is picked on the tiles first.
+                .disabled(textTarget == nil)
+                .opacity(textTarget == nil ? 0.5 : 1)
+                .help(textTarget.map { "Send text to \($0.alias)" } ?? "Select a device to send text to")
 
                 Button {
                     localSend.refresh()
@@ -169,10 +187,26 @@ struct LocalSendStrip: View {
                 .disabled(localSend.isScanning)
                 .help("Look for devices")
             }
+
+            // Always there: LocalSend can go deaf after sleep or a network
+            // change while still counting as running, and a refresh then finds
+            // nobody however often it is pressed.
+            Button {
+                localSend.restart()
+            } label: {
+                Image(systemName: "restart")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.white.opacity(localSend.isRestarting ? 0.3 : (isDown ? 1 : 0.7)))
+                    .frame(width: 30, height: 30)
+                    .notchSurface(
+                        Circle(), fill: 0.1, stroke: 0,
+                        tint: isDown ? Color.effectiveAccent.opacity(0.9) : nil)
+            }
+            .springyTile(hoverScale: 1.08, pressScale: 0.92, hoverBrightness: 0.12)
+            .disabled(localSend.isRestarting || localSend.availability == .starting)
+            .help("Restart LocalSend")
         }
-        // More room on the left than the right: the label is text, and text
-        // this close to the strip's rounded corner looks jammed against it,
-        // where the round refresh button on the right sits fine at 12.
+        // More room on the left, where the label is text against a rounded corner.
         .padding(.leading, 20)
         .padding(.trailing, 12)
     }
@@ -181,54 +215,57 @@ struct LocalSendStrip: View {
 // MARK: - Sending text
 
 extension LocalSendStrip {
-    /// Type, then pick who gets it. Return sends straight away when there is
-    /// only one device to pick.
+    /// Type and send, to the device picked on the tiles. Long text stretches
+    /// the field, and the notch with it, down a few lines.
     fileprivate var composeRow: some View {
         let empty = draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let target = textTarget
 
-        return HStack(spacing: 10) {
-            TextField("Text to send", text: $draft, axis: .horizontal)
+        return HStack(alignment: .bottom, spacing: 10) {
+            if let target {
+                Image(systemName: target.symbol)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.7))
+                    .frame(width: 26, height: 32)
+                    .help("To \(target.alias)")
+            }
+
+            TextField(
+                target.map { LocalizedStringKey("Text to \($0.alias)") } ?? "Text to send",
+                text: $draft, axis: .vertical)
                 .textFieldStyle(.plain)
                 .font(.system(size: 13))
                 .foregroundStyle(.white)
+                .lineLimit(1...6)
                 .focused($draftFocused)
                 .onSubmit {
-                    guard localSend.devices.count == 1, let only = localSend.devices.first else { return }
-                    sendDraft(to: only)
+                    guard !empty, let target else { return }
+                    sendDraft(to: target)
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
-                .notchSurface(Capsule(), fill: 0.08, stroke: 0)
+                // Round ends on one line, still a sensible shape on six.
+                .notchSurface(RoundedRectangle(cornerRadius: 16, style: .continuous), fill: 0.08, stroke: 0)
                 .frame(maxWidth: .infinity)
-
-            if localSend.devices.isEmpty {
-                Text("No devices found")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.white.opacity(0.45))
-            } else {
-                ScrollView(.horizontal) {
-                    HStack(spacing: 6) {
-                        ForEach(localSend.devices) { device in
-                            Button {
-                                sendDraft(to: device)
-                            } label: {
-                                HStack(spacing: 5) {
-                                    Image(systemName: device.symbol)
-                                    Text(device.alias)
-                                        .lineLimit(1)
-                                }
-                            }
-                            .buttonStyle(StripButtonStyle(prominent: true))
-                            .disabled(empty)
-                            .opacity(empty ? 0.45 : 1)
-                        }
-                    }
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height in
+                    setComposeGrowth(height + localSendComposeMargin - localSendStripHeight)
                 }
-                .scrollIndicators(.never)
-                .scrollableNotchContent()
-                .fixedSize(horizontal: true, vertical: false)
-                .frame(maxWidth: 300)
+
+            Button {
+                guard let target else { return }
+                sendDraft(to: target)
+            } label: {
+                Image(systemName: "arrow.up")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 26, height: 26)
+                    .notchSurface(Circle(), stroke: 0, tint: Color.effectiveAccent.opacity(0.9))
             }
+            .springyTile(hoverScale: 1.08, pressScale: 0.92, hoverBrightness: 0.12)
+            .disabled(empty || target == nil)
+            .opacity(empty || target == nil ? 0.4 : 1)
+            .help(target.map { "Send to \($0.alias)" } ?? "Select a device first")
+            .padding(.bottom, 3)
 
             Button {
                 draft = ""
@@ -242,13 +279,23 @@ extension LocalSendStrip {
             }
             .springyTile(hoverScale: 1.08, pressScale: 0.92, hoverBrightness: 0.12)
             .help("Cancel")
+            .padding(.bottom, 3)
         }
         .padding(.horizontal, 12)
         .onAppear {
-            // Opened by a click, so taking the keyboard is expected here - the
-            // chat composer, which appears on its own, deliberately waits.
+            // Opened by a click, so taking the keyboard is expected here.
             VornyxNotchSkyLightWindow.setKeyboardInputEnabled(true)
             DispatchQueue.main.async { draftFocused = true }
+        }
+    }
+
+    /// Stretch the strip, within its allowance. Rounded to whole points and only
+    /// moved on a real change, so the notch's spring is not set going again.
+    fileprivate func setComposeGrowth(_ growth: CGFloat) {
+        let clamped = min(max(0, growth), localSendComposeMaxGrowth).rounded()
+        guard abs(clamped - coordinator.localSendComposeGrowth) >= 1 else { return }
+        withAnimation(.smooth(duration: 0.25)) {
+            coordinator.localSendComposeGrowth = clamped
         }
     }
 
@@ -264,41 +311,55 @@ extension LocalSendStrip {
 private struct DeviceTile: View {
     @EnvironmentObject var vm: VornyxViewModel
     let device: LocalSendDevice
+    let isSelected: Bool
+    let toggle: () -> Void
 
     @State private var targeted = false
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: nestedCornerRadius(inset: 10), style: .continuous)
+        // A drop hovering counts as picked for as long as it hovers.
+        let lit = isSelected || targeted
 
-        VStack(spacing: 6) {
-            Image(systemName: device.symbol)
-                .font(.system(size: 20, weight: .medium))
-                .symbolEffect(.bounce, value: targeted)
-            Text(device.alias)
-                .font(.system(size: 10, weight: .semibold))
-                .lineLimit(1)
-                .truncationMode(.middle)
+        Button(action: toggle) {
+            VStack(spacing: 6) {
+                Image(systemName: device.symbol)
+                    .font(.system(size: 20, weight: .medium))
+                    .symbolEffect(.bounce, value: targeted)
+                Text(device.alias)
+                    .font(.system(size: 10, weight: .semibold))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            // White on the accent glass.
+            .foregroundStyle(targeted && !NotchGlass.isActive ? Color.effectiveAccent : .white.opacity(lit ? 0.95 : 0.8))
+            .padding(.horizontal, 8)
+            .frame(width: 104, height: localSendStripHeight - 24)
+            // The accent tint marks the selection; the rest are frosted glass.
+            .notchSurface(
+                shape, fill: lit ? 0.14 : 0.07, stroke: 0,
+                tint: lit && !NotchGlass.isActive ? Color.effectiveAccent.opacity(0.35) : nil,
+                glassTint: lit ? Color.effectiveAccent.opacity(targeted ? 0.8 : 0.6) : nil,
+                frosted: !lit)
+            .overlay(alignment: .topTrailing) {
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .padding(6)
+                        .transition(.scale.combined(with: .opacity))
+                }
+            }
+            .overlay(
+                shape.strokeBorder(
+                    targeted ? Color.effectiveAccent.opacity(0.95) : .white.opacity(NotchGlass.isActive ? 0 : 0.08),
+                    style: targeted
+                        ? StrokeStyle(lineWidth: 2, lineCap: .round, dash: [6, 4])
+                        : StrokeStyle(lineWidth: 1)))
+            .contentShape(shape)
         }
-        // White on the accent glass: accent-coloured type on accent-tinted glass
-        // would all but disappear.
-        .foregroundStyle(targeted && !NotchGlass.isActive ? Color.effectiveAccent : .white.opacity(0.92))
-        .padding(.horizontal, 8)
-        .frame(width: 104, height: localSendStripHeight - 24)
-        // Tinted in the accent colour, so the devices you can send to stand
-        // out from the grey panels around them - and deeper while a drop
-        // hovers over one, so it is plain which device will get it.
-        .notchSurface(
-            shape, fill: targeted ? 0.14 : 0.07, stroke: 0,
-            // The same glass as every other surface, with the accent colour as
-            // its tint - strong enough to actually see, the way the Send text
-            // button's is. At a fifth, the colour vanished into the glass.
-            glassTint: Color.effectiveAccent.opacity(targeted ? 0.8 : 0.55))
-        .overlay(
-            shape.strokeBorder(
-                targeted ? Color.effectiveAccent.opacity(0.95) : .white.opacity(NotchGlass.isActive ? 0 : 0.08),
-                style: targeted
-                    ? StrokeStyle(lineWidth: 2, lineCap: .round, dash: [6, 4])
-                    : StrokeStyle(lineWidth: 1)))
+        .springyTile(hoverScale: 1.04, pressScale: 0.95, hoverBrightness: 0.08)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
         .scaleEffect(targeted ? 1.05 : 1)
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: targeted)
         .help("\(device.alias) - \(device.host)")
@@ -307,8 +368,7 @@ private struct DeviceTile: View {
             vm.dropEvent = true
             Task { @MainActor in
                 let urls = await LocalSendDrop.fileURLs(from: providers)
-                // No file in the drag: selected text, or a link dragged out of
-                // a browser, goes as a message instead.
+                // No file in the drag: text or a link goes as a message instead.
                 if urls.isEmpty, let text = await LocalSendDrop.text(from: providers) {
                     LocalSendManager.shared.sendText(text, to: device)
                 } else {
@@ -320,7 +380,7 @@ private struct DeviceTile: View {
     }
 
     /// Mirrored into the view model, so a drag hovering a device still counts
-    /// as hovering the notch and the notch does not close out from under it.
+    /// as hovering the notch.
     private var targetBinding: Binding<Bool> {
         Binding(
             get: { targeted },
@@ -331,11 +391,59 @@ private struct DeviceTile: View {
     }
 }
 
+/// A sideways scrolling row that fades out at an edge with more of it past
+/// that edge, and only at such an edge.
+private struct FadingHorizontalScroll<Content: View>: View {
+    @ViewBuilder let content: Content
+
+    private let fade: CGFloat = 22
+    /// Room past the row's own edges for a tile growing under the pointer or a
+    /// drop, which the scroll view's clip would otherwise shave flat.
+    private let bleed: CGFloat = 6
+    private let space = "fadingHorizontalScroll"
+
+    @State private var width: CGFloat = 0
+    @State private var frame: CGRect = .zero
+
+    var body: some View {
+        let before = frame.minX < -0.5
+        let after = frame.maxX > width + 0.5
+
+        ScrollView(.horizontal) {
+            content
+                .padding(.horizontal, bleed)
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(space)) } action: { frame = $0 }
+        }
+        .coordinateSpace(.named(space))
+        .scrollIndicators(.never)
+        .scrollableNotchContent()
+        // The scroll view's own width, which the content's frame is measured against.
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
+        .mask(
+            HStack(spacing: 0) {
+                LinearGradient(
+                    colors: [.white.opacity(before ? 0 : 1), .white],
+                    startPoint: .leading, endPoint: .trailing)
+                    .frame(width: fade)
+                Rectangle().fill(.white)
+                LinearGradient(
+                    colors: [.white, .white.opacity(after ? 0 : 1)],
+                    startPoint: .leading, endPoint: .trailing)
+                    .frame(width: fade)
+            }
+            .animation(.smooth(duration: 0.2), value: before)
+            .animation(.smooth(duration: 0.2), value: after)
+        )
+        // Given back outside, so the tiles sit where they did. After the mask,
+        // which is laid out in the frame of what it masks.
+        .padding(.horizontal, -bleed)
+    }
+}
+
 /// Turns whatever was dropped into files on disk.
 enum LocalSendDrop {
-    /// File URLs where the drag carried them; otherwise whatever the shelf's
-    /// own drop handling can turn into a file - an image dragged out of a
-    /// browser, say, which only arrives as data.
+    /// File URLs where the drag carried them, otherwise whatever the shelf's
+    /// own drop handling can turn into a file.
     @MainActor
     static func fileURLs(from providers: [NSItemProvider]) async -> [URL] {
         var urls: [URL] = []
@@ -584,7 +692,6 @@ private struct TransferRow: View {
 }
 
 /// Accept, Decline, Copy, Cancel and the device buttons of the composer.
-/// Lifts and brightens under the pointer, so it is plain what is clickable.
 private struct StripButtonStyle: ButtonStyle {
     let prominent: Bool
 

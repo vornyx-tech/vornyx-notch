@@ -2,19 +2,15 @@
 //  TimerView.swift
 //  VornyxNotch
 //
-//  Setting and watching the countdown.
-//
 
 import Defaults
 import SwiftUI
 
-/// The ring and the time on the left, the presets on the right - the same split
-/// the weather and calendar pages use, so the drawer reads as one thing.
+/// The ring and the time on the left, the presets on the right.
 struct TimerView: View {
     @ObservedObject private var countdown = CountdownManager.shared
 
-    /// Minutes. The ones people actually set: a couple for the kettle, five for
-    /// a break, twenty-five for a pomodoro, and the long ones for cooking.
+    /// Minutes.
     private let presets: [Int] = [1, 3, 5, 10, 15, 25, 45, 60]
 
     var body: some View {
@@ -32,7 +28,6 @@ struct TimerView: View {
                 Circle()
                     .stroke(.white.opacity(0.08), lineWidth: 6)
 
-                // Drawn from the top and clockwise, the way a clock empties.
                 Circle()
                     .trim(from: 0, to: countdown.isActive || countdown.state == .finished
                           ? countdown.progress : 0)

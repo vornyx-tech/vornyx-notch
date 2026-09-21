@@ -7,8 +7,7 @@
 
 import SwiftUI
 
-/// Label on the left of the cut-out, the time and a ring on the right - the
-/// shape the battery and AirPods banners already use.
+/// Label on the left of the cut-out, the time and a ring on the right.
 struct TimerLiveActivity: View {
     @EnvironmentObject var vm: VornyxViewModel
     @ObservedObject private var countdown = CountdownManager.shared
@@ -19,8 +18,6 @@ struct TimerLiveActivity: View {
                 Image(systemName: countdown.state == .finished ? "bell.fill" : "timer")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(tint)
-                    // Rings when it goes off, so the notch is worth looking at
-                    // even from the corner of an eye.
                     .symbolEffect(.pulse, isActive: countdown.state == .finished)
 
                 Text(title)

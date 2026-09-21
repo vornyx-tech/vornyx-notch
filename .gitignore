@@ -53,3 +53,6 @@ build/
 *.xcarchive
 *.dSYM
 
+
+# Local code signing, written by Configuration/setup_local_signing.sh
+Configuration/Signing.local.xcconfig

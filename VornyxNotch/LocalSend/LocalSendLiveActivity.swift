@@ -8,13 +8,8 @@
 import SwiftUI
 
 /// Name on the left of the cut-out, and on the right either the two answers to
-/// an offer or how far a transfer has got - the shape the battery, AirPods and
-/// timer banners share.
-///
-/// The answers are here and not only in the open notch because an offer
-/// usually arrives while you are doing something else. The phone on the other
-/// end waits for as long as it takes, and a banner you have to open the notch
-/// to act on would leave it waiting longer.
+/// an offer or how far a transfer has got. Same shape as the battery, AirPods
+/// and timer banners.
 struct LocalSendLiveActivity: View {
     @EnvironmentObject var vm: VornyxViewModel
     @ObservedObject private var localSend = LocalSendManager.shared
@@ -159,7 +154,7 @@ struct LocalSendLiveActivity: View {
         return nil
     }
 
-    /// A message only takes the banner when nothing with a transfer does.
+    /// A message only takes the banner when no transfer is using it.
     private var showsMessage: Bool {
         localSend.message != nil && localSend.pendingRequest == nil
             && localSend.incoming == nil && localSend.outgoing == nil

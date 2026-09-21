@@ -14,8 +14,7 @@ import Foundation
 struct MachineStats: Equatable {
     /// 0...1 across all cores.
     var cpu: Double = 0
-    /// 0...1 of physical memory in use - not counting what the OS is only
-    /// holding on to, which is memory you can have back for the asking.
+    /// 0...1 of physical memory in use, not counting the file cache.
     var memory: Double = 0
     var memoryUsedBytes: UInt64 = 0
     var memoryTotalBytes: UInt64 = 0
@@ -28,7 +27,7 @@ struct MachineStats: Equatable {
     var networkDown: Double = 0
     var networkUp: Double = 0
 
-    /// Standing facts about the machine, cheap enough to re-read every tick.
+    /// Standing facts, cheap enough to re-read every tick.
     var cores: Int = 0
     var loadAverage: Double = 0
     var swapUsed: UInt64 = 0
@@ -46,27 +45,21 @@ struct MachineStats: Equatable {
     }
 }
 
-/// Samples the machine on a timer while something is watching.
-///
-/// All of it comes from Mach and BSD calls that need no entitlement and no
-/// permission, which is what makes it possible at all here - the usual route
-/// of shelling out to `top` or `netstat` is not open to a sandboxed app.
+/// Samples the machine on a timer while something is watching. Everything comes
+/// from Mach and BSD calls, which need no entitlement inside the sandbox.
 @MainActor
 final class StatsManager: ObservableObject {
     static let shared = StatsManager()
 
     @Published private(set) var stats = MachineStats()
 
-    /// Recent history, kept here rather than in the view so switching away
-    /// from the page and back does not start the graphs from nothing.
+    /// Recent history, kept here so the graphs survive leaving the page.
     @Published private(set) var cpuHistory: [Double] = []
     @Published private(set) var networkHistory: [(down: Double, up: Double)] = []
     private let historyLength = 60
 
     private var ticker: AnyCancellable?
-    /// How many views want readings. The sampler runs while this is above zero
-    /// and stops when the last one goes away - the dashboard is closed far more
-    /// of the time than it is open.
+    /// How many views want readings; the sampler runs while this is above zero.
     private var watchers = 0
 
     private var lastCPUTicks: (used: UInt64, total: UInt64)?
@@ -90,14 +83,12 @@ final class StatsManager: ObservableObject {
         guard watchers == 0 else { return }
         ticker?.cancel()
         ticker = nil
-        // Rates are differences between readings; a gap makes the next one a
-        // lie, so the baselines go with them.
+        // Rates are differences between readings, so drop the baselines too.
         lastCPUTicks = nil
         lastNetwork = nil
     }
 
-    /// A tuple array is not `Equatable`, so `@Published` alone would not tell
-    /// SwiftUI the graph moved. This is what the views watch instead.
+    /// A tuple array is not `Equatable`, so the views watch this instead.
     var networkPeak: Double {
         networkHistory.reduce(0) { max($0, max($1.down, $1.up)) }
     }
@@ -138,15 +129,14 @@ final class StatsManager: ObservableObject {
         if networkHistory.count > historyLength { networkHistory.removeFirst() }
     }
 
-    /// The one-minute load average: how many things wanted a core at once.
+    /// The one-minute load average.
     private static func loadAverage() -> Double {
         var loads = [Double](repeating: 0, count: 3)
         guard getloadavg(&loads, 3) == 3 else { return 0 }
         return loads[0]
     }
 
-    /// Swap in use. A machine that is swapping is out of memory whatever the
-    /// memory gauge says, so it is worth its own line.
+    /// Swap in use.
     private static func swapUsed() -> UInt64 {
         var usage = xsw_usage()
         var size = MemoryLayout<xsw_usage>.size
@@ -154,7 +144,7 @@ final class StatsManager: ObservableObject {
         return usage.xsu_used
     }
 
-    /// Days and hours; minutes stop mattering after the first one.
+    /// Days and hours.
     static func uptime(_ interval: TimeInterval) -> String {
         let total = Int(max(0, interval))
         let days = total / 86400
@@ -165,12 +155,8 @@ final class StatsManager: ObservableObject {
         return "\(minutes)m"
     }
 
-    /// Processor time spent working, as a share of all processor time since the
-    /// last reading.
-    ///
-    /// A difference between two readings, not an instantaneous figure: the
-    /// counters are totals since boot, so a single reading only ever tells you
-    /// the average since the machine started.
+    /// Processor time spent working since the last reading. The counters are
+    /// totals since boot, so this needs two readings.
     private static func cpuLoad(since last: inout (used: UInt64, total: UInt64)?) -> Double? {
         var info = host_cpu_load_info()
         var count = mach_msg_type_number_t(
@@ -201,12 +187,8 @@ final class StatsManager: ObservableObject {
         return (usedDelta / totalDelta).clamped(to: 0...1)
     }
 
-    /// Memory genuinely spoken for.
-    ///
-    /// Active, wired and compressed - not the file cache. macOS fills spare
-    /// memory with cached files on purpose and hands it straight back when
-    /// anything wants it, so counting that would report a machine at 99% doing
-    /// nothing at all.
+    /// Memory genuinely spoken for: active, wired and compressed. The file
+    /// cache is excluded, since macOS hands it back on demand.
     private static func memoryUse() -> (fraction: Double, used: UInt64, total: UInt64) {
         let total = ProcessInfo.processInfo.physicalMemory
 
@@ -248,11 +230,7 @@ final class StatsManager: ObservableObject {
         return (Double(used) / Double(totalBytes), used, totalBytes)
     }
 
-    /// Bytes per second in and out, summed over every real interface.
-    ///
-    /// Loopback is skipped - traffic a machine sends to itself is not network
-    /// activity, and on a Mac running any kind of local server it dwarfs
-    /// everything that actually leaves the box.
+    /// Bytes per second in and out, summed over every interface but loopback.
     private static func networkRates(
         since last: inout (received: UInt64, sent: UInt64, at: Date)?
     ) -> (down: Double, up: Double)? {
@@ -288,8 +266,7 @@ final class StatsManager: ObservableObject {
 
     // MARK: - Formatting
 
-    /// Bytes as a person reads them. Two significant figures is as much as
-    /// anyone takes off a gauge at a glance.
+    /// Bytes as a person reads them.
     static func bytes(_ value: UInt64) -> String {
         let formatter = ByteCountFormatter()
         formatter.countStyle = .memory

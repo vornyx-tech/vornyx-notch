@@ -82,6 +82,10 @@ class VornyxViewCoordinator: ObservableObject {
     /// the extra row, and the notch's height is worked out in `ContentView`.
     @Published var clipboardRows: Int = 1
 
+    /// How far the LocalSend strip has stretched down to hold a long text
+    /// being written. Here for the same reason as `clipboardRows`.
+    @Published var localSendComposeGrowth: CGFloat = 0
+
     /// One spring for every way of changing tab - buttons, swipes, drops - so
     /// the page slide always feels the same.
     static let tabChangeAnimation = Animation.spring(
@@ -248,12 +252,18 @@ class VornyxViewCoordinator: ObservableObject {
         icon: String = ""
     ) {
         sneakPeekDuration = duration ?? Defaults[.sneakPeekDuration]
-        if type != .music {
+        // Music and the output changing are news of their own; everything
+        // else here stands in for the system HUD, and only when it is replaced.
+        if type != .music && type != .audioRoute {
             // close()
             if !Defaults[.hudReplacement] {
                 return
             }
         }
+        // Volume is drawn as where the sound is going - AirPods, this Mac -
+        // rather than one speaker for every output. Only when nobody chose an
+        // icon: the helper's own events still get theirs.
+        let icon = type == .volume && icon.isEmpty ? AudioDeviceManager.shared.currentSymbol : icon
         Task { @MainActor in
             withAnimation(.smooth) {
                 self.sneakPeek.show = status
@@ -349,9 +359,11 @@ class VornyxViewCoordinator: ObservableObject {
     /// A pair's own banner outranks this one: it carries the same name plus the
     /// battery levels, so replacing it with the plainer version would be a step
     /// backwards a second after it appeared.
+    ///
+    /// A sneak peek, like the music one: the notch drops down a row to say it.
     func announceAudioRoute() {
         guard !(expandingView.show && expandingView.type == .airpods) else { return }
-        toggleExpandingView(status: true, type: .audioRoute)
+        toggleSneakPeek(status: true, type: .audioRoute, duration: 3)
     }
 
     /// Show the countdown in the closed notch. Started, paused, resumed and

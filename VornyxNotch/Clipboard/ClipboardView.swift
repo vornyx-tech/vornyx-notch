@@ -7,34 +7,23 @@ import Defaults
 import SwiftUI
 
 /// Clipboard history as a notch tab: a horizontal row of cards, newest first.
-///
-/// Horizontal because the notch is wide and short - a vertical list would show
-/// two entries and waste the rest - and cards because that is the language the
-/// shelf already speaks.
 struct ClipboardView: View {
     @EnvironmentObject var vm: VornyxViewModel
     @StateObject private var clipboard = ClipboardManager.shared
     @State private var justCopied: UUID?
     @State private var hovered: UUID?
-    /// The card the arrow keys are on. Nil until the keyboard is used, so a
-    /// mouse-only visit shows no selection ring at all.
+    /// The card the arrow keys are on. Nil until the keyboard is used.
     @State private var selected: UUID?
 
     @ObservedObject private var coordinator = VornyxViewCoordinator.shared
 
-    /// How many cards the row shows at once.
-    ///
-    /// Cards are sized to fit exactly this many across the room the notch
-    /// gives, rather than being a fixed width: a hardcoded 184pt overran the
-    /// stock 640pt notch by twelve points, so the row always ended on a card
-    /// sliced in half by the notch's edge.
+    /// How many cards the row shows at once. Cards are sized to fit this many
+    /// across whatever room the notch gives, rather than a fixed width.
     private let visibleCards = 3
     private let cardSpacing: CGFloat = 8
     /// Breathing room between the row and the notch's inner edge.
     private let rowInset: CGFloat = 4
-    /// Slack above and below the row for a hovered card to grow into. The
-    /// scroll view clips to its own bounds, so without this the top and bottom
-    /// of the card the pointer is on would be shaved off as it lifts.
+    /// Slack for a hovered card to grow into; the scroll view clips to its bounds.
     private let zoomHeadroom: CGFloat = 4
 
     /// Fixed parts of a card, so the text knows how many lines are left for it.
@@ -48,21 +37,12 @@ struct ClipboardView: View {
             if clipboard.items.isEmpty {
                 empty
             } else {
-                // Read the room before drawing, rather than letting the cards
-                // state a size: the notch hands this page a fixed height and
-                // width, and a card that asks for more just draws past the
-                // edges. Sizing to what is actually there keeps the row inside
-                // the notch whatever the corner radius and font metrics work
-                // out to.
                 GeometryReader { proxy in
                     let size = cardSize(in: proxy.size)
 
                     ScrollViewReader { scroller in
                         ScrollView(.horizontal) {
-                            // A grid rather than a stack, so a second row fills
-                            // column by column: down is the next card, right is
-                            // the one after that. Newest still reads first,
-                            // top-left to bottom-right.
+                            // A grid, so a second row fills column by column.
                             LazyHGrid(
                                 rows: Array(
                                     repeating: GridItem(.fixed(size.height), spacing: cardSpacing),
@@ -98,10 +78,6 @@ struct ClipboardView: View {
 
     /// A card's size: the row's width shared between `visibleCards`, and the
     /// page's height shared between however many rows are open.
-    ///
-    /// The notch grows by a row's worth when a row opens, so the division comes
-    /// out at about the same card height either way - the point of opening out
-    /// is to see more cards, not smaller ones.
     private func cardSize(in available: CGSize) -> CGSize {
         let columnGaps = cardSpacing * CGFloat(visibleCards - 1)
         let content = available.width - rowInset * 2 - columnGaps
@@ -117,37 +93,30 @@ struct ClipboardView: View {
 
     // MARK: - Keyboard
 
-    /// The arrows work whenever there are cards to walk - the open notch holds
-    /// the keyboard regardless of how it was opened.
+    /// The arrows work whenever there are cards to walk.
     private var keysEnabled: Bool {
         !clipboard.items.isEmpty
     }
 
     /// Only a clipboard opened by its shortcut starts with a card picked out.
-    /// Arriving with the mouse shows no selection ring until an arrow is
-    /// actually pressed, at which point `moveSelection` picks the first card.
     private func beginKeyboardSessionIfAsked() {
         guard coordinator.keyboardSession else { return }
         VornyxNotchSkyLightWindow.takeKeyboardFocus()
         selected = clipboard.items.first?.id
     }
 
-    /// Only this page's own state. The session itself outlives the page - you
-    /// can Command-arrow to the shelf and back - so `ContentView` ends it when
-    /// the notch closes.
+    /// Only this page's own state. The session outlives the page, so
+    /// `ContentView` ends it when the notch closes.
     private func endKeyboardSession() {
-        // The rows fold back whether or not the keyboard was in use: a notch
-        // that reopened at the height you last left it would be a surprise.
         coordinator.clipboardRows = 1
         selected = nil
     }
 
     /// Arrows walk the row, Return takes the card, Delete drops it, Escape
-    /// leaves. Anything else falls through to whoever would normally get it.
+    /// leaves. Anything else falls through.
     private func handleKey(_ event: NSEvent) -> Bool {
         guard let key = NotchKey(event) else { return false }
-        // Command-arrows step the tabs, which is the notch's business, not the
-        // row's - let them past.
+        // Command-arrows step the tabs, so let them past.
         guard !event.modifierFlags.contains(.command) else { return false }
 
         switch key {
@@ -181,38 +150,28 @@ struct ClipboardView: View {
     private var rows: Int { coordinator.clipboardRows }
 
     /// Down opens the notch out by a row, then walks into it.
-    ///
-    /// The first press is the one that makes room: rather than telling you
-    /// somewhere else exists, the notch grows a row and the cards that were off
-    /// the end of the strip come up into it. After that, down is just down -
-    /// the next card in the column.
     private func goDown() {
         let index = selectedIndex ?? 0
 
-        // A row already open beneath this card: just move into it. Growing here
-        // instead was the bug - with three rows allowed, the second press
-        // opened a third row rather than stepping down into the second.
+        // A row already open beneath this card: just move into it.
         if index % rows < rows - 1 {
             moveSelection(by: 1)
             return
         }
 
-        // Nothing below, so make somewhere to go - one row, not all of them.
+        // Nothing below, so open one more row.
         guard rows < clipboardMaxRows else { return }
         let opened = rows + 1
         withAnimation(notchResizeAnimation) {
             coordinator.clipboardRows = opened
         }
-        // The cards reflow into the taller grid, so where the selected one
-        // lands decides whether there is now anything below it.
+        // The cards reflow, so the selected one may now have a card below it.
         if index % opened != opened - 1 {
             moveSelection(by: 1)
         }
     }
 
-    /// Up is the way back: out of the lower row first, and then - from the top
-    /// row - the notch closes the row again. Pressing up until the notch is
-    /// back to one row undoes exactly what pressing down did.
+    /// Up steps out of the lower row first, then closes the row again.
     private func goUp() {
         let index = selectedIndex ?? 0
         if rows > 1, index % rows != 0 {
@@ -230,11 +189,9 @@ struct ClipboardView: View {
         return clipboard.items.firstIndex { $0.id == selected }
     }
 
-    /// Steps through the cards and stops at the ends rather than wrapping - the
-    /// same rule the tabs follow, so a held arrow key cannot spin the history.
-    ///
-    /// The offset is in cards, and the grid fills column-first, so a whole
-    /// column is `rows` cards: left and right pass that, up and down pass one.
+    /// Steps through the cards, stopping at the ends rather than wrapping. The
+    /// offset is in cards, and the grid fills column-first, so a column is
+    /// `rows` cards: left and right pass that, up and down pass one.
     private func moveSelection(by offset: Int) {
         let items = clipboard.items
         guard !items.isEmpty else { return }
@@ -248,21 +205,12 @@ struct ClipboardView: View {
         selected = items[next].id
     }
 
-    /// Copy it, get out of the way, and paste it where you were.
-    ///
-    /// Pasting is the point: you pressed the shortcut to put something into the
-    /// document you are in, and stopping at the pasteboard leaves you to press
-    /// Command-V yourself - the very keystroke this was meant to save. The
-    /// notch closes first because it is a panel over that document, and the
-    /// keystroke wants a clean frontmost app to land in.
-    ///
-    /// Without Accessibility this quietly stops after copying, which is exactly
-    /// what it used to do.
+    /// Copy it, close the notch, and paste it where you were. Without
+    /// Accessibility this quietly stops after copying.
     private func takeAndLeave(_ item: ClipboardItem) {
         copy(item)
         Task {
-            // Long enough to see the tick, short enough that it does not feel
-            // like waiting.
+            // Long enough to see the tick.
             try? await Task.sleep(for: .milliseconds(240))
             vm.close()
             try? await Task.sleep(for: .milliseconds(140))
@@ -270,8 +218,7 @@ struct ClipboardView: View {
         }
     }
 
-    /// Delete under the cursor, leaving the selection where your eye is: on
-    /// whatever slid into the gap, or the new last card at the end of the row.
+    /// Delete under the cursor, leaving the selection where your eye is.
     private func removeKeepingPlace(_ item: ClipboardItem) {
         let items = clipboard.items
         guard let index = items.firstIndex(where: { $0.id == item.id }) else { return }
@@ -288,31 +235,19 @@ struct ClipboardView: View {
 
     // MARK: - Card metrics
 
-    /// The same rule the shelf panels follow: concentric with the notch.
-    ///
-    /// Clamped to half the shorter side, because past that a rounded rectangle
-    /// stops being one - the arcs meet and the shape becomes a stadium.
+    /// Concentric with the notch, clamped to half the shorter side.
     private func cardRadius(for size: CGSize) -> CGFloat {
         min(innerPanelCornerRadius, size.width / 2, size.height / 2)
     }
 
-    /// Padding grows with the radius, so the glyphs and text stay clear of the
-    /// curve however round the notch is set.
+    /// Padding grows with the radius, so text stays clear of the curve.
     private func cardPadding(for radius: CGFloat) -> CGFloat {
         max(12, radius * 0.42)
     }
 
     /// The room inside a card's padding: full width, and whatever height the
-    /// fixed parts leave. Every row is given this outright rather than left to
-    /// negotiate for it.
-    ///
-    /// A thumbnail cannot be trusted to compress. `aspectRatio(.fill)` reports
-    /// a *minimum* of the size that covers the other axis - 190pt wide for a
-    /// 4:1 screenshot in a 48pt-tall row - and a flexible frame around it caps
-    /// nothing. Left to itself it widens the whole stack, the padded stack
-    /// overruns the card, and the fixed frame centres the overflow: every row
-    /// shifts sideways and the header and footer slide out through the corner
-    /// curve, which is what clipped the "I" off the footer's label.
+    /// fixed parts leave. Given outright, since `aspectRatio(.fill)` reports a
+    /// minimum size and will not compress.
     private func contentSize(in size: CGSize, padding: CGFloat) -> CGSize {
         let chrome = padding * 2 + headerHeight + footerHeight + cardStackSpacing * 2
         return CGSize(
@@ -321,9 +256,7 @@ struct ClipboardView: View {
         )
     }
 
-    /// How many lines of text fit that height. Three at the stock notch height;
-    /// fewer rather than overflowing when the notch - or the corner radius,
-    /// which sets the padding - leaves less.
+    /// How many lines of text fit that height, at most three.
     private func bodyLineLimit(_ item: ClipboardItem, height: CGFloat) -> Int {
         max(1, min(3, Int(height / bodyLineHeight(for: item))))
     }
@@ -333,8 +266,7 @@ struct ClipboardView: View {
     private func card(_ item: ClipboardItem, size: CGSize) -> some View {
         let copied = justCopied == item.id
         let isSelected = selected == item.id
-        // The arrow keys light a card the same way the pointer does, so the two
-        // ways of getting around the row look like one thing.
+        // Selection lights a card the same way the pointer does.
         let isHovered = hovered == item.id || isSelected
         let radius = cardRadius(for: size)
         let padding = cardPadding(for: radius)
@@ -376,14 +308,13 @@ struct ClipboardView: View {
                     ? Color.effectiveAccent.opacity(0.35)
                     : (isHovered ? Color.white.opacity(0.1) : nil))
             .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
-            // The selection's light, thrown inwards from the card's own edge:
-            // a thick accent stroke, blurred, clipped back to the card so only
-            // the half falling inside is left. About six points deep.
+            // The selection's light, thrown inwards: a thick accent stroke,
+            // blurred and clipped back to the card.
             .overlay {
                 if isSelected {
                     RoundedRectangle(cornerRadius: radius, style: .continuous)
-                        .stroke(Color.effectiveAccent.opacity(0.5), lineWidth: 12)
-                        .blur(radius: 5)
+                        .stroke(Color.effectiveAccent.opacity(0.5), lineWidth: 20)
+                        .blur(radius: 6)
                         .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
                         .allowsHitTesting(false)
                 }
@@ -414,15 +345,10 @@ struct ClipboardView: View {
                 }
             }
         }
-        // The same lift-and-squash the dashboard's shortcut tiles answer with,
-        // scaled down: the tiles are 20pt and these are 180, and a card growing
-        // by the tiles' 7% would eat the gap to its neighbour. Brightness is
-        // left to the fill below, which already lightens on hover and has the
-        // copied state to show as well.
+        // A smaller lift than the dashboard tiles, whose 7% would eat the gap
+        // to the next card. Brightness is left to the fill below.
         .springyTile(hoverScale: 1.035, pressScale: 0.965, hoverBrightness: 0)
-        // The keyboard's own lift. `springyTile` answers the pointer and knows
-        // nothing about the arrow keys, so selection does its own - on the same
-        // spring, so a card picked up either way settles identically.
+        // The keyboard's own lift, on the same spring as `springyTile`.
         .scaleEffect(isSelected ? 1.05 : 1)
         .animation(.spring(response: 0.26, dampingFraction: 0.7), value: isSelected)
         .zIndex(isSelected ? 1 : 0)
@@ -455,12 +381,8 @@ struct ClipboardView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    /// A copied image, filling the card's body the way its text would.
-    ///
-    /// `.fill` and clipped rather than `.fit`: a screenshot is usually much
-    /// wider than this card, and fitting it leaves a letterboxed sliver too
-    /// small to recognise. Cropping to the card shows the top-left of the shot
-    /// at a readable size, which is enough to tell two screenshots apart.
+    /// A copied image, filling the card's body. Cropped rather than fitted: a
+    /// screenshot fitted into this card is an unreadable sliver.
     private func thumbnail(_ item: ClipboardItem, radius: CGFloat, size: CGSize) -> some View {
         Group {
             switch clipboard.thumbnail(for: item) {
@@ -470,21 +392,19 @@ struct ClipboardView: View {
                     .interpolation(.high)
                     .aspectRatio(contentMode: .fill)
             case .loading:
-                // Decoding off the main thread: a quiet tile rather than a
-                // spinner, since it is usually gone within a frame or two.
+                // Decoding off the main thread.
                 Color.white.opacity(0.04)
             case .missing:
-                // The file is gone - deleted underneath us, or the history
-                // outlived it. Say so rather than showing an empty hole.
+                // The file is gone: deleted underneath us, or the history
+                // outlived it.
                 Image(systemName: "photo.badge.exclamationmark")
                     .font(.title3)
                     .foregroundStyle(.white.opacity(0.35))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        // The size first, then the clip: a filled image overruns whichever axis
-        // it has to, and only a clip applied *outside* the fixed frame crops
-        // that overrun back to the card.
+        // Size first, then clip: only a clip outside the fixed frame crops the
+        // filled image back to the card.
         .frame(width: size.width, height: size.height)
         .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
         .overlay(
@@ -493,8 +413,7 @@ struct ClipboardView: View {
         )
     }
 
-    /// Kind glyph, source app and time on one baseline, so cards line up with
-    /// each other however long their text is.
+    /// Kind glyph, source app and time on one baseline.
     private func header(_ item: ClipboardItem, copied: Bool) -> some View {
         HStack(spacing: 5) {
             Image(systemName: icon(for: item))
@@ -576,8 +495,7 @@ struct ClipboardView: View {
         }
     }
 
-    /// A character count means nothing for a screenshot, so images report
-    /// their pixel size instead.
+    /// Images report their pixel size instead of a character count.
     private func measure(of item: ClipboardItem) -> String {
         if item.isImage {
             guard let width = item.imageWidth, let height = item.imageHeight else { return "" }
@@ -615,11 +533,8 @@ struct ClipboardView: View {
     }
 }
 
-/// App icons by bundle id, looked up once.
-///
-/// `AppIcon(for:)` asks Launch Services and reads the icon on every call, every
-/// hover redraws every card, and Launch Services is among the first things to
-/// stall when the machine is busy.
+/// App icons by bundle id, looked up once: `AppIcon(for:)` asks Launch
+/// Services and reads the icon on every call.
 @MainActor
 private enum SourceAppIcon {
     private static var cache: [String: NSImage] = [:]

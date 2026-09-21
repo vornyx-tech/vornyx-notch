@@ -9,6 +9,7 @@ import Combine
 import CoreAudio
 import Defaults
 import Foundation
+import IOKit.ps
 
 struct AudioDevice: Identifiable, Equatable {
     let id: AudioObjectID
@@ -19,45 +20,48 @@ struct AudioDevice: Identifiable, Equatable {
         transport == kAudioDeviceTransportTypeBluetooth || transport == kAudioDeviceTransportTypeBluetoothLE
     }
 
-    /// The glyph that matches the device. Checks device name for specificity,
-    /// then falls back to transport type for generic glyphs.
+    /// The glyph for this output, by transport and then by name.
+    /// `AudioDeviceManager.symbol(for:)` refines it with the pair's own model.
     var symbol: String {
-        let nameLower = name.lowercased()
-
-        if nameLower.contains("airpods max") {
-            return "headphones"
-        } else if nameLower.contains("airpods pro") {
-            return "airpodspro"
-        } else if nameLower.contains("airpods") {
-            return "airpods"
-        } else if nameLower.contains("macbook") || nameLower.contains("mac mini") || nameLower.contains("mac studio") {
-            return "laptopcomputer"
-        } else if nameLower.contains("homepod") {
-            return "homepod"
-        }
-
+        let lowered = name.lowercased()
         switch transport {
+        case kAudioDeviceTransportTypeBuiltIn:
+            return Self.macSymbol
         case kAudioDeviceTransportTypeBluetooth, kAudioDeviceTransportTypeBluetoothLE:
-            return "airpods.gen3"
+            // Product names are not translated, whatever the language.
+            if lowered.contains("airpods") || lowered.contains("beats") {
+                return AirPodsModel(productID: nil, name: name, hasEars: lowered.contains("airpods")).symbol
+            }
+            return "headphones"
         case kAudioDeviceTransportTypeUSB:
             return "hifispeaker.fill"
         case kAudioDeviceTransportTypeHDMI, kAudioDeviceTransportTypeDisplayPort:
             return "tv.fill"
         case kAudioDeviceTransportTypeAirPlay:
-            return "airplayaudio"
+            return lowered.contains("homepod") ? "homepod.fill" : "airplayaudio"
         case kAudioDeviceTransportTypeVirtual, kAudioDeviceTransportTypeAggregate:
             return "waveform"
         default:
-            return "speaker.fill"
+            return "speaker.wave.2.fill"
         }
     }
+
+    /// This Mac, as a laptop or a desktop. Told apart by an internal battery:
+    /// the model identifier no longer says "MacBook".
+    private static let macSymbol: String = {
+        guard let snapshot = IOPSCopyPowerSourcesInfo()?.takeRetainedValue(),
+              let sources = IOPSCopyPowerSourcesList(snapshot)?.takeRetainedValue() as? [CFTypeRef]
+        else { return "desktopcomputer" }
+        let hasBattery = sources.contains { source in
+            let info = IOPSGetPowerSourceDescription(snapshot, source)?.takeUnretainedValue() as? [String: Any]
+            return info?[kIOPSTypeKey] as? String == kIOPSInternalBatteryType
+        }
+        return hasBattery ? "laptopcomputer" : "desktopcomputer"
+    }()
 }
 
-/// The output devices available, and which one is in use.
-///
-/// CoreAudio's HAL is readable and writable from inside the sandbox, so this
-/// needs no entitlement - switching output is the one piece of audio routing
-/// that comes for free.
+/// The output devices available, and which one is in use. CoreAudio's HAL is
+/// readable and writable from inside the sandbox, so this needs no entitlement.
 @MainActor
 final class AudioDeviceManager: ObservableObject {
     static let shared = AudioDeviceManager()
@@ -67,8 +71,7 @@ final class AudioDeviceManager: ObservableObject {
 
     private var listening = false
 
-    /// The output the notch has already announced. Set on the first read, so
-    /// whatever was in use at launch is never announced as a change.
+    /// The output the notch has already announced, set on the first read.
     private var announcedID: AudioObjectID?
 
     private init() {}
@@ -80,8 +83,6 @@ final class AudioDeviceManager: ObservableObject {
         guard !listening else { return }
         listening = true
 
-        // The list changes when anything is plugged in or paired, and the
-        // default changes when anything - including macOS itself - switches it.
         for selector in [kAudioHardwarePropertyDevices,
                          kAudioHardwarePropertyDefaultOutputDevice] {
             var address = AudioObjectPropertyAddress(
@@ -101,12 +102,8 @@ final class AudioDeviceManager: ObservableObject {
         refresh(announce: false)
     }
 
-    /// Re-read the list and the default, and - when asked - let the notch say
-    /// so if the default has actually moved.
-    ///
-    /// Both listeners land here, and the device list changing on its own (a
-    /// cable in, a pair pairing) is not a route change: only a different
-    /// default output is worth a banner.
+    /// Re-read the list and the default. Both listeners land here, but only a
+    /// different default output is worth a banner.
     private func refresh(announce: Bool) {
         devices = Self.outputDevices()
         let newID = Self.defaultOutputDevice()
@@ -131,6 +128,28 @@ final class AudioDeviceManager: ObservableObject {
         devices.first { $0.id == currentID }
     }
 
+    /// The glyph for an output, used by the menu, the route banner and the
+    /// volume HUD. A Bluetooth output matching the connected pair gets that
+    /// pair's model symbol; built-in output is the Mac, or the headphone jack
+    /// when that data source is in use.
+    func symbol(for device: AudioDevice) -> String {
+        if device.isBluetooth, let pair = AirPodsManager.shared.device,
+           device.name.localizedCaseInsensitiveContains(pair.name) {
+            return pair.model.symbol
+        }
+        if device.transport == kAudioDeviceTransportTypeBuiltIn,
+           Self.dataSource(device.id) == Self.headphonesDataSource {
+            return "headphones"
+        }
+        return device.symbol
+    }
+
+    /// What the volume HUD shows.
+    var currentSymbol: String {
+        if devices.isEmpty { start() }
+        return current.map(symbol(for:)) ?? "speaker.wave.2.fill"
+    }
+
     // MARK: - Switching
 
     @discardableResult
@@ -150,9 +169,7 @@ final class AudioDeviceManager: ObservableObject {
             &id
         )
         guard status == noErr else { return false }
-        // Picked by hand, from the notch's own menu: the listener will confirm
-        // it in a moment, and there is nothing to announce back to whoever
-        // just chose it.
+        // Picked by hand, so nothing to announce; the listener confirms it.
         currentID = device.id
         announcedID = device.id
         return true
@@ -193,8 +210,7 @@ final class AudioDeviceManager: ObservableObject {
         ) == noErr else { return [] }
 
         return ids.compactMap { id in
-            // Output channels are what makes it an output: every microphone is
-            // in this list too.
+            // The list holds inputs too, so require output channels.
             guard channelCount(id, scope: kAudioObjectPropertyScopeOutput) > 0,
                   let name = string(id, selector: kAudioObjectPropertyName)
             else { return nil }
@@ -241,6 +257,23 @@ final class AudioDeviceManager: ObservableObject {
         else { return nil }
         let name = value as String
         return name.isEmpty ? nil : name
+    }
+
+    /// 'hdpn': the jack, on a built-in device that also drives the speakers.
+    private static let headphonesDataSource: UInt32 = 0x6864_706E
+
+    private static func dataSource(_ device: AudioObjectID) -> UInt32? {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyDataSource,
+            mScope: kAudioObjectPropertyScopeOutput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        guard AudioObjectHasProperty(device, &address) else { return nil }
+        var value: UInt32 = 0
+        var size = UInt32(MemoryLayout<UInt32>.size)
+        guard AudioObjectGetPropertyData(device, &address, 0, nil, &size, &value) == noErr
+        else { return nil }
+        return value
     }
 
     private static func transport(_ device: AudioObjectID) -> UInt32 {

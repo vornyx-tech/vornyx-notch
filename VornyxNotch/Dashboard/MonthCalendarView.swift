@@ -6,12 +6,8 @@
 import Defaults
 import SwiftUI
 
-/// A compact month grid: weekday initials across the top, the current month's
-/// days in bold, neighbouring days dimmed, today in a filled circle, and a dot
-/// under any day that has something on it.
-///
-/// Only ever the current month - the notch is a glance surface, not somewhere
-/// to plan next March.
+/// A compact month grid, always the current month. A dot under any day that
+/// has something on it.
 struct MonthCalendarView: View {
     @ObservedObject private var calendarManager = CalendarManager.shared
     @Binding var selectedDate: Date
@@ -49,11 +45,7 @@ struct MonthCalendarView: View {
         return Array(symbols[first...] + symbols[..<first])
     }
 
-    /// The colours of what is on each day of the visible month, up to three.
-    ///
-    /// Colours rather than a count: the calendar a thing belongs to is the fact
-    /// you actually want off a month grid - work, or personal, or a birthday -
-    /// and a row of identical accent dots cannot tell you that.
+    /// The calendar colours of what is on each day of the visible month, up to three.
     private var busyColors: [Int: [Color]] {
         var map: [Int: [Color]] = [:]
         for event in calendarManager.monthEvents
@@ -101,8 +93,7 @@ struct MonthCalendarView: View {
         }
     }
 
-    /// Month in full, year as a quiet chip beside it - the year is context, not
-    /// news, and giving it the same weight as the month made the two compete.
+    /// Month in full, year as a quiet chip beside it.
     private var header: some View {
         HStack(spacing: 5) {
             Text(today, format: .dateTime.month(.wide))
@@ -139,7 +130,6 @@ struct MonthCalendarView: View {
         } label: {
             ZStack {
                 if isToday {
-                    // Lit, not painted: the same halo the weather icon wears.
                     Circle()
                         .fill(Color.effectiveAccent)
                         .blur(radius: 6)
@@ -165,8 +155,7 @@ struct MonthCalendarView: View {
             }
             .frame(width: 19, height: 19)
             .overlay(alignment: .bottom) {
-                // One dot per calendar the day has something in, so a glance
-                // says what kind of day it is and not merely that it is busy.
+                // One dot per calendar the day has something in.
                 HStack(spacing: 1.5) {
                     ForEach(Array(colors.enumerated()), id: \.offset) { _, color in
                         Circle()
@@ -255,8 +244,6 @@ struct DayAgendaView: View {
         }
     }
 
-    /// An empty day is a good outcome, so it gets a shape rather than a
-    /// shrugging line of grey text.
     private var empty: some View {
         VStack(spacing: 5) {
             Image(systemName: "sparkles")
@@ -269,9 +256,7 @@ struct DayAgendaView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    /// True while macOS has not granted calendar access. Without this the view
-    /// reports "Nothing scheduled" for a day that is actually full, which is
-    /// worse than saying nothing at all.
+    /// True while macOS has not granted calendar access.
     private var needsAccess: Bool {
         calendarManager.calendarAuthorizationStatus != .fullAccess
     }
@@ -310,11 +295,8 @@ struct DayAgendaView: View {
         .padding(.top, 2)
     }
 
-    /// An event as a tile in its calendar's own colour, rather than a line of
-    /// text with a stripe next to it.
-    ///
-    /// What is happening *now* is the one thing worth finding instantly, so it
-    /// is the only row that gets a filled edge and a label.
+    /// An event as a tile in its calendar's own colour. Only what is happening
+    /// now gets a filled edge and a label.
     private func row(_ event: EventModel) -> some View {
         let status = event.eventStatus
         let live = status == .inProgress
@@ -369,7 +351,7 @@ struct DayAgendaView: View {
             .opacity(status == .ended ? 0.4 : 1)
             .contentShape(Rectangle())
         }
-        // A full-width row: barely any lift, or it would crowd the rows around it.
+        // A full-width row, so barely any lift.
         .springyTile(hoverScale: 1.02, pressScale: 0.98, hoverBrightness: 0.06)
     }
 }

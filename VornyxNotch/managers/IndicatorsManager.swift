@@ -2,8 +2,7 @@
 //  IndicatorsManager.swift
 //  VornyxNotch
 //
-//  The small facts about the machine worth a light in the notch: the camera,
-//  the microphone, Focus, and Caps Lock.
+//  The camera, the microphone, Focus and Caps Lock.
 //
 
 import AppKit
@@ -25,14 +24,9 @@ struct SystemIndicators: Equatable {
 
 /// Polls the four indicators.
 ///
-/// Polled rather than driven by property listeners: each answer costs two
-/// HAL property reads, the C callback plumbing for listeners is considerable,
-/// and a second's lag on "the camera came on" is not a second anybody notices.
-///
-/// Every source here works inside the app sandbox. That rules out the way this
-/// is usually done for Focus - reading `~/Library/DoNotDisturb/DB` - and the
-/// Focus Status API answers only apps entitled by a paid developer team, so
-/// Focus is read from Control Center's menu bar item, by the helper.
+/// Every source works inside the app sandbox, which rules out both
+/// `~/Library/DoNotDisturb/DB` and the Focus Status API, so Focus is read from
+/// Control Center's menu bar item by the helper.
 @MainActor
 final class IndicatorsManager: ObservableObject {
     static let shared = IndicatorsManager()
@@ -75,8 +69,7 @@ final class IndicatorsManager: ObservableObject {
             refreshFocusFromMenuBar()
         }
         if Defaults[.showCapsLockIndicator] {
-            // No permission and no monitor: the modifier flags are readable at
-            // any time, which is the whole reason this one is free.
+            // Modifier flags are readable without permission or a monitor.
             next.capsLock = NSEvent.modifierFlags.contains(.capsLock)
         }
 
@@ -84,8 +77,8 @@ final class IndicatorsManager: ObservableObject {
         indicators = next
     }
 
-    /// Asks the helper. The answer would land on the next tick anyway;
-    /// publishing it here saves the wait.
+    /// Asks the helper, and publishes the answer without waiting for the next
+    /// tick.
     private func refreshFocusFromMenuBar() {
         guard focusQuery == nil else { return }
         focusQuery = Task { [weak self] in
@@ -103,11 +96,9 @@ final class IndicatorsManager: ObservableObject {
 
     // MARK: - Camera
 
-    /// True when any video device is running for anybody - us included.
-    ///
+    /// True when any video device is running, this app included.
     /// `kAudioDevicePropertyDeviceIsRunningSomewhere` is not a typo: the
-    /// CoreMediaIO device model is CoreAudio's, and video devices answer the
-    /// same selector.
+    /// CoreMediaIO device model is CoreAudio's and answers the same selector.
     private static func cameraInUse() -> Bool {
         var address = CMIOObjectPropertyAddress(
             mSelector: CMIOObjectPropertySelector(kCMIOHardwarePropertyDevices),
@@ -182,8 +173,8 @@ final class IndicatorsManager: ObservableObject {
         return false
     }
 
-    /// Output-only devices answer the running property too, so without this
-    /// every speaker playing anything would read as a live microphone.
+    /// Output-only devices answer the running property too, so they have to be
+    /// filtered out.
     private static func hasInput(_ device: AudioObjectID) -> Bool {
         var address = AudioObjectPropertyAddress(
             mSelector: kAudioDevicePropertyStreamConfiguration,

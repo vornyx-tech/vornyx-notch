@@ -32,21 +32,14 @@ final class AIChatManager: ObservableObject {
     private var pendingDelta: String = ""
     private var flushTask: Task<Void, Never>?
 
-    /// How often streamed text is handed to the view.
-    ///
-    /// Gemini sends a reply in dozens of small pieces a second, and every one
-    /// of them republishes the transcript: SwiftUI then re-lays out and
-    /// re-parses the Markdown of every bubble on screen. Batching a frame's
-    /// worth at a time makes a long reply arrive markedly quicker while looking
-    /// no different - the text is moving faster than this either way.
+    /// How often streamed text is handed to the view. Every chunk republishes
+    /// the transcript, so they are batched a frame's worth at a time.
     private static let deltaFlushInterval = Duration.milliseconds(60)
 
     private init() { Self.upgradeStaleModel() }
 
-    /// Move users off a model id the app used to ship as its default. Without
-    /// this, anyone who installed before today keeps the old model forever,
-    /// since their preference file already holds a value. A model the user
-    /// typed themselves is theirs to keep.
+    /// Move users off a model id the app used to ship as its default. A model
+    /// the user typed themselves is left alone.
     private static func upgradeStaleModel() {
         guard !Defaults[.didUpgradeGeminiModel] else { return }
         Defaults[.didUpgradeGeminiModel] = true
@@ -104,11 +97,8 @@ final class AIChatManager: ObservableObject {
         }
     }
 
-    /// First chunk opens a new assistant bubble; the rest grow it in place.
-    ///
-    /// The first one goes straight to the screen - that is the wait the user
-    /// actually feels - and the rest queue up for the next flush rather than
-    /// each redrawing the transcript on their own.
+    /// First chunk opens a new assistant bubble and goes straight to the
+    /// screen; the rest queue for the next flush and grow it in place.
     private func appendDelta(_ delta: String) {
         guard isStreaming, let last = messages.last, last.role == .assistant, !last.isError else {
             isStreaming = true
@@ -152,8 +142,7 @@ final class AIChatManager: ObservableObject {
     func cancel() {
         task?.cancel()
         task = nil
-        // Keep the part of the reply that did arrive - stopping should not
-        // swallow the sentence already on its way to the screen.
+        // Keep the part of the reply that did arrive.
         flushDelta()
         isThinking = false
         isStreaming = false

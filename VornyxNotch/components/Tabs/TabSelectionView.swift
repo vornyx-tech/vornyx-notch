@@ -9,7 +9,7 @@ import Defaults
 import SwiftUI
 
 struct TabModel: Identifiable {
-    let id = UUID()
+    var id: NotchViews { view }
     let label: String
     let icon: String
     let view: NotchViews
@@ -39,6 +39,20 @@ struct TabSelectionView: View {
     @ObservedObject var coordinator = VornyxViewCoordinator.shared
     @Namespace var animation
     var body: some View {
+        tabRow
+        // No clip. There is nothing to contain - the only background is the
+        // selected tab's own capsule, which is exactly its own size - and an
+        // outer capsule shaves the sliding one as it crosses the ends, which is
+        // what cut the corner off it mid-animation.
+        //
+        // Fixed size so the header's side frame cannot squeeze the pill either:
+        // that frame narrows as the notch changes width between tabs, and the
+        // opacity and blur wrapped around it composite to their bounds, so a
+        // moment of being too narrow crops the row rather than overflowing it.
+        .fixedSize()
+    }
+
+    private var tabRow: some View {
         HStack(spacing: 0) {
             ForEach(tabs) { tab in
                     TabButton(
@@ -67,23 +81,29 @@ struct TabSelectionView: View {
                     // up stranded on whichever tab SwiftUI happened to pick.
                     .background {
                         if tab.view == coordinator.currentView {
-                            Capsule()
-                                .fill(Color.effectiveAccent.opacity(0.30))
-                                .matchedGeometryEffect(id: "capsule", in: animation)
+                            selectionCapsule
                         }
                     }
             }
         }
-        // No clip. There is nothing to contain - the only background is the
-        // selected tab's own capsule, which is exactly its own size - and an
-        // outer capsule shaves the sliding one as it crosses the ends, which is
-        // what cut the corner off it mid-animation.
-        //
-        // Fixed size so the header's side frame cannot squeeze the pill either:
-        // that frame narrows as the notch changes width between tabs, and the
-        // opacity and blur wrapped around it composite to their bounds, so a
-        // moment of being too narrow crops the row rather than overflowing it.
-        .fixedSize()
+    }
+
+    /// The capsule behind the tab you are on: the same capsule, moved the same
+    /// way, with only its material following the Liquid Glass setting - clear
+    /// glass tinted with the accent when it is on, the accent wash it has
+    /// always been when it is off.
+    @ViewBuilder
+    private var selectionCapsule: some View {
+        if #available(macOS 26.0, *), NotchGlass.isActive {
+            Capsule()
+                .fill(.clear)
+                .glassEffect(.clear.tint(Color.effectiveAccent.opacity(0.55)), in: Capsule())
+                .matchedGeometryEffect(id: "capsule", in: animation)
+        } else {
+            Capsule()
+                .fill(Color.effectiveAccent.opacity(0.30))
+                .matchedGeometryEffect(id: "capsule", in: animation)
+        }
     }
 }
 

@@ -2,8 +2,8 @@
 //  NotchContentRegions.swift
 //  VornyxNotch
 //
-//  What the open notch's pages tell the notch about themselves: which parts of
-//  a page scroll, and how much room a page wishes it had.
+//  What a page tells the notch: which parts of it scroll, and how much room it
+//  wants.
 //
 
 import SwiftUI
@@ -15,8 +15,7 @@ private struct ScrollableNotchHoverKey: EnvironmentKey {
 }
 
 extension EnvironmentValues {
-    /// Where `scrollableNotchContent()` reports to. The open notch sets this;
-    /// pages never read it directly.
+    /// Where `scrollableNotchContent()` reports to. Set by the open notch.
     var notchScrollableHover: Binding<Bool>? {
         get { self[ScrollableNotchHoverKey.self] }
         set { self[ScrollableNotchHoverKey.self] = newValue }
@@ -33,14 +32,8 @@ private struct ScrollableNotchContent: ViewModifier {
 
 extension View {
     /// Marks a view that does its own scrolling, so the notch's close gesture
-    /// leaves it alone.
-    ///
-    /// Closing is an up-swipe and scrolling is an up-swipe, so the two can only
-    /// be told apart by what is under the pointer. Handing the whole page to
-    /// scrolling was too broad: the month grid, the shortcut buttons and the
-    /// player have nothing to scroll, and a swipe over them should close the
-    /// notch exactly like a swipe over the header. So the claim is opt-in -
-    /// only the handful of views that really scroll take it.
+    /// leaves it alone. Closing and scrolling are both up-swipes, told apart
+    /// only by what is under the pointer.
     func scrollableNotchContent() -> some View {
         modifier(ScrollableNotchContent())
     }
@@ -48,8 +41,7 @@ extension View {
 
 // MARK: - Pages asking for more room
 
-/// A scrolling page telling the notch how it is getting on for space: how tall
-/// its content is, and how much of that is currently on screen.
+/// How tall a scrolling page's content is, and how much of it is on screen.
 struct NotchContentFit: Equatable {
     var content: CGFloat = 0
     var visible: CGFloat = 0
@@ -61,8 +53,7 @@ struct NotchContentFit: Equatable {
 struct NotchContentFitKey: PreferenceKey {
     static let defaultValue = NotchContentFit()
 
-    /// The neediest page wins. Nothing shows two growing pages at once today,
-    /// but growing for the roomiest of them would be the wrong way round.
+    /// The neediest page wins.
     static func reduce(value: inout NotchContentFit, nextValue: () -> NotchContentFit) {
         let next = nextValue()
         if next.shortfall > value.shortfall { value = next }

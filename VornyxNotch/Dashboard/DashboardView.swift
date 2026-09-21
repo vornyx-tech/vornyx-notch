@@ -6,33 +6,26 @@
 import Defaults
 import SwiftUI
 
-/// One tab holding the three things you glance at rather than work in:
-/// the month on the left, website shortcuts in the middle, AI on the right.
+/// The month on the left, website shortcuts in the middle, AI on the right.
 struct DashboardView: View {
     @EnvironmentObject var vm: VornyxViewModel
     @Default(.aiEnabled) private var aiEnabled
 
     @Default(.dashboardLeftPage) private var storedPage
 
-    /// The page being drawn, mirrored from the stored one.
-    ///
-    /// Animating the stored value directly does not slide: a `@Default` change
-    /// arrives through its own publisher, outside the transaction `withAnimation`
-    /// set up, so the swap lands instantly and the transition never runs. Local
-    /// state moves under the animation; the setting follows behind it.
+    /// The page being drawn, mirrored from the stored one: a `@Default` change
+    /// arrives outside the `withAnimation` transaction, so it cannot animate.
     @State private var leftPage: DashboardLeftPage = Defaults[.dashboardLeftPage]
 
     @State private var selectedDate = Date()
-    /// Which way the last page change went, so the incoming page slides in from
-    /// the side you swiped towards.
+    /// Which way the last page change went.
     @State private var pageDirection: Int = 1
 
     private let gridWidth: CGFloat = 168
     private let agendaWidth: CGFloat = 150
     private let shortcutsWidth: CGFloat = 190
 
-    /// The month and the agenda are one page, and the weather is the other, so
-    /// the zone they share is what the swipe and the dots belong to.
+    /// The zone the swipe and the dots belong to.
     private var leftZoneWidth: CGFloat { gridWidth + 12 + agendaWidth }
 
     var body: some View {
@@ -60,10 +53,7 @@ struct DashboardView: View {
             }
             .frame(maxWidth: .infinity)
         }
-        // Fill the notch's height rather than asking for the content's ideal
-        // one. `fixedSize(vertical:)` here would hand the chat's ScrollView its
-        // full transcript height: the tab would grow past the notch silhouette
-        // and past the hover region, and the transcript would never scroll.
+        // Fill the notch's height rather than asking for the content's ideal one.
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
@@ -84,19 +74,15 @@ struct DashboardView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            // Keeps the outgoing page inside its own column: without this it
-            // slides out across the divider and over the shortcuts. Tight at
-            // the sides, open at the bottom by exactly the amount the weather's
-            // shower runs past the page - the dots draw over it either way,
-            // being the next thing in the stack.
+            // Keeps the outgoing page inside its own column, open at the bottom
+            // by the amount the weather's shower runs past the page.
             .clipShape(ColumnClip(bottomBleed: WeatherPrecipitationStyle.bottomBleed))
             .animation(VornyxViewCoordinator.tabChangeAnimation, value: leftPage)
 
             pageDots
         }
         .frame(width: leftZoneWidth)
-        // Pointer-scoped, so a sideways swipe only pages here - over the
-        // shortcuts or the chat it goes back to meaning nothing.
+        // Pointer-scoped, so a sideways swipe only pages here.
         .horizontalSwipe { direction in
             step(by: direction == .right ? 1 : -1)
         }
@@ -124,8 +110,7 @@ struct DashboardView: View {
         }
     }
 
-    /// A dot per page, saying how many there are and which one you are on.
-    /// Clickable as well as swipeable - a swipe is not discoverable on its own.
+    /// A dot per page. Clickable as well as swipeable.
     private var pageDots: some View {
         HStack(spacing: 6) {
             ForEach(DashboardLeftPage.allCases, id: \.self) { page in
@@ -146,8 +131,7 @@ struct DashboardView: View {
         .padding(.bottom, 2)
     }
 
-    /// Stops at the ends rather than wrapping, so a run of swipes cannot spin
-    /// the pages round and round - the same rule the tabs follow.
+    /// Stops at the ends rather than wrapping.
     private func step(by offset: Int) {
         let pages = DashboardLeftPage.allCases
         guard let index = pages.firstIndex(of: leftPage) else { return }
@@ -180,12 +164,7 @@ struct DashboardView: View {
         .combined(with: .opacity)
     }
 
-    /// A column separator.
-    ///
-    /// Brighter in the middle than at the ends: a hard line running the full
-    /// height reads as a border and boxes the columns in, while a line that
-    /// fades out at both ends reads as a separation. At a flat 7% white it was
-    /// too faint to do either.
+    /// A column separator, brighter in the middle than at the ends.
     private var divider: some View {
         Rectangle()
             .fill(

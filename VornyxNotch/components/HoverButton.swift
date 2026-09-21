@@ -36,7 +36,7 @@ struct HoverButton: View {
                         }
                 }
         }
-        .buttonStyle(PlainButtonStyle())
+        .springyTile(hoverScale: 1.08, pressScale: 0.92, hoverBrightness: 0.12)
         .onHover { hovering in
             withAnimation(.smooth(duration: 0.3)) {
                 isHovering = hovering

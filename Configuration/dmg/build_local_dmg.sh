@@ -36,6 +36,12 @@ mkdir -p "$BUILD_DIR"
 rm -rf "$ARCHIVE" "$APP"
 
 echo "==> Archiving $PROJECT_NAME $VERSION (Release, universal, ad-hoc signed)"
+# Hardened runtime off: it turns on library validation, which only lets a
+# process load frameworks signed by its own Team ID - and ad-hoc signatures
+# have none, so the app died at launch on "Library not loaded:
+# MediaRemoteAdapter.framework". Debug builds never hit it, because Xcode's
+# get-task-allow exempts them. The hardened runtime is only needed for
+# notarization, which an ad-hoc build cannot have anyway.
 if ! xcodebuild archive \
   -project "$ROOT/$PROJECT_NAME.xcodeproj" \
   -scheme "$PROJECT_NAME" \
@@ -46,6 +52,7 @@ if ! xcodebuild archive \
   CODE_SIGN_STYLE=Manual \
   CODE_SIGN_IDENTITY=- \
   DEVELOPMENT_TEAM= \
+  ENABLE_HARDENED_RUNTIME=NO \
   >"$LOG" 2>&1; then
   grep -E "error:" "$LOG" | sort -u | head -20 >&2 || true
   die "archive failed - full log: $LOG"

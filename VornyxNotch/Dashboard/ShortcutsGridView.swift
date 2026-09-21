@@ -90,12 +90,8 @@ struct ShortcutsGridView: View {
 
     // MARK: - Adding
 
-    /// An AppKit prompt rather than a SwiftUI sheet.
-    ///
-    /// The notch lives in a non-activating panel that does not become key, and
-    /// a sheet presented from it cannot take keyboard input - the field simply
-    /// never accepts anything. Activating briefly for a modal is the same
-    /// pattern the camera permission prompt already uses.
+    /// An AppKit prompt: the notch's panel never becomes key, so a SwiftUI sheet
+    /// presented from it cannot take keyboard input.
     private func promptForShortcut() {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)

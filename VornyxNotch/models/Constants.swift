@@ -307,12 +307,6 @@ extension Defaults.Keys {
     /// Announce in the closed notch when sound moves to another output - a pair
     /// connecting, or dropping back to the built-in speakers.
     static let audioRouteSneakPeek = Key<Bool>("audioRouteSneakPeek", default: true)
-    /// Which shape that banner takes - the compact pair of squares hugging the
-    /// cut-out, or the wide one that names the device across the notch. The
-    /// same two the music banner offers, and named the same, because they are
-    /// the same two ideas.
-    static let audioRouteSneakPeekStyle = Key<SneakPeekStyle>(
-        "audioRouteSneakPeekStyle", default: .standard)
     
     // MARK: Weather
     /// Remembered so the dashboard opens on whichever of the two you left it on.
@@ -364,6 +358,8 @@ extension Defaults.Keys {
     static let localSendAddToShelf = Key<Bool>("localSendAddToShelf", default: true)
     /// A short sound when a send goes through and when something arrives.
     static let localSendSounds = Key<Bool>("localSendSounds", default: true)
+    /// Put received images on the clipboard, ready to paste anywhere.
+    static let localSendCopyImages = Key<Bool>("localSendCopyImages", default: true)
     
     // MARK: Calendar
     static let calendarSelectionState = Key<CalendarSelectionState>("calendarSelectionState", default: .all)
@@ -375,6 +371,12 @@ extension Defaults.Keys {
     static let hideNotchOption = Key<HideNotchOption>("hideNotchOption", default: .nowPlayingOnly)
     
     // MARK: Media Controller
+    /// A second player watched alongside `mediaController`. Nil for one
+    /// source, which is how it was before. Never `nowPlaying`: that one already
+    /// answers for whatever the system plays, so pairing it with a single app
+    /// would have both reporting the same track.
+    static let secondaryMediaController = Key<MediaControllerType?>(
+        "secondaryMediaController", default: nil)
     static let mediaController = Key<MediaControllerType>("mediaController", default: defaultMediaController)
     
     // MARK: Advanced Settings

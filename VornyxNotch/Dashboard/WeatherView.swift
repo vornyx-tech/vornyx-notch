@@ -2,14 +2,12 @@
 //  WeatherView.swift
 //  VornyxNotch
 //
-//  The dashboard's other left-hand page.
-//
 
+import Combine
 import Defaults
 import SwiftUI
 
-/// Now on the left, the next few days on the right - the same split the month
-/// and the agenda use, so the two pages feel like the same drawer.
+/// Now on the left, the next few days on the right.
 struct WeatherView: View {
     @ObservedObject private var weather = WeatherManager.shared
     @Default(.weatherUnit) private var unit
@@ -29,37 +27,18 @@ struct WeatherView: View {
     // MARK: - Loaded
 
     /// Read the column's width and hand each half an exact share of it.
-    ///
-    /// `maxWidth: .infinity` was not enough: a flexible frame takes the
-    /// proposal but does not stop its contents asking for more, so the forecast
-    /// card overran the column by a few points and the column's clip sliced its
-    /// right-hand edge clean off. `days` is handed the width outright and puts
-    /// its own background inside it, which is the part a frame alone could not
-    /// fix - an oversized child is centred in its frame, and the background
-    /// went on overhanging both ends of it.
     private func content(_ snapshot: WeatherSnapshot) -> some View {
         GeometryReader { proxy in
             let daysWidth = max(130, proxy.size.width - nowWidth - columnGap)
 
             ZStack(alignment: .topLeading) {
-                // Everything the shower falls across: the hero, and the space
-                // the forecast panel will stand in.
                 now(snapshot)
 
                 WeatherPrecipitation(kind: Precipitation(code: snapshot.code))
-                    // Runs on past the page's own bottom, behind the page dots
-                    // - see `bottomBleed`.
+                    // Runs past the page's bottom, behind the page dots. See `bottomBleed`.
                     .padding(.bottom, -WeatherPrecipitationStyle.bottomBleed)
 
-                // The panel goes over the shower rather than under it. Rain
-                // runs down the outside of glass; it does not cross the numbers
-                // behind it, and four rows of small type read through a
-                // downpour was the one place the weather beat the forecast.
-                //
-                // Which is also why the panel is properly dark rather than the
-                // faint 5% wash the other cards wear: what it is standing in
-                // front of here is not a flat page but a lit sky with rain on
-                // it.
+                // The panel goes over the shower, so the rain never crosses the numbers.
                 HStack(spacing: 0) {
                     Color.clear
                         .frame(width: nowWidth + columnGap)
@@ -85,9 +64,6 @@ struct WeatherView: View {
         return VStack(alignment: .leading, spacing: 0) {
             placeChip(snapshot.place)
 
-            // The hero: the number and the sky it belongs to, on one line. The
-            // icon carries a halo of its own colour so it reads as lit rather
-            // than stamped on.
             HStack(alignment: .center, spacing: 6) {
                 HStack(alignment: .top, spacing: 1) {
                     Text(degrees(snapshot.temperature))
@@ -136,9 +112,7 @@ struct WeatherView: View {
         .frame(width: nowWidth, alignment: .leading)
     }
 
-    /// A symbol that moves: rain falls, sun shimmers. Indefinite symbol effects
-    /// rather than an animation of our own, so the motion is the system's and
-    /// costs nothing to keep running.
+    /// A symbol that moves: rain falls, sun shimmers.
     @ViewBuilder
     private func conditionSymbol(_ code: Int, isDay: Bool, size: CGFloat) -> some View {
         let symbol = Image(systemName: WeatherCode.symbol(code, isDay: isDay))
@@ -147,7 +121,6 @@ struct WeatherView: View {
 
         switch code {
         case 51...86, 95...99:
-            // Anything falling out of the sky: the layers cycle downwards.
             symbol.symbolEffect(.variableColor.iterative.reversing)
         case 0:
             symbol.symbolEffect(.pulse)
@@ -187,14 +160,7 @@ struct WeatherView: View {
 
     // MARK: Days
 
-    /// Today plus the next three, on a surface of their own. Bars rather than
-    /// bare numbers: the point of a forecast at a glance is which day is the
-    /// warm one, and that is a shape question, not a reading question.
-    /// The four-day panel.
-    ///
-    /// Takes its width rather than being framed from outside, so the background
-    /// is laid out inside the column instead of round an oversized child - see
-    /// `content`.
+    /// The four-day panel. Takes its width rather than being framed from outside.
     private func days(_ snapshot: WeatherSnapshot, width: CGFloat) -> some View {
         let range = temperatureRange(snapshot.days)
         let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -206,9 +172,7 @@ struct WeatherView: View {
         }
         .padding(6)
         .frame(width: width)
-        // Dark under the usual wash: the black holds the sky and the rain back
-        // off the type, and the white keeps it looking like the other panels.
-        // As glass, the glass does both.
+        // Dark under the usual wash, to hold the sky and the rain off the type.
         .notchSurface(shape, fill: 0.06, stroke: 0.09)
         .background(shape.fill(.black.opacity(NotchGlass.isActive ? 0 : 0.38)))
     }
@@ -225,14 +189,11 @@ struct WeatherView: View {
                 .font(.system(size: 10, weight: today ? .bold : .medium, design: .rounded))
                 .foregroundStyle(.white.opacity(today ? 0.95 : 0.5))
                 .lineLimit(1)
-                // "Today" in bold rounded needs every point of this. At 30 it
-                // truncated to "Tod…" while the three-letter days sat in space.
+                // "Today" in bold rounded needs every point of this.
                 .frame(width: 38, alignment: .leading)
 
             conditionSymbol(day.code, isDay: true, size: 11)
-                // Wider than the point size: the wet symbols are broad glyphs -
-                // `cloud.rain.fill` runs about 15pt across at 11pt type - and
-                // in a 16pt frame it overflowed left into the day's name.
+                // Wider than the point size: `cloud.rain.fill` runs about 15pt at 11pt type.
                 .frame(width: 20)
 
             Text(degrees(day.low))
@@ -256,12 +217,8 @@ struct WeatherView: View {
         )
     }
 
-    /// One day's low-to-high, placed along the whole week's range - so the bars
-    /// can be read against each other rather than each against itself.
-    ///
-    /// The bar is coloured by the temperatures at its own ends, so a cold day
-    /// is a blue stub and a hot one runs into red. Today also carries a marker
-    /// for where the temperature is right now, between its two ends.
+    /// One day's low-to-high, placed along the whole week's range. Today also
+    /// carries a marker for the current temperature.
     private func band(for day: DayForecast, in range: ClosedRange<Double>, now: Double?) -> some View {
         GeometryReader { proxy in
             let span = max(1, range.upperBound - range.lowerBound)
@@ -300,8 +257,7 @@ struct WeatherView: View {
         .frame(maxWidth: .infinity)
     }
 
-    /// Cold to hot across the week's own range, so the scale always uses its
-    /// whole span whether the week runs 2° to 8° or 18° to 34°.
+    /// Cold to hot across the week's own range.
     private func temperatureColor(_ value: Double, in range: ClosedRange<Double>) -> Color {
         let stops: [Color] = [
             Color(red: 0.35, green: 0.55, blue: 0.95),
@@ -376,8 +332,7 @@ struct WeatherView: View {
 
     // MARK: - Formatting
 
-    /// Whole degrees, with the unit said once in the big number rather than on
-    /// every value in the column.
+    /// Whole degrees, unit omitted.
     private func degrees(_ value: Double) -> String {
         "\(Int(value.rounded()))"
     }
@@ -396,12 +351,7 @@ struct WeatherView: View {
 
 // MARK: - Glow
 
-/// The weather's colour, behind the page.
-///
-/// The same trick as the album art's living glow, with the condition's palette
-/// standing in for the artwork: three soft blobs, blurred past recognition,
-/// drifting on periods that share no common multiple so the motion never
-/// resolves into a loop. See `WeatherGlowStyle` for the numbers.
+/// The weather's colour, behind the page. See `WeatherGlowStyle` for the numbers.
 private struct WeatherGlow: View {
     let code: Int
     let isDay: Bool
@@ -409,11 +359,8 @@ private struct WeatherGlow: View {
     @State private var phase = Double.random(in: 0..<1000)
     @State private var tick: Double = 0
 
-    /// A plain timer rather than `TimelineView(.animation)`, for the same
-    /// reason the album art uses one: the notch lives in a non-activating
-    /// panel, where the display-link schedule cannot be relied on to keep
-    /// firing. Stored, not computed - a computed publisher would be rebuilt on
-    /// every body pass.
+    /// A plain timer rather than `TimelineView(.animation)`: the notch lives in a
+    /// non-activating panel, where the display link is not reliable.
     private let clock = Timer.publish(
         every: 1 / WeatherGlowStyle.frameRate, on: .main, in: .common
     ).autoconnect()
@@ -426,8 +373,7 @@ private struct WeatherGlow: View {
         GeometryReader { proxy in
             ZStack {
                 ForEach(Array(colors.enumerated()), id: \.offset) { index, color in
-                    // Each blob is offset in time from the last, so they never
-                    // swell together.
+                    // Each blob is offset in time from the last.
                     let seed = Double(index) * 31
                     let breathe = sin((t + seed) / style.breathePeriod)
                     let sway = sin((t + seed * 1.7) / style.swayPeriod)
@@ -445,11 +391,9 @@ private struct WeatherGlow: View {
                 }
             }
             .blur(radius: style.blur)
-            .opacity(style.opacity)
+            .opacity(NotchGlass.isActive ? style.glassOpacity : style.opacity)
             // Fade to nothing before the page's edges, so the column's clip has
-            // nothing left to cut into a straight line. Inset and blurred by
-            // the same amount, which puts the mask at roughly zero right where
-            // the clip happens.
+            // nothing left to cut.
             .mask(
                 Rectangle()
                     .fill(.white)
@@ -460,18 +404,13 @@ private struct WeatherGlow: View {
         .onReceive(clock) { date in
             tick = date.timeIntervalSinceReferenceDate
         }
-        // Decoration only: it must never take a click meant for the page.
         .allowsHitTesting(false)
     }
 }
 
 // MARK: - Falling weather
 
-/// A random number generator that always answers the same way.
-///
-/// SplitMix64, which is four lines and passes the tests that matter here:
-/// nothing depends on it being unguessable, only on it being the same shower
-/// every time the same weather is drawn.
+/// SplitMix64: a random number generator that always answers the same way.
 struct SeededGenerator: RandomNumberGenerator {
     private var state: UInt64
 
@@ -495,8 +434,7 @@ enum Precipitation {
     case rain(count: Int)
     case snow
 
-    /// Read off the WMO code, with the code's own sense of how hard it is
-    /// coming down: drizzle is not a downpour, and showers are.
+    /// Read off the WMO code, including how hard it is coming down.
     init(code: Int) {
         switch code {
         case 51, 53, 56:
@@ -515,22 +453,11 @@ enum Precipitation {
     var isNothing: Bool { if case .none = self { return true } else { return false } }
 }
 
-/// Rain and snow falling behind the page, the way the Weather app does it.
-///
-/// One `Canvas` rather than a view per drop: eighty SwiftUI views each with
-/// their own animation would be eighty things for the layout system to think
-/// about every frame, where this is a single draw call.
-///
-/// Behind the text on purpose. Apple can put weather in front of its labels
-/// because it owns the whole screen and can afford the contrast; in a notch the
-/// text is small and the background is black, and rain across it just makes it
-/// harder to read.
+/// Rain and snow falling behind the page. One `Canvas` rather than a view per drop.
 struct WeatherPrecipitation: View {
     let kind: Precipitation
 
     /// A drop's whole life, decided once: where it falls, how fast, how big.
-    /// Regenerating these per frame would make the rain shimmer rather than
-    /// fall, because every drop would be somewhere new.
     private struct Drop {
         let x: Double
         let phase: Double
@@ -543,17 +470,8 @@ struct WeatherPrecipitation: View {
 
     @State private var tick: Double = 0
 
-    /// Every drop's whole life, worked out from the intensity alone.
-    ///
-    /// Computed rather than kept in `@State` and filled in on appear: a stored
-    /// shower has to be told when the weather changed, and any pass where that
-    /// message went missing left the page with no drops at all - rain that is
-    /// there only some of the time. Rebuilding a couple of hundred structs per
-    /// frame costs microseconds, and there is nothing left to get out of step.
-    ///
-    /// Seeded rather than random, for the reason the stored version existed:
-    /// drops re-rolled every frame would shimmer in place instead of falling.
-    /// The same intensity always gives the same shower.
+    /// Every drop's whole life, worked out from the intensity alone. Seeded, so
+    /// the same intensity always gives the same shower rather than shimmering.
     private var drops: [Drop] {
         let style = WeatherPrecipitationStyle.self
         let snowing = isSnow
@@ -581,9 +499,7 @@ struct WeatherPrecipitation: View {
             let snowing = isSnow
 
             for drop in drops {
-                // Fall wraps: a drop leaving the bottom is the same drop coming
-                // back in at the top, so a fixed handful of them is an endless
-                // shower.
+                // Fall wraps: a drop leaving the bottom comes back in at the top.
                 let progress = (drop.phase + tick * drop.speed)
                     .truncatingRemainder(dividingBy: 1)
                 let y = progress * (size.height + drop.length) - drop.length
@@ -616,16 +532,12 @@ struct WeatherPrecipitation: View {
                 }
             }
         }
-        // Fade the shower out before the page's edges rather than letting the
-        // clip cut it. A gradient rather than the glow's blurred-inset trick:
-        // rain is thin high-contrast strokes, and a blur would smear them into
-        // grey haze instead of thinning them out. Left and right are left hard
-        // - slanted rain has to arrive from somewhere, and drops leaving
-        // sideways is what rain does.
+        // Fade the shower out before the top and bottom edges rather than
+        // letting the clip cut it. Left and right stay hard.
         .mask(
             GeometryReader { proxy in
-                // As fractions, because gradient stops are: the caps keep the
-                // two fades from meeting and dimming the middle on a short page.
+                // Fractions, since gradient stops are; the caps keep the two
+                // fades from meeting on a short page.
                 let height = max(proxy.size.height, 1)
                 let top = min(WeatherPrecipitationStyle.topFade / height, 0.35)
                 let bottom = min(WeatherPrecipitationStyle.bottomFade / height, 0.35)

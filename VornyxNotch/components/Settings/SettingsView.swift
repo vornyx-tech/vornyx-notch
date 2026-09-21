@@ -10,19 +10,12 @@ import Defaults
 import EventKit
 import KeyboardShortcuts
 import LaunchAtLogin
-import Sparkle
 import SwiftUI
 import SwiftUIIntrospect
 
 struct SettingsView: View {
     @State private var selectedTab = "General"
     @State private var accentColorUpdateTrigger = UUID()
-
-    let updaterController: SPUStandardUpdaterController?
-
-    init(updaterController: SPUStandardUpdaterController? = nil) {
-        self.updaterController = updaterController
-    }
 
     var body: some View {
         NavigationSplitView {
@@ -113,15 +106,7 @@ struct SettingsView: View {
                     PermissionsChecklistView()
                         .navigationTitle("Permissions")
                 case "About":
-                    if let controller = updaterController {
-                        About(updaterController: controller)
-                    } else {
-                        // Fallback with a default controller
-                        About(
-                            updaterController: SPUStandardUpdaterController(
-                                startingUpdater: false, updaterDelegate: nil,
-                                userDriverDelegate: nil))
-                    }
+                    About()
                 default:
                     GeneralSettings()
                 }
@@ -391,8 +376,6 @@ struct GeneralSettings: View {
 }
 
 struct Charge: View {
-    @Default(.audioRouteSneakPeek) var audioRouteSneakPeek
-    @Default(.audioRouteSneakPeekStyle) var audioRouteSneakPeekStyle
 
     var body: some View {
         Form {
@@ -521,17 +504,11 @@ struct Charge: View {
                 Defaults.Toggle(key: .audioRouteSneakPeek) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Announce the sound output changing")
-                        Text("Says in the closed notch whenever sound moves - to a pair, or back to the built-in speakers.")
+                        Text("The closed notch drops down to say whenever sound moves - to a pair, or back to the built-in speakers.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                 }
-                Picker("Output banner style", selection: $audioRouteSneakPeekStyle) {
-                    ForEach(SneakPeekStyle.allCases) { style in
-                        Text(style.rawValue).tag(style)
-                    }
-                }
-                .disabled(!audioRouteSneakPeek)
             } header: {
                 SettingsSectionHeader("AirPods", icon: "airpods.gen3", tint: .teal)
             } footer: {
@@ -763,6 +740,7 @@ struct HUD: View {
 struct Media: View {
     @Default(.waitInterval) var waitInterval
     @Default(.mediaController) var mediaController
+    @Default(.secondaryMediaController) var secondaryMediaController
     @ObservedObject var coordinator = VornyxViewCoordinator.shared
     @Default(.hideNotchOption) var hideNotchOption
     @Default(.enableSneakPeek) private var enableSneakPeek
@@ -781,11 +759,30 @@ struct Media: View {
                     }
                 }
                 .onChange(of: mediaController) { _, _ in
+                    // The second source cannot be the first one as well.
+                    if secondaryMediaController == mediaController {
+                        secondaryMediaController = nil
+                    }
                     NotificationCenter.default.post(
                         name: Notification.Name.mediaControllerChanged,
                         object: nil
                     )
                 }
+                Picker("Second source", selection: $secondaryMediaController) {
+                    Text("None").tag(MediaControllerType?.none)
+                    ForEach(secondSourceOptions) { controller in
+                        Text(controller.rawValue).tag(MediaControllerType?.some(controller))
+                    }
+                }
+                .onChange(of: secondaryMediaController) { _, _ in
+                    NotificationCenter.default.post(
+                        name: Notification.Name.mediaControllerChanged,
+                        object: nil
+                    )
+                }
+                Text("Watch two players at once - whichever is playing is the one the notch shows.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             } header: {
                 SettingsSectionHeader("Media Source", icon: "dot.radiowaves.left.and.right", tint: .pink)
             } footer: {
@@ -892,6 +889,12 @@ struct Media: View {
     }
 
     // Only show controller options that are available on this macOS version
+    /// Now Playing already covers every app, so it is not offered as a
+    /// second source, and neither is whatever the first source is.
+    private var secondSourceOptions: [MediaControllerType] {
+        availableMediaControllers.filter { $0 != .nowPlaying && $0 != mediaController }
+    }
+
     private var availableMediaControllers: [MediaControllerType] {
         if MusicManager.shared.isNowPlayingDeprecated {
             return MediaControllerType.allCases.filter { $0 != .nowPlaying }
@@ -1052,7 +1055,6 @@ func lighterColor(from nsColor: NSColor, amount: CGFloat = 0.14) -> Color {
 
 struct About: View {
     @State private var showBuildNumber: Bool = false
-    let updaterController: SPUStandardUpdaterController
     @Environment(\.openWindow) var openWindow
     var body: some View {
         VStack {
@@ -1082,8 +1084,6 @@ struct About: View {
                 } header: {
                     SettingsSectionHeader("Version info", icon: "info.circle.fill", tint: .gray)
                 }
-
-                UpdaterSettingsView(updater: updaterController.updater)
 
                 HStack(spacing: 30) {
                     Spacer(minLength: 0)
@@ -1115,13 +1115,6 @@ struct About: View {
                     .padding(.horizontal, 10)
             }
             .frame(maxWidth: .infinity, alignment: .center)
-        }
-        .toolbar {
-            //            Button("Welcome window") {
-            //                openWindow(id: "onboarding")
-            //            }
-            //            .controlSize(.extraLarge)
-            CheckForUpdatesView(updater: updaterController.updater)
         }
         .navigationTitle("About")
     }
@@ -2201,6 +2194,10 @@ struct LocalSendSettings: View {
                 .disabled(!enabled)
                 Defaults.Toggle(key: .localSendSounds) {
                     Text("Play sounds when sending and receiving")
+                }
+                .disabled(!enabled)
+                Defaults.Toggle(key: .localSendCopyImages) {
+                    Text("Copy received images to the clipboard")
                 }
                 .disabled(!enabled)
             } header: {

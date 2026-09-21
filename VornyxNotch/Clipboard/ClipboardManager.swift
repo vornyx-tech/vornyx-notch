@@ -16,24 +16,18 @@ struct ClipboardItem: Identifiable, Codable, Equatable {
     let date: Date
     /// Bundle id of whatever was frontmost when this was copied, for the icon.
     let sourceBundleID: String?
-    /// File name of this entry's PNG in the image store, for a screenshot or
-    /// any other copied image. Nil for text - and nil for history written
-    /// before images were kept, which decodes fine because it is optional.
+    /// File name of this entry's PNG in the image store. Nil for text, and for
+    /// history written before images were kept.
     let imageFileName: String?
     /// Pixel dimensions, so a card can label the image without opening it.
     let imageWidth: Int?
     let imageHeight: Int?
     /// What a card shows, worked out once when the entry is made or read back.
-    ///
-    /// These used to be computed properties. A card asks for them several times
-    /// a draw, and every hover redraws every card, so a copied log file was
-    /// being trimmed, lowercased and searched megabytes at a time on each
-    /// movement of the pointer.
     let summary: Summary
 
     struct Summary: Equatable {
         let kind: Kind
-        /// The start of the text on one line - all a card or its tooltip shows.
+        /// The start of the text on one line: all a card or its tooltip shows.
         let preview: String
         let lineCount: Int
         let characterCount: Int
@@ -83,8 +77,7 @@ struct ClipboardItem: Identifiable, Codable, Equatable {
             imageHeight: try container.decodeIfPresent(Int.self, forKey: .imageHeight))
     }
 
-    /// How much of a copy is read to describe it. A card shows three lines, and
-    /// no link, number or code marker worth spotting starts further in.
+    /// How much of a copy is read to describe it: a card shows three lines.
     private static let summaryWindow = 4_000
     private static let previewLength = 300
 
@@ -99,8 +92,7 @@ struct ClipboardItem: Identifiable, Codable, Equatable {
             kind: kind(of: trimmed, isWholeCopy: head.endIndex == text.endIndex),
             preview: String(trimmed.prefix(previewLength))
                 .replacingOccurrences(of: "\n", with: " "),
-            // Counted in bytes: a newline is one byte in UTF-8, and this walks
-            // the copy once instead of splitting it into substrings.
+            // Counted in bytes: a newline is one byte in UTF-8.
             lineCount: text.utf8.reduce(into: 1) { count, byte in
                 if byte == 0x0A { count += 1 }
             },
@@ -108,8 +100,7 @@ struct ClipboardItem: Identifiable, Codable, Equatable {
     }
 
     private static func kind(of trimmed: String, isWholeCopy: Bool) -> Kind {
-        // A link or a number is the entire copy, so one longer than the window
-        // is neither.
+        // A link or a number is the entire copy.
         if isWholeCopy {
             if trimmed.lowercased().hasPrefix("http"),
                let url = URL(string: trimmed), let host = url.host() {
@@ -128,16 +119,9 @@ struct ClipboardItem: Identifiable, Codable, Equatable {
     }
 }
 
-/// Watches the general pasteboard and keeps a short history of copies.
-///
-/// AppKit gives no change notification for the pasteboard, so this polls
-/// `changeCount` - the same approach every clipboard manager on macOS uses.
-/// Polling only runs while the feature is switched on.
-///
-/// Only the pasteboard itself is touched on the main thread. Describing a copy,
-/// converting and writing images, decoding thumbnails and saving the history
-/// all happen in `ClipboardStore`, so on a busy machine a new entry turns up a
-/// moment later instead of the notch stuttering.
+/// Watches the general pasteboard and keeps a short history of copies. AppKit
+/// gives no change notification, so this polls `changeCount` while the feature
+/// is on. Everything but the pasteboard itself happens in `ClipboardStore`.
 @MainActor
 final class ClipboardManager: ObservableObject {
     static let shared = ClipboardManager()
@@ -163,7 +147,7 @@ final class ClipboardManager: ObservableObject {
     private var ingestion: Task<Void, Never>?
     private var pendingSave: Task<Void, Never>?
     /// Saving waits for the stored history, or a copy made during launch would
-    /// overwrite it with a history of one.
+    /// overwrite it.
     private var historyLoaded = false
     private var loadingThumbnails: Set<String> = []
 
@@ -217,9 +201,8 @@ final class ClipboardManager: ObservableObject {
             return
         }
 
-        // Screenshots and other copied images. Checked after text on purpose:
-        // copying from a rich editor puts both on the pasteboard, and the text
-        // is what you meant. Only the bytes are taken here.
+        // Screenshots and other copied images, checked after text: a rich
+        // editor puts both on the pasteboard, and the text is what you meant.
         if let image = Self.imageData(on: pasteboard) {
             enqueue { [store] in
                 guard let stored = await store.storeImage(image.data, isPNG: image.isPNG) else { return }
@@ -230,8 +213,7 @@ final class ClipboardManager: ObservableObject {
         }
     }
 
-    /// Runs `work` once every copy before it has landed, so two copies in quick
-    /// succession keep their order even when the first takes longer to describe.
+    /// Chains the work, so two copies in quick succession keep their order.
     private func enqueue(_ work: @escaping @MainActor () async -> Void) {
         let previous = ingestion
         ingestion = Task {
@@ -240,10 +222,8 @@ final class ClipboardManager: ObservableObject {
         }
     }
 
-    /// The image on the pasteboard as raw bytes, if there is one.
-    ///
-    /// A screenshot arrives as TIFF and an image dragged from a browser as PNG,
-    /// and neither carries a string. Converting waits for the store.
+    /// The image on the pasteboard: a screenshot arrives as TIFF, an image
+    /// dragged from a browser as PNG.
     private static func imageData(on pasteboard: NSPasteboard) -> (data: Data, isPNG: Bool)? {
         if let png = pasteboard.data(forType: .png) { return (png, true) }
         if let tiff = pasteboard.data(forType: .tiff) { return (tiff, false) }
@@ -251,9 +231,8 @@ final class ClipboardManager: ObservableObject {
     }
 
     private func add(_ item: ClipboardItem) {
-        // A repeat copy moves the existing entry to the top instead of stacking.
-        // Text only: two screenshots of the same window are not the same copy,
-        // and comparing the pixels of every entry would cost more than it saves.
+        // A repeat copy moves the existing entry to the top instead of
+        // stacking. Text only.
         items.removeAll { !$0.isImage && $0.text == item.text }
         insert(item)
     }
@@ -279,12 +258,7 @@ final class ClipboardManager: ObservableObject {
     }
 
     /// The picture for an image card: downsampled to about the size it is
-    /// drawn, decoded off the main thread, and kept.
-    ///
-    /// Reading the full PNG in the view's body, then scaling a 5K screenshot
-    /// down to a card on every frame of the hover animation, is what made the
-    /// row stutter. `.loading` until it is ready; the result is published,
-    /// which redraws the card.
+    /// drawn, decoded off the main thread, and kept. `.loading` until ready.
     func thumbnail(for item: ClipboardItem) -> Thumbnail {
         guard let fileName = item.imageFileName else { return .missing }
         if let image = thumbnails[fileName] { return .ready(image) }
@@ -308,7 +282,7 @@ final class ClipboardManager: ObservableObject {
     }
 
     /// Longest side, in pixels, that keeps the shorter side covering the
-    /// biggest card twice over for Retina - `.fill` scales by the shorter side.
+    /// biggest card twice over for Retina. `.fill` scales by the shorter side.
     private static func thumbnailPixelSize(width: Int?, height: Int?) -> Int {
         let cover = 520
         guard let width, let height, width > 0, height > 0 else { return 1_024 }
@@ -335,17 +309,15 @@ final class ClipboardManager: ObservableObject {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         if let url = imageURL(for: item) {
-            // The stored PNG as it is. Handing AppKit an NSImage had it decode
-            // the whole picture and re-encode it as TIFF, on the main thread.
+            // The stored PNG as it is: an NSImage would be decoded and
+            // re-encoded as TIFF on the main thread.
             if let png = try? Data(contentsOf: url, options: .mappedIfSafe) {
                 pasteboard.setData(png, forType: .png)
             }
         } else {
             pasteboard.setString(item.text, forType: .string)
         }
-        // Our own write: the next poll sees nothing new, so it is not filed
-        // again. This alone is enough - a separate "writing ourselves" flag used
-        // to stay set after this and swallow the next real copy.
+        // Our own write, so the next poll does not file it again.
         lastChangeCount = pasteboard.changeCount
 
         // Move it back to the top so the most recently used is first.
@@ -371,8 +343,7 @@ final class ClipboardManager: ObservableObject {
     // MARK: - Persistence
 
     /// Saves a moment after the last change, not on every one, and off the
-    /// main thread: re-encoding and rewriting the whole history on each copy
-    /// held the main thread for as long as the history was big.
+    /// main thread.
     private func save() {
         guard historyLoaded, Defaults[.clipboardPersistHistory] else { return }
         pendingSave?.cancel()
@@ -384,8 +355,7 @@ final class ClipboardManager: ObservableObject {
         }
     }
 
-    /// Reads the saved history in the background, under anything copied while
-    /// it was loading.
+    /// Reads the saved history in the background, under anything copied since.
     private func loadHistory() {
         let persisted = Defaults[.clipboardPersistHistory]
         Task { [store, launchDate] in
@@ -399,9 +369,8 @@ final class ClipboardManager: ObservableObject {
             historyLoaded = true
             if copiedMeanwhile { save() }
 
-            // Files from before this launch that no entry points at: left by a
-            // crash between writing a PNG and saving the history, and otherwise
-            // invisible and never reclaimed.
+            // Files from before this launch that no entry points at, left by a
+            // crash between writing a PNG and saving the history.
             await store.sweepImages(
                 keeping: Set(items.compactMap(\.imageFileName)), modifiedBefore: launchDate)
         }
@@ -417,9 +386,8 @@ final class ClipboardManager: ObservableObject {
 
 // MARK: - Store
 
-/// The clipboard's disk, and the work too heavy for the main thread:
-/// describing big copies, converting images, decoding thumbnails, and reading
-/// and writing the history. An actor, so writes land in the order asked for.
+/// The clipboard's disk, and the work too heavy for the main thread. An actor,
+/// so writes land in the order asked for.
 actor ClipboardStore {
     nonisolated static let directory: URL = {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
@@ -427,9 +395,8 @@ actor ClipboardStore {
             .appendingPathComponent("VornyxNotch", isDirectory: true)
     }()
 
-    /// Images live as files beside the history rather than inside it: the
-    /// history is JSON, and a base64 screenshot in it would be megabytes
-    /// rewritten on every save.
+    /// Images live as files beside the history: a base64 screenshot inside the
+    /// JSON would be rewritten on every save.
     nonisolated static let imagesDirectory = directory.appendingPathComponent("images", isDirectory: true)
     private nonisolated static let historyURL = directory.appendingPathComponent("clipboard.json")
 
@@ -443,8 +410,8 @@ actor ClipboardStore {
         ClipboardItem(text: text, sourceBundleID: source)
     }
 
-    /// Files a copied image as PNG. PNG bytes are kept as they came; anything
-    /// else - a screenshot's TIFF - is converted.
+    /// Files a copied image as PNG. PNG bytes are kept as they came, anything
+    /// else (a screenshot's TIFF) is converted.
     func storeImage(_ data: Data, isPNG: Bool) -> StoredImage? {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil),
               let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
@@ -508,9 +475,8 @@ actor ClipboardStore {
         try? data.write(to: Self.historyURL, options: .atomic)
     }
 
-    /// Deletes image files no entry points at. Only ones older than `cutoff`,
-    /// so an image copied while the history was loading is never mistaken for
-    /// an orphan.
+    /// Deletes image files no entry points at, older than `cutoff` so an image
+    /// copied while the history was loading is not mistaken for an orphan.
     func sweepImages(keeping live: Set<String>, modifiedBefore cutoff: Date) {
         let files = (try? FileManager.default.contentsOfDirectory(
             at: Self.imagesDirectory, includingPropertiesForKeys: [.contentModificationDateKey]
@@ -534,17 +500,10 @@ actor ClipboardStore {
 // MARK: - Pasting
 
 extension ClipboardManager {
-    /// Send Command-V to whatever app is frontmost.
-    ///
-    /// Copying is only half of what "pick this one" means: without this you
-    /// still have to press Command-V yourself, which is the keystroke the
-    /// shortcut was supposed to save. Posting a key event into another app is
-    /// exactly what Accessibility gates, so this asks - once - and quietly does
-    /// nothing but copy if the answer is no.
-    ///
-    /// The notch is a non-activating panel, so the app you were in never
-    /// stopped being the frontmost one and the keystroke lands where you left
-    /// the cursor.
+    /// Send Command-V to whatever app is frontmost. Posting a key event into
+    /// another app needs Accessibility, so this asks once and does nothing if
+    /// the answer is no. The notch is non-activating, so the keystroke lands
+    /// where you left the cursor.
     @MainActor
     static func pasteIntoFrontmostApp() async -> Bool {
         guard await XPCHelperClient.shared.ensureAccessibilityAuthorization(promptIfNeeded: true)

@@ -19,7 +19,7 @@ struct MusicPlayerView: View {
     var body: some View {
         HStack {
             AlbumArtView(vm: vm, albumArtNamespace: albumArtNamespace).padding(.all, 5)
-            MusicControlsView().drawingGroup().compositingGroup()
+            MusicControlsView().compositingGroup()
         }
     }
 }
@@ -317,7 +317,23 @@ struct MusicControlsView: View {
                     .frame(alignment: .center)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .center)
+        // Wide, like the AirPods panel beside it and the LocalSend strip
+        // below: clear glass shows what is behind it, so a card that only hugs
+        // five buttons has no area to catch any light and reads as a black
+        // plate. The same surface call and the same numbers as those two, and
+        // no tint of its own, so it takes the glass settings they take.
+        .padding(.horizontal, 12)
+        // Shorter than the buttons' own frames: those are 30 and 40 points, but
+        // the glyphs inside them are small, so the glass closes in on the icons
+        // instead of clipping anything.
+        .frame(height: 34)
+        .notchSurface(
+            RoundedRectangle(cornerRadius: innerPanelCornerRadius, style: .continuous),
+            fill: 0.05, stroke: 0.06, interactive: true)
+        // The card is as long as the buttons in it, so adding or removing one
+        // in Settings lengthens or shortens it. The full width goes *after* the
+        // surface, where it only centres the card instead of stretching it.
+        .frame(maxWidth: .infinity)
     }
 
     private var activeSlots: [MusicControlButton] {
@@ -372,7 +388,7 @@ struct MusicControlsView: View {
                 MusicManager.shared.skip(seconds: 15)
             }
         case .none:
-            Color.clear.frame(height: 1)
+            Color.clear.frame(width: 0, height: 1)
         }
     }
 

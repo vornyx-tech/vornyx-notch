@@ -9,21 +9,10 @@ import Security
 
 /// Keychain wrapper for secrets that must not sit in `UserDefaults`.
 ///
-/// An API key stored through `Defaults` lands in the preferences plist in plain
-/// text, readable by anything that can read the container - so the Gemini key
-/// goes here instead.
-///
-/// Two things keep this from nagging the user:
-///
-/// 1. It uses the **data protection keychain**. The legacy file-based keychain
-///    ties each item to the code signature that wrote it, so every rebuild
-///    looks like a different app and macOS raises the "wants to use your
-///    confidential information" panel. The data protection keychain scopes
-///    items to the app's own access group instead, and does not prompt.
-/// 2. It never touches the keychain speculatively. A non-secret flag in
-///    `Defaults` records whether a key was ever saved, so a fresh install
-///    answers "no key" without a single keychain call - and the value is
-///    memoised per launch, rather than re-read on every view update.
+/// Prefers the data protection keychain, which scopes items to the app's own
+/// access group and does not raise an access panel on every rebuild the way
+/// the legacy file-based keychain does. A non-secret flag in `Defaults`
+/// records whether a key was ever saved, so a fresh install never has to ask.
 enum KeychainStore {
     private static let service = "tech.vornyx.notch"
 
@@ -47,12 +36,9 @@ enum KeychainStore {
 
     /// Writes the secret, reporting whether it actually landed.
     ///
-    /// Tries the data protection keychain first and falls back to the legacy
-    /// one. The data protection keychain needs a real signing identity: a
-    /// locally-built, ad-hoc-signed app has no `application-identifier`
-    /// entitlement, so `SecItemAdd` fails with errSecMissingEntitlement and
-    /// the save silently did nothing. The legacy keychain has no such
-    /// requirement - it just re-prompts whenever the signature changes.
+    /// Falls back to the legacy keychain: the data protection one needs a real
+    /// signing identity, so an ad-hoc-signed build fails with
+    /// errSecMissingEntitlement.
     @discardableResult
     static func set(_ value: String, for account: String) -> Bool {
         guard !value.isEmpty else {
@@ -86,8 +72,7 @@ enum KeychainStore {
     }
 
     static func get(_ account: String) -> String? {
-        // Nothing was ever saved: answer without touching the keychain, so a
-        // fresh launch never raises an access prompt.
+        // Nothing was ever saved, so do not touch the keychain.
         guard isStored(account) else { return nil }
         if let cached = cache[account] { return cached }
 
@@ -101,7 +86,7 @@ enum KeychainStore {
             }
         }
 
-        // Gone, or unreadable. Remember that so we do not ask again.
+        // Gone, or unreadable. Remember that.
         cache[account] = String?.none
         markStored(account, false)
         return nil

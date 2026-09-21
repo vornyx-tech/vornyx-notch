@@ -39,12 +39,9 @@ protocol LocalSendServerDelegate: AnyObject {
 
 /// The HTTPS server LocalSend peers talk to.
 ///
-/// Two things copied deliberately from the reference server. A client
-/// certificate is *required*: that is what a receiving LocalSend does, and it
-/// is how a request's sender is identified - by the certificate it proved it
-/// holds, not by the fingerprint it writes in the body. And there is exactly
-/// one session slot for everyone, taken from the moment a transfer is offered
-/// until it ends, answered with 409 while it is held.
+/// A client certificate is required, and identifies the sender. There is one
+/// session slot for everyone, held from the offer until the transfer ends;
+/// anyone else gets 409 meanwhile.
 final class LocalSendServer: @unchecked Sendable {
     @MainActor weak var delegate: LocalSendServerDelegate?
 
@@ -52,16 +49,13 @@ final class LocalSendServer: @unchecked Sendable {
     private var listener: NWListener?
     private let slot = ReceiveSlot()
 
-    /// Bodies for everything except uploads are small JSON; this bounds them.
+    /// Bounds the JSON bodies of everything except uploads.
     private static let jsonLimit = 32 * 1024 * 1024
 
     // MARK: - Lifecycle
 
-    /// Listen on 53317, or the next free port after it.
-    ///
-    /// LocalSend itself never moves off its port. We do, because a Mac running
-    /// Vornyx Notch may well be running LocalSend too - and the port travels in
-    /// every announcement and registration, so peers dial whichever one we got.
+    /// Listen on 53317, or the next free port after it: LocalSend itself may be
+    /// running on this Mac. The port travels in every announcement.
     @MainActor
     func start(identity: SecIdentity) async throws -> UInt16 {
         stop()
@@ -83,7 +77,6 @@ final class LocalSendServer: @unchecked Sendable {
         listener = nil
     }
 
-    /// End the transfer in progress from our side.
     func cancelActiveSession() async {
         guard let sessionID = await slot.forceEnd() else { return }
         let delegate = await self.delegate
@@ -97,13 +90,11 @@ final class LocalSendServer: @unchecked Sendable {
         // Ask for the peer's certificate and refuse to go on without one.
         sec_protocol_options_set_peer_authentication_required(options, true)
         // Any certificate is acceptable: there is no authority to check it
-        // against. What matters is that the peer holds its key, which the
-        // handshake itself proves, and its hash is read off the connection.
+        // against, and the handshake proves the peer holds its key.
         sec_protocol_options_set_verify_block(options, { _, _, complete in complete(true) }, queue)
         sec_protocol_options_add_tls_application_protocol(options, "http/1.1")
 
-        // No endpoint reuse: with it, a second listener on LocalSend's own port
-        // would quietly take half of LocalSend's connections.
+        // No endpoint reuse: it would steal LocalSend's own connections.
         let listener = try NWListener(using: NWParameters(tls: tls), on: NWEndpoint.Port(rawValue: port)!)
         listener.newConnectionHandler = { [weak self] connection in self?.accept(connection) }
 
@@ -119,8 +110,8 @@ final class LocalSendServer: @unchecked Sendable {
                         continuation.resume(throwing: error)
                     }
                 case .waiting(let error):
-                    // A taken port shows up here on some systems. Anything else
-                    // (no network yet) resolves itself; keep the listener.
+                    // A taken port shows up here on some systems; anything else
+                    // (no network yet) resolves itself.
                     once.run {
                         if case .posix(let code) = error, code == .EADDRINUSE {
                             listener.cancel()
@@ -205,8 +196,8 @@ final class LocalSendServer: @unchecked Sendable {
         }
     }
 
-    /// Our description as `/info` and `/register` answer with it: no port, no
-    /// protocol, no announce flag - the caller already knows those.
+    /// Our description as `/info` and `/register` answer with it: no port,
+    /// protocol or announce flag, which the caller already knows.
     private func responseInfo() async -> LocalSendInfo {
         let delegate = await self.delegate
         var info = await delegate?.localSendOwnInfo()
@@ -224,8 +215,7 @@ final class LocalSendServer: @unchecked Sendable {
             return try await http.respondError(400, "Invalid JSON body")
         }
 
-        // A claimed fingerprint that is not the certificate's is ignored - but
-        // answered normally, as the reference server does.
+        // A claimed fingerprint that is not the certificate's is ignored.
         let claimed = info.fingerprint.uppercased()
         if let host = Self.usableHost(http.remoteHost), let port = info.port,
            http.peerFingerprint == nil || http.peerFingerprint == claimed {
@@ -249,12 +239,9 @@ final class LocalSendServer: @unchecked Sendable {
             return try await http.respondError(400, "No files provided")
         }
 
-        // A message, by LocalSend's own definition: exactly one file, of a text
-        // type, whose content travels in `preview`. Nothing is ever uploaded for
-        // it, so it must not take the session slot - held, it would wait for an
-        // upload that never comes and turn every later sender away with 409.
-        // It is shown at once and answered with 204, which is what LocalSend
-        // itself sends after "accepting nothing".
+        // A message: one file, of a text type, with its content in `preview`.
+        // Nothing is uploaded for it, so it takes no session slot and is
+        // answered 204, LocalSend's "accepted nothing".
         if payload.files.count == 1, let only = payload.files.values.first,
            only.fileType == "text" || only.fileType.hasPrefix("text/"),
            let text = only.preview {
@@ -302,8 +289,7 @@ final class LocalSendServer: @unchecked Sendable {
     }
 
     private func upload(_ request: LocalSendRequest, _ http: LocalSendHTTPConnection) async throws {
-        // Every refusal here closes the connection afterwards: the body has not
-        // been read, so the next request on it could not be found anyway.
+        // Every refusal here closes the connection: the body has not been read.
         guard let sessionID = request.query["sessionId"], let fileID = request.query["fileId"],
               let token = request.query["token"]
         else {
@@ -398,18 +384,16 @@ final class LocalSendServer: @unchecked Sendable {
 
     // MARK: - Helpers
 
-    /// IPv4 as-is; IPv4-mapped IPv6 unwrapped; link-local IPv6 dropped, since a
-    /// scoped address cannot be dialled back through a URL.
+    /// IPv4 as-is, IPv4-mapped IPv6 unwrapped, scoped IPv6 dropped: a scoped
+    /// address cannot be dialled back through a URL.
     private static func usableHost(_ host: String?) -> String? {
         guard var host else { return nil }
         if host.hasPrefix("::ffff:") { host.removeFirst("::ffff:".count) }
         return host.contains("%") ? nil : host
     }
 
-    /// A sender's file name, made safe to write under Downloads.
-    ///
-    /// Folders arrive as relative paths, which are kept - but never absolute,
-    /// never with `..`, and never with a component that is only dots.
+    /// A sender's file name, made safe to write under Downloads. Folders arrive
+    /// as relative paths and are kept, but never absolute and never with dots.
     static func safeRelativePath(_ name: String) -> String {
         let parts = name.replacingOccurrences(of: "\\", with: "/")
             .split(separator: "/")
@@ -421,8 +405,7 @@ final class LocalSendServer: @unchecked Sendable {
 
 // MARK: - Session slot
 
-/// Lets exactly one of a listener's state callbacks resume its continuation:
-/// it moves through several states, and a continuation resumed twice traps.
+/// Lets exactly one of a listener's state callbacks resume its continuation.
 private final class ResumeOnce: @unchecked Sendable {
     private let lock = NSLock()
     private var done = false
@@ -517,7 +500,6 @@ private actor ReceiveSlot {
     }
 
     /// Turn a pending offer into a session with a token per accepted file.
-    /// Nil - and the slot freed - when nothing was accepted.
     func activate(id: UUID, accepted: [LocalSendFile]) -> Session? {
         guard case .pending(let pendingID, let host, _, _) = phase, pendingID == id else { return nil }
         guard !accepted.isEmpty else {
@@ -533,8 +515,7 @@ private actor ReceiveSlot {
         return session
     }
 
-    /// Check an upload's credentials and mark its file as arriving. Any
-    /// mismatch - session, address, token, or a file already sent - is nil.
+    /// Check an upload's credentials and mark its file as arriving.
     func beginUpload(
         sessionID: String, fileID: String, token: String, host: String
     ) -> (LocalSendFile, CancelFlag)? {
@@ -573,8 +554,7 @@ private actor ReceiveSlot {
         return session.id
     }
 
-    /// A name nothing else is using - on disk, or by another file of the same
-    /// transfer still arriving in parallel.
+    /// A name nothing else is using, on disk or by a file arriving in parallel.
     func reserve(in directory: URL, relativePath: String) -> URL {
         let base = directory.appendingPathComponent(relativePath)
         let folder = base.deletingLastPathComponent()
