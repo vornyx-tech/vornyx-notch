@@ -242,8 +242,14 @@ class VornyxViewModel: NSObject, ObservableObject {
 
     func closeHello() {
         Task { @MainActor in
-            withAnimation(animationLibrary.animation) {
+            // The mark fades and the notch draws back up on its own spring,
+            // then the notch settles closed a beat later. Collapsing both at
+            // once made the greeting vanish rather than leave.
+            withAnimation(.spring(response: 0.62, dampingFraction: 0.86, blendDuration: 0.2)) {
                 coordinator.helloAnimationRunning = false
+            }
+            try? await Task.sleep(for: .milliseconds(180))
+            withAnimation(animationLibrary.animation) {
                 close()
             }
         }
