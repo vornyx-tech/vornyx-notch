@@ -29,9 +29,6 @@ struct SettingsView: View {
                 NavigationLink(value: "Media") {
                     Label("Media", systemImage: "play.laptopcomputer")
                 }
-                NavigationLink(value: "Calendar") {
-                    Label("Calendar", systemImage: "calendar")
-                }
                 NavigationLink(value: "HUD") {
                     Label("HUDs", systemImage: "dial.medium.fill")
                 }
@@ -82,8 +79,6 @@ struct SettingsView: View {
                     Appearance()
                 case "Media":
                     Media()
-                case "Calendar":
-                    CalendarSettings()
                 case "HUD":
                     HUD()
                 case "Battery":
@@ -616,9 +611,32 @@ struct HUD: View {
     @Default(.hudReplacement) var hudReplacement
     @ObservedObject var coordinator = VornyxViewCoordinator.shared
     @State private var accessibilityAuthorized = false
+
+    private func checkVideoInput() -> Bool {
+        AVCaptureDevice.default(for: .video) != nil
+    }
     
     var body: some View {
         Form {
+            Section(header: SettingsSectionHeader("Mirror", icon: "web.camera.fill", tint: .red)) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Enable mirror")
+                            .font(.headline)
+                        Text("The camera below the open notch, at a fixed 300 pt.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 40)
+                    Defaults.Toggle("", key: .showMirror)
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .controlSize(.large)
+                        .disabled(!checkVideoInput())
+                }
+            }
+
             Section {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
@@ -900,138 +918,6 @@ struct Media: View {
             return MediaControllerType.allCases.filter { $0 != .nowPlaying }
         } else {
             return MediaControllerType.allCases
-        }
-    }
-}
-
-struct CalendarSettings: View {
-    @ObservedObject private var calendarManager = CalendarManager.shared
-    @Default(.showCalendar) var showCalendar: Bool
-    @Default(.weatherPlace) var weatherPlace: String
-    @Default(.weatherUnit) var weatherUnit: WeatherUnit
-    @Default(.hideCompletedReminders) var hideCompletedReminders
-    @Default(.hideAllDayEvents) var hideAllDayEvents
-    @Default(.autoScrollToNextEvent) var autoScrollToNextEvent
-
-    var body: some View {
-        Form {
-            Defaults.Toggle(key: .showCalendar) {
-                Text("Show calendar")
-            }
-            Text("The month grid is always on the Dashboard tab. This switch controls the agenda that shares the home page with the player.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            Defaults.Toggle(key: .hideCompletedReminders) {
-                Text("Hide completed reminders")
-            }
-            Defaults.Toggle(key: .hideAllDayEvents) {
-                Text("Hide all-day events")
-            }
-            Defaults.Toggle(key: .autoScrollToNextEvent) {
-                Text("Auto-scroll to next event")
-            }
-            Defaults.Toggle(key: .showFullEventTitles) {
-                Text("Always show full event titles")
-            }
-            Section(header: SettingsSectionHeader("Calendars", icon: "calendar", tint: .red)) {
-                if calendarManager.calendarAuthorizationStatus != .fullAccess {
-                    Text("Calendar access is denied. Please enable it in System Settings.")
-                        .foregroundColor(.red)
-                        .multilineTextAlignment(.center)
-                        .padding()
-                    Button("Open Calendar Settings") {
-                        if let settingsURL = URL(
-                            string:
-                                "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars"
-                        ) {
-                            NSWorkspace.shared.open(settingsURL)
-                        }
-                    }
-                } else {
-                    List {
-                        ForEach(calendarManager.eventCalendars, id: \.id) { calendar in
-                            Toggle(
-                                isOn: Binding(
-                                    get: { calendarManager.getCalendarSelected(calendar) },
-                                    set: { isSelected in
-                                        Task {
-                                            await calendarManager.setCalendarSelected(
-                                                calendar, isSelected: isSelected)
-                                        }
-                                    }
-                                )
-                            ) {
-                                Text(calendar.title)
-                            }
-                            .accentColor(lighterColor(from: calendar.color))
-                            .disabled(!showCalendar)
-                        }
-                    }
-                }
-            }
-            Section(header: Text("Reminders")) {
-                if calendarManager.reminderAuthorizationStatus != .fullAccess {
-                    Text("Reminder access is denied. Please enable it in System Settings.")
-                        .foregroundColor(.red)
-                        .multilineTextAlignment(.center)
-                        .padding()
-                    Button("Open Reminder Settings") {
-                        if let settingsURL = URL(
-                            string:
-                                "x-apple.systempreferences:com.apple.preference.security?Privacy_Reminders"
-                        ) {
-                            NSWorkspace.shared.open(settingsURL)
-                        }
-                    }
-                } else {
-                    List {
-                        ForEach(calendarManager.reminderLists, id: \.id) { calendar in
-                            Toggle(
-                                isOn: Binding(
-                                    get: { calendarManager.getCalendarSelected(calendar) },
-                                    set: { isSelected in
-                                        Task {
-                                            await calendarManager.setCalendarSelected(
-                                                calendar, isSelected: isSelected)
-                                        }
-                                    }
-                                )
-                            ) {
-                                Text(calendar.title)
-                            }
-                            .accentColor(lighterColor(from: calendar.color))
-                            .disabled(!showCalendar)
-                        }
-                    }
-                }
-            }
-            Section {
-                TextField("Place", text: $weatherPlace, prompt: Text("Use my location"))
-                    .onSubmit { WeatherManager.shared.refresh() }
-                Picker("Units", selection: $weatherUnit) {
-                    ForEach(WeatherUnit.allCases) { unit in
-                        Text(unit.name).tag(unit)
-                    }
-                }
-                .onChange(of: weatherUnit) { _, _ in WeatherManager.shared.refresh() }
-            } header: {
-                SettingsSectionHeader("Weather", icon: "cloud.sun.fill", tint: .cyan)
-            } footer: {
-                Text(
-                    "The dashboard's calendar column swipes sideways to the forecast. Leave the place empty to use this Mac's location, or name a city to skip the permission entirely."
-                )
-                .multilineTextAlignment(.trailing)
-                .foregroundStyle(.secondary)
-                .font(.caption)
-            }
-        }
-        .accentColor(.effectiveAccent)
-        .navigationTitle("Calendar")
-        .onAppear {
-            Task {
-                await calendarManager.checkCalendarAuthorization()
-                await calendarManager.checkReminderAuthorization()
-            }
         }
     }
 }
@@ -1614,46 +1500,6 @@ struct Appearance: View {
             }
 
             Section {
-                Defaults.Toggle(key: .showMirror) {
-                    Text("Enable mirror")
-                }
-                    .disabled(!checkVideoInput())
-                Picker("Show mirror", selection: $mirrorDisplayMode) {
-                    ForEach(MirrorDisplayMode.allCases) { mode in
-                        Text(mode.rawValue).tag(mode)
-                    }
-                }
-                .disabled(!checkVideoInput() || !showMirror)
-                .onChange(of: mirrorDisplayMode) {
-                    NotificationCenter.default.post(
-                        name: Notification.Name.notchHeightChanged, object: nil)
-                }
-                if mirrorDisplayMode == .bigScreen {
-                    Slider(
-                        value: $mirrorBigScreenHeight,
-                        in: mirrorBigScreenHeightRange,
-                        step: 10
-                    ) {
-                        HStack {
-                            Text("Mirror height")
-                            Spacer()
-                            Text("\(mirrorBigScreenHeight, specifier: "%.0f") pt")
-                                .foregroundStyle(.secondary)
-                                .monospacedDigit()
-                        }
-                    }
-                    .disabled(!checkVideoInput() || !showMirror)
-                    .onChange(of: mirrorBigScreenHeight) {
-                        NotificationCenter.default.post(
-                            name: Notification.Name.notchHeightChanged, object: nil)
-                    }
-                }
-                Picker("Mirror shape", selection: $mirrorShape) {
-                    Text("Circle")
-                        .tag(MirrorShapeEnum.circle)
-                    Text("Square")
-                        .tag(MirrorShapeEnum.rectangle)
-                }
                 Defaults.Toggle(key: .showNotHumanFace) {
                     Text("Show cool face animation while inactive")
                 }
