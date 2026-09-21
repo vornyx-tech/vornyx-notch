@@ -172,7 +172,7 @@ extension Defaults.Keys {
     // MARK: Appearance
     static let showEmojis = Key<Bool>("showEmojis", default: false)
     //static let alwaysShowTabs = Key<Bool>("alwaysShowTabs", default: true)
-    static let showMirror = Key<Bool>("showMirror", default: false)
+    static let showMirror = Key<Bool>("showMirror", default: true)
     static let mirrorShape = Key<MirrorShapeEnum>("mirrorShape", default: MirrorShapeEnum.rectangle)
     static let settingsIconInNotch = Key<Bool>("settingsIconInNotch", default: true)
     static let lightingEffect = Key<Bool>("lightingEffect", default: true)
@@ -249,8 +249,8 @@ extension Defaults.Keys {
         "aiSystemPrompt",
         default: "You are a helpful assistant living in a small notch window on a Mac. Answer briefly and directly.")
     static let mirrorDisplayMode = Key<MirrorDisplayMode>(
-        "mirrorDisplayMode", default: MirrorDisplayMode.inline)
-    static let mirrorBigScreenHeight = Key<CGFloat>("mirrorBigScreenHeight", default: 240)
+        "mirrorDisplayMode", default: MirrorDisplayMode.bigScreen)
+    static let mirrorBigScreenHeight = Key<CGFloat>("mirrorBigScreenHeight", default: 300)
     static let hideCompletedReminders = Key<Bool>("hideCompletedReminders", default: true)
     static let sliderColor = Key<SliderColorEnum>(
         "sliderUseAlbumArtColor",
@@ -273,15 +273,15 @@ extension Defaults.Keys {
     
     // MARK: Media playback
     static let coloredSpectrogram = Key<Bool>("coloredSpectrogram", default: true)
-    static let enableSneakPeek = Key<Bool>("enableSneakPeek", default: false)
+    static let enableSneakPeek = Key<Bool>("enableSneakPeek", default: true)
     static let sneakPeekStyles = Key<SneakPeekStyle>("sneakPeekStyles", default: .standard)
     static let waitInterval = Key<Double>("waitInterval", default: 3)
     /// How long a sneak peek stays on screen before it hides itself.
-    static let sneakPeekDuration = Key<Double>("sneakPeekDuration", default: 1.5)
+    static let sneakPeekDuration = Key<Double>("sneakPeekDuration", default: 2.0)
     static let showShuffleAndRepeat = Key<Bool>("showShuffleAndRepeat", default: false)
     static let enableLyrics = Key<Bool>("enableLyrics", default: false)
     /// How the artwork changes when the track does.
-    static let trackChangeAnimation = Key<TrackChangeAnimation>("trackChangeAnimation", default: .blur)
+    static let trackChangeAnimation = Key<TrackChangeAnimation>("trackChangeAnimation", default: .flip)
     static let musicControlSlots = Key<[MusicControlButton]>(
         "musicControlSlots",
         default: MusicControlButton.defaultLayout
