@@ -107,6 +107,23 @@ class VornyxViewCoordinator: ObservableObject {
         false
         #endif
     }
+
+    /// Jumps onboarding straight to one step, for looking at it while building.
+    /// VORNYX_ONBOARDING_STEP=welcome|permissions|music|features|finished
+    static var debugOnboardingStep: OnboardingStep? {
+        #if DEBUG
+        switch ProcessInfo.processInfo.environment["VORNYX_ONBOARDING_STEP"] {
+        case "welcome": return .welcome
+        case "permissions": return .permissions
+        case "music": return .musicPermission
+        case "features": return .features
+        case "finished": return .finished
+        default: return nil
+        }
+        #else
+        return nil
+        #endif
+    }
     @AppStorage("showWhatsNew") var showWhatsNew: Bool = true
     @AppStorage("musicLiveActivityEnabled") var musicLiveActivityEnabled: Bool = true
     @AppStorage("currentMicStatus") var currentMicStatus: Bool = true

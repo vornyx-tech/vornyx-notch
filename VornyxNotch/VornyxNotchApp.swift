@@ -483,7 +483,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         if coordinator.firstLaunch || VornyxViewCoordinator.forcesFirstOpen {
             DispatchQueue.main.async {
-                self.showOnboardingWindow()
+                self.showOnboardingWindow(step: VornyxViewCoordinator.debugOnboardingStep ?? .welcome)
             }
             playWelcomeSound()
         } else if MusicManager.shared.isNowPlayingDeprecated

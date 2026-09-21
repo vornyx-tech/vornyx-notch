@@ -141,7 +141,9 @@ enum OptionKeyAction: String, CaseIterable, Identifiable, Defaults.Serializable 
 
 extension Defaults.Keys {
     // MARK: General
-    static let menubarIcon = Key<Bool>("menubarIcon", default: true)
+    // Off by default: the notch carries its own Settings and Quit, so the
+    // status item only takes room in the menu bar.
+    static let menubarIcon = Key<Bool>("menubarIcon", default: false)
     static let showOnAllDisplays = Key<Bool>("showOnAllDisplays", default: false)
     static let automaticallySwitchDisplay = Key<Bool>("automaticallySwitchDisplay", default: true)
     static let releaseName = Key<String>("releaseName", default: "Flying Rabbit 🐇🪽")
