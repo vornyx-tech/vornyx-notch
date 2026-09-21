@@ -439,6 +439,15 @@ struct Charge: View {
                 Defaults.Toggle(key: .showCapsLockIndicator) {
                     Text("Caps Lock light")
                 }
+                Defaults.Toggle(key: .capsLockSneakPeek) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Say it in the notch")
+                        Text("A short banner under the closed notch as Caps Lock goes on or off.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .disabled(!Defaults[.showCapsLockIndicator])
                 Defaults.Toggle(key: .showFocusIndicator) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Focus light")

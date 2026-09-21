@@ -442,7 +442,7 @@ struct ContentView: View {
               TimerLiveActivity()
                   .environmentObject(vm)
                   .transition(.opacity)
-          } else if coordinator.sneakPeek.show && Defaults[.inlineHUD] && (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && (coordinator.sneakPeek.type != .audioRoute) && vm.notchState == .closed {
+          } else if coordinator.sneakPeek.show && Defaults[.inlineHUD] && (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && (coordinator.sneakPeek.type != .audioRoute) && (coordinator.sneakPeek.type != .capsLock) && vm.notchState == .closed {
               InlineHUD(type: $coordinator.sneakPeek.type, value: $coordinator.sneakPeek.value, icon: $coordinator.sneakPeek.icon, hoverAnimation: $isHovering, gestureProgress: $gestureProgress)
                   .transition(.opacity)
           } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .music) && vm.notchState == .closed && (musicManager.isPlaying || !musicManager.isPlayerIdle) && coordinator.musicLiveActivityEnabled && !vm.hideOnClosed {
@@ -563,7 +563,7 @@ struct ContentView: View {
                     closedNotchContent()
 
                       if coordinator.sneakPeek.show {
-                          if (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && (coordinator.sneakPeek.type != .audioRoute) && !Defaults[.inlineHUD] && vm.notchState == .closed {
+                          if (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && (coordinator.sneakPeek.type != .audioRoute) && (coordinator.sneakPeek.type != .capsLock) && !Defaults[.inlineHUD] && vm.notchState == .closed {
                               SystemEventIndicatorModifier(
                                   eventType: $coordinator.sneakPeek.type,
                                   value: $coordinator.sneakPeek.value,
@@ -588,6 +588,12 @@ struct ContentView: View {
                           else if coordinator.sneakPeek.type == .audioRoute {
                               if vm.notchState == .closed && !vm.hideOnClosed && Defaults[.audioRouteSneakPeek] {
                                   AudioRouteSneakPeek()
+                              }
+                          }
+                          // Caps Lock went on or off.
+                          else if coordinator.sneakPeek.type == .capsLock {
+                              if vm.notchState == .closed && !vm.hideOnClosed {
+                                  CapsLockSneakPeek(isOn: coordinator.sneakPeek.value == 1)
                               }
                           }
                           // Old sneak peek music
