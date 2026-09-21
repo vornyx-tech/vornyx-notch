@@ -2,26 +2,16 @@
 //  StatsView.swift
 //  VornyxNotch
 //
-//  What the machine is doing, at a glance.
-//
 
 import SwiftUI
 
 /// One number, one graph, and two quiet meters under it.
-///
-/// No cards. A page of boxed panels each with its own border and small
-/// upper-case heading is the shape of a form, and it makes four unrelated
-/// things look equally important. The processor is the thing that moves, so it
-/// gets the whole top of the page at a size you can read across a room; memory
-/// and disk are lines you check, not watch, so they are lines.
 struct StatsView: View {
     @ObservedObject private var stats = StatsManager.shared
 
     var body: some View {
-        // Sized to fit the notch, not to fill it. The dashboard is 252pt tall
-        // and this column gets about 190 of that; anything taller does not
-        // simply clip itself - the row takes the height of its tallest child,
-        // so an overrun here pushed the chat's composer off the bottom too.
+        // Sized to fit the notch: this column gets about 190pt of the
+        // dashboard's 252, and the row takes the height of its tallest child.
         VStack(alignment: .leading, spacing: 6) {
             hero
             chart
@@ -45,8 +35,7 @@ struct StatsView: View {
                 .font(.system(size: 40, weight: .light, design: .rounded))
                 .monospacedDigit()
                 .contentTransition(.numericText())
-                // Light type on black loses its edges; the gradient gives the
-                // digits weight at the top where the eye reads them.
+                // Light type on black loses its edges without the gradient.
                 .foregroundStyle(
                     LinearGradient(
                         colors: [.white, tint.opacity(0.85)],
@@ -73,8 +62,7 @@ struct StatsView: View {
         }
     }
 
-    /// Full width and unboxed, running off both edges of the page the way a
-    /// chart in Battery settings does.
+    /// Full width and unboxed, running off both edges of the page.
     private var chart: some View {
         AreaChart(values: stats.cpuHistory, ceiling: 1, tint: tint)
             .frame(height: 42)
@@ -109,8 +97,7 @@ struct StatsView: View {
         }
     }
 
-    /// Name on the left, figures on the right, and the bar underneath spanning
-    /// both - so the eye reads the words once and the shapes thereafter.
+    /// Name on the left, figures on the right, bar underneath spanning both.
     private func meter(_ title: String, value: Double, detail: String, tint: Color) -> some View {
         VStack(spacing: 3) {
             HStack(spacing: 4) {
@@ -139,8 +126,7 @@ struct StatsView: View {
 
     // MARK: - Network
 
-    /// Rates on the outside, the shape of the traffic between them - received
-    /// below the line, sent above, like a river seen side on.
+    /// Rates on the outside, the shape of the traffic between them.
     private var network: some View {
         HStack(spacing: 8) {
             rate("arrow.down", StatsManager.rate(reading.networkDown), .cyan)
@@ -172,9 +158,7 @@ struct StatsView: View {
 
     // MARK: - Footer
 
-    /// The standing facts, in one quiet line. Separated by middots rather than
-    /// boxed into pills: they are an aside, and a pill makes anything look like
-    /// a control you are meant to press.
+    /// The standing facts, in one quiet line.
     private var footer: some View {
         HStack(spacing: 5) {
             Circle()
@@ -191,8 +175,7 @@ struct StatsView: View {
 
     private var footerText: String {
         var parts = [reading.thermalLabel, "up \(StatsManager.uptime(reading.uptime))"]
-        // Only when there is swap to report: a machine that is not swapping
-        // does not need a line saying so.
+        // Only when there is swap to report.
         if reading.swapUsed > 0 {
             parts.append("swap \(StatsManager.bytes(reading.swapUsed))")
         }
@@ -211,10 +194,6 @@ struct StatsView: View {
 // MARK: - Charts
 
 /// A filled curve rather than a row of bars.
-///
-/// Bars at this width are a handful of fat blocks that jump as the window
-/// slides; a filled line reads as one continuous thing, which is what a minute
-/// of processor load is.
 private struct AreaChart: View {
     let values: [Double]
     let ceiling: Double
@@ -226,8 +205,7 @@ private struct AreaChart: View {
 
             ZStack(alignment: .bottomLeading) {
                 if points.count > 1 {
-                    // Filled body first, then the line over it, so the edge
-                    // stays crisp where the fill has faded out.
+                    // Filled body first, then the line over it.
                     path(points, closingIn: proxy.size)
                         .fill(
                             LinearGradient(
@@ -252,8 +230,7 @@ private struct AreaChart: View {
     private func points(in size: CGSize) -> [CGPoint] {
         guard values.count > 1, ceiling > 0 else { return [] }
         let step = size.width / CGFloat(max(1, values.count - 1))
-        // Half a line width of headroom, so a pegged processor draws a flat
-        // line just inside the top rather than one sliced off by the edge.
+        // Half a line width of headroom at each end, for a pegged processor.
         let usable = size.height - 2
         return values.enumerated().map { index, value in
             let ratio = (value / ceiling).clamped(to: 0...1)
@@ -261,9 +238,7 @@ private struct AreaChart: View {
         }
     }
 
-    /// Smoothed through segment midpoints rather than with a spline: a spline
-    /// overshoots, and an overshooting processor graph draws load figures the
-    /// machine never reported.
+    /// Smoothed through segment midpoints; a spline would overshoot the data.
     private func path(_ points: [CGPoint], closingIn size: CGSize?) -> Path {
         var path = Path()
         guard let first = points.first, let last = points.last else { return path }

@@ -8,8 +8,7 @@
 import Foundation
 import Network
 
-/// One request's head. The body is read separately, because an upload is
-/// streamed to disk rather than held in memory.
+/// One request's head. The body is read separately and streamed to disk.
 struct LocalSendRequest {
     let method: String
     let path: String
@@ -34,17 +33,12 @@ enum LocalSendHTTPError: Error {
 
 /// A keep-alive HTTP/1.1 connection, read one request at a time.
 ///
-/// Hand-written rather than pulled in from a server framework: the whole
-/// surface is five routes, and the one hard part - an upload - has to stream
-/// straight to disk anyway. Two body framings have to be understood.
-/// `Content-Length` is the ordinary one. `Transfer-Encoding: chunked` is the
-/// one that matters: LocalSend's Rust client streams a file without announcing
-/// its size, so every upload from a real LocalSend arrives chunked.
+/// Both body framings are needed: `Content-Length`, and `Transfer-Encoding:
+/// chunked`, which is how every upload from a real LocalSend arrives.
 final class LocalSendHTTPConnection: @unchecked Sendable {
     let connection: NWConnection
     /// The fingerprint of the certificate the peer presented during the
-    /// handshake. Over HTTPS this is the peer's identity; anything it claims
-    /// in a request body is only a claim.
+    /// handshake. Over HTTPS this, not the request body, is its identity.
     let peerFingerprint: String?
 
     private var buffer = Data()
@@ -58,7 +52,7 @@ final class LocalSendHTTPConnection: @unchecked Sendable {
         self.peerFingerprint = peerFingerprint
     }
 
-    /// The address the request came from - what an upload is checked against.
+    /// The address the request came from, which an upload is checked against.
     var remoteHost: String? {
         guard case .hostPort(let host, _) = connection.endpoint else { return nil }
         switch host {
@@ -111,8 +105,7 @@ final class LocalSendHTTPConnection: @unchecked Sendable {
             method: String(requestLine[0]), path: String(path), query: query, headers: headers)
     }
 
-    /// Hand the request body to `consume` a piece at a time, whichever framing
-    /// it arrives in.
+    /// Hand the request body to `consume` a piece at a time.
     func readBody(of request: LocalSendRequest, _ consume: (Data) throws -> Void) async throws {
         guard request.isChunked else {
             try await take(Int(request.contentLength), consume)
@@ -120,7 +113,7 @@ final class LocalSendHTTPConnection: @unchecked Sendable {
         }
 
         while true {
-            // A size in hex, optionally followed by extensions nobody uses.
+            // A size in hex, optionally followed by extensions.
             let line = try await readLine()
             let field = line.split(separator: ";", maxSplits: 1).first
                 .map { $0.trimmingCharacters(in: .whitespaces) } ?? ""
@@ -155,8 +148,6 @@ final class LocalSendHTTPConnection: @unchecked Sendable {
             if buffer.isEmpty {
                 guard try await receive() else { throw LocalSendHTTPError.closed }
             }
-            // The common case during an upload: the whole buffer belongs to
-            // the body, so it is handed over without copying a byte.
             if buffer.count <= remaining {
                 let piece = buffer
                 buffer = Data()
@@ -229,15 +220,14 @@ final class LocalSendHTTPConnection: @unchecked Sendable {
         try await respond(status, json: JSONEncoder().encode(body))
     }
 
-    /// The `{"message": ...}` body LocalSend sends with every error, and the
-    /// only shape its client parses for one.
+    /// The `{"message": ...}` body LocalSend's client parses for an error.
     func respondError(_ status: Int, _ message: String) async throws {
         try await respond(status, body: LocalSendErrorBody(message: message))
     }
 
     // MARK: - Helpers
 
-    /// `+` and `%20` both mean a space, as they do for LocalSend's own server.
+    /// `+` and `%20` both mean a space, as in LocalSend's own server.
     private static func parseQuery(_ string: Substring) -> [String: String] {
         var result: [String: String] = [:]
         for pair in string.split(separator: "&") {

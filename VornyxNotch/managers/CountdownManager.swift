@@ -10,13 +10,8 @@ import Combine
 import Defaults
 import Foundation
 
-/// A countdown you can see from the closed notch.
-///
-/// Deliberately the notch's own timer rather than a mirror of the Clock app's.
-/// Reading a running system timer is possible, but every route to it - the
-/// `mobiletimerd` preferences, scraping the unified log, driving the Clock
-/// through Accessibility - needs to reach outside the app container, and this
-/// app is sandboxed. See the note in Settings.
+/// A countdown you can see from the closed notch. The app's own timer, not a
+/// mirror of the Clock app's: reading that needs to reach outside the sandbox.
 @MainActor
 final class CountdownManager: ObservableObject {
     static let shared = CountdownManager()
@@ -30,9 +25,8 @@ final class CountdownManager: ObservableObject {
     }
 
     @Published private(set) var state: State = .idle
-    /// Seconds left. Kept to the fraction so the ring moves smoothly; every
-    /// label rounds it up, so a timer reads "1:00" for the whole first second
-    /// rather than flicking to 0:59 immediately.
+    /// Seconds left, kept to the fraction so the ring moves smoothly. Labels
+    /// round it up.
     @Published private(set) var remaining: TimeInterval = 0
     @Published private(set) var total: TimeInterval = 0
 
@@ -40,9 +34,8 @@ final class CountdownManager: ObservableObject {
     @Default(.timerLastDuration) var lastDuration: Double
 
     private var ticker: AnyCancellable?
-    /// The wall-clock instant the countdown ends, rather than a running
-    /// subtraction: a timer that counts its own ticks drifts, and loses time
-    /// outright when the Mac sleeps mid-countdown.
+    /// The wall-clock instant the countdown ends; counting ticks would drift
+    /// and lose time across sleep.
     private var deadline: Date?
 
     private init() {}
@@ -57,8 +50,7 @@ final class CountdownManager: ObservableObject {
         return ((total - remaining) / total).clamped(to: 0...1)
     }
 
-    /// Seconds as a clock reads them: `1:05`, or `1:02:30` once there is an
-    /// hour to show. Rounded up, so it only says zero when it is over.
+    /// Seconds as a clock reads them, rounded up: `1:05`, or `1:02:30`.
     var label: String {
         Self.format(remaining)
     }
@@ -122,7 +114,7 @@ final class CountdownManager: ObservableObject {
         total = 0
     }
 
-    /// Add - or take away - time without disturbing the countdown.
+    /// Add or take away time without disturbing the countdown.
     func adjust(by seconds: TimeInterval) {
         switch state {
         case .running:
@@ -143,8 +135,7 @@ final class CountdownManager: ObservableObject {
 
     private func startTicking() {
         ticker?.cancel()
-        // Four times a second: enough for the ring to move without stepping,
-        // and far cheaper than a display link for something this slow.
+        // Four times a second is enough for the ring to move without stepping.
         ticker = Timer.publish(every: 0.25, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in self?.tick() }
@@ -172,8 +163,7 @@ final class CountdownManager: ObservableObject {
         }
         announce(force: true)
 
-        // The banner would otherwise sit there for good: `finished` is a state
-        // with nothing counting down to end it.
+        // Nothing else ends the `finished` state.
         Task { [weak self] in
             try? await Task.sleep(for: .seconds(12))
             guard let self, self.state == .finished else { return }

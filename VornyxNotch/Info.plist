@@ -29,12 +29,6 @@
 	<string>Vornyx Notch uses your location to show the local forecast on the dashboard. You can name a place in Settings instead.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Vornyx Notch uses your location to show the local forecast on the dashboard. You can name a place in Settings instead.</string>
-	<key>SUEnableDownloaderService</key>
-	<true/>
-	<key>SUEnableInstallerLauncherService</key>
-	<true/>
-	<key>SUFeedURL</key>
-	<string>https://vornyx-tech.github.io/vornyx-notch/appcast.xml</string>
 	<key>UTImportedTypeDeclarations</key>
 	<array>
 		<dict/>

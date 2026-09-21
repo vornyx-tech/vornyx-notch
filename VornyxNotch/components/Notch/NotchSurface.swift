@@ -10,40 +10,32 @@ import SwiftUI
 
 extension View {
     /// The surface a panel, card or button sits on inside the open notch.
-    ///
-    /// With Liquid Glass on, it is glass of its own - glass inside glass. The
-    /// regular, frosted variant, tinted dark: the notch behind it is the clear
-    /// variant, and clear on clear would leave nothing for white text to stand
-    /// out against. With Liquid Glass off, it is exactly the faint white wash
-    /// and hairline border these surfaces always had, so turning the setting
-    /// off gives back the old look to the pixel.
+    /// Tinted glass with Liquid Glass on, a faint white wash and hairline
+    /// border with it off.
     ///
     /// - Parameters:
     ///   - fill: The white wash's opacity when glass is off.
     ///   - stroke: The border's opacity when glass is off.
-    ///   - tint: A colour for the surface - a primary button, a message bubble.
-    ///     Used as the fill when glass is off, and as the glass's tint when on
-    ///     unless `glassTint` says otherwise.
-    ///   - glassTint: The glass's tint alone, for states that the white wash
-    ///     showed by getting brighter - hovered, copied, a drop over it - and
-    ///     that glass has to show by colour instead.
-    ///   - interactive: Glass that answers the pointer with its own highlight
-    ///     and give - the part of Liquid Glass that reads most as liquid.
+    ///   - tint: The fill when glass is off, the glass's tint when on.
+    ///   - glassTint: The glass's tint alone, for hover, copied and drop states.
+    ///   - interactive: Glass that answers the pointer with its own highlight.
+    ///   - frosted: Regular glass rather than clear, and untinted.
     func notchSurface<S: InsettableShape>(
         _ shape: S,
         fill: Double = 0.05,
         stroke: Double = 0.07,
         tint: Color? = nil,
         glassTint: Color? = nil,
-        interactive: Bool = false
+        interactive: Bool = false,
+        frosted: Bool = false
     ) -> some View {
         modifier(NotchSurface(
             shape: shape, fill: fill, stroke: stroke, tint: tint, glassTint: glassTint,
-            interactive: interactive))
+            interactive: interactive, frosted: frosted))
     }
 }
 
-/// Whether the open notch is drawn as Liquid Glass - the setting, on a system
+/// Whether the open notch is drawn as Liquid Glass: the setting, on a system
 /// that has it.
 enum NotchGlass {
     static var isActive: Bool {
@@ -60,16 +52,19 @@ private struct NotchSurface<S: InsettableShape>: ViewModifier {
     let tint: Color?
     let glassTint: Color?
     let interactive: Bool
+    let frosted: Bool
 
     @Default(.liquidGlassNotch) private var liquidGlass
 
-    /// How dark untinted glass is. Enough to hold white text over a bright
-    /// window behind the notch without turning the glass grey.
+    /// How dark untinted glass is: enough to hold white text over a bright
+    /// window behind the notch.
     private static var darkening: Double { 0.20 }
 
     @available(macOS 26.0, *)
     private var glass: Glass {
-        let tinted = Glass.clear.tint(glassTint ?? tint ?? .black.opacity(Self.darkening))
+        let tinted = frosted
+            ? Glass.regular.tint(glassTint ?? tint ?? .white.opacity(0.04))
+            : Glass.clear.tint(glassTint ?? tint ?? .black.opacity(Self.darkening))
         return interactive ? tinted.interactive() : tinted
     }
 
@@ -77,10 +72,7 @@ private struct NotchSurface<S: InsettableShape>: ViewModifier {
         if #available(macOS 26.0, *), liquidGlass {
             content
                 .glassEffect(glass, in: shape)
-                // Glass is only drawn - unlike the fill it replaces, it takes
-                // no part in hit testing. Without this a clipboard card, a
-                // shortcut or a device tile answered the pointer, clicks and
-                // drops only over its text, and the rest of it was a hole.
+                // Glass takes no part in hit testing.
                 .contentShape(shape)
         } else {
             content

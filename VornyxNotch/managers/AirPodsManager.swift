@@ -2,7 +2,7 @@
 //  AirPodsManager.swift
 //  VornyxNotch
 //
-//  Battery for the AirPods - or Beats - currently connected.
+//  Battery for the connected AirPods or Beats.
 //
 
 import AppKit
@@ -11,20 +11,15 @@ import Defaults
 import Foundation
 import IOBluetooth
 
-/// What a connected pair reports about itself.
-///
-/// Every level is optional because the shape of the answer depends on the
-/// hardware: buds report a left, a right and a case, while the over-ears report
-/// one number and no case at all. Nothing here invents a value it was not told.
+/// What a connected pair reports about itself. Every level is optional: buds
+/// report a left, a right and a case, over-ears report one number and no case.
 struct AirPodsBattery: Equatable {
     var name: String
     var left: Int?
     var right: Int?
     var caseLevel: Int?
     var single: Int?
-    /// Apple's Bluetooth product ID. This, not the name, is what tells the
-    /// Pros from the Max from the plain ones: the name is whatever the owner
-    /// typed.
+    /// Apple's Bluetooth product ID, which tells the models apart.
     var productID: UInt16?
 
     var leftCharging = false
@@ -32,18 +27,14 @@ struct AirPodsBattery: Equatable {
     var caseCharging = false
     var singleCharging = false
 
-    /// The one number to show when there is only room for one.
-    ///
-    /// The lower ear, not the average: what you want to know is how long until
-    /// something in your ear dies, and that is decided by whichever bud is
-    /// worse off. The case is left out - it is not what runs out mid-call.
+    /// The one number to show when there is only room for one: the lower ear,
+    /// case excluded.
     var headline: Int? {
         if let single { return single }
         return [left, right].compactMap { $0 }.min()
     }
 
-    /// True when the pair reports per-ear levels, which is what tells earbuds
-    /// apart from the over-ears at display time.
+    /// True when the pair reports per-ear levels: earbuds, not over-ears.
     var hasEars: Bool { left != nil || right != nil }
 
     var isCharging: Bool {
@@ -67,8 +58,7 @@ enum AirPodsModel: Equatable {
         case 0x2019, 0x201B: self = .airPods4
         case 0x2002, 0x200F: self = .airPods
         default:
-            // A model newer than this table, or Beats. The name is a guess,
-            // but it is the product name unless someone renamed the pair.
+            // A model newer than this table, or Beats: fall back to the name.
             let lowered = name.lowercased()
             if lowered.contains("max") {
                 self = .max
@@ -82,7 +72,6 @@ enum AirPodsModel: Equatable {
         }
     }
 
-    /// The pair as a whole.
     var symbol: String {
         switch self {
         case .airPods: return "airpods"
@@ -131,24 +120,16 @@ enum AirPodsModel: Equatable {
     }
 }
 
-/// Watches for Apple audio devices connecting and reads their battery.
-///
-/// The levels come from `IOBluetoothDevice`. This used to read them out of the
-/// IO registry, where a connected pair published an
-/// `AppleDeviceManagementHIDEventService` entry carrying battery keys - current
-/// macOS no longer publishes it at all, and the widget sat on "Not connected"
-/// with a pair in both ears. The battery getters are not in the public
-/// headers, so each one is checked for before it is called: a macOS that drops
-/// one loses that number, not the app.
+/// Watches for Apple audio devices connecting and reads their battery. The
+/// levels come from `IOBluetoothDevice`, whose battery getters are not in the
+/// public headers, so each one is checked for before it is called.
 @MainActor
 final class AirPodsManager: ObservableObject {
     static let shared = AirPodsManager()
 
-    /// The connected pair, or nil when there is none.
     @Published private(set) var device: AirPodsBattery?
 
-    /// Whether the home page shows the panel: asked for, and a pair connected.
-    /// The page and the notch's width both follow this, so they cannot disagree.
+    /// Whether the home page shows the panel; the notch's width follows it too.
     var widgetShowing: Bool {
         Defaults[.showAirPodsWidget] && device != nil
     }
@@ -159,8 +140,7 @@ final class AirPodsManager: ObservableObject {
     private var settleTask: Task<Void, Never>?
     /// Which pair the notch has already announced, so re-reads stay quiet.
     private var announcedDevice: String?
-    /// Registering for connections reports the ones that already exist, which
-    /// is not news - a pair worn before launch should not be announced.
+    /// Registering for connections also reports the existing ones.
     private var quietUntil = Date.distantPast
 
     private init() {}
@@ -171,8 +151,6 @@ final class AirPodsManager: ObservableObject {
         guard connectNotification == nil else { return }
         quietUntil = Date().addingTimeInterval(3)
 
-        // Notifications rather than a poll: connecting a pair should show up
-        // now, not on the next tick of some timer.
         observer.onChange = { [weak self] in
             Task { @MainActor in self?.deviceSetChanged() }
         }
@@ -180,8 +158,7 @@ final class AirPodsManager: ObservableObject {
             forConnectNotifications: observer,
             selector: #selector(BluetoothObserver.connected(_:device:)))
 
-        // Nothing announces a change in the levels themselves, so this is what
-        // keeps the numbers moving while a pair stays connected.
+        // Nothing announces a change in the levels themselves.
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { _ in
             Task { @MainActor [weak self] in self?.refresh(announce: false) }
         }
@@ -200,11 +177,10 @@ final class AirPodsManager: ObservableObject {
 
     // MARK: - Reading
 
-    /// A device has just connected or gone. Re-read, and let the notch say so.
+    /// A device has just connected or gone.
     private func deviceSetChanged() {
         // A pair reports its levels a little after it connects, so the first
-        // read often comes back empty. Read again over the next few seconds
-        // rather than reporting a device with no levels and then correcting it.
+        // read often comes back empty. Retry over the next few seconds.
         settleTask?.cancel()
         settleTask = Task { @MainActor [weak self] in
             for delay in [0, 500, 1500, 3000, 6000] {
@@ -223,21 +199,18 @@ final class AirPodsManager: ObservableObject {
         if found != device { device = found }
 
         guard let found else {
-            // Gone. The next pair to connect gets its own announcement.
             announcedDevice = nil
             return
         }
 
-        // Once per connection, and only once the levels have arrived: a banner
-        // reading "AirPods" with no number is worse than a moment's wait. The
-        // name is the latch, so swapping the Pros for the Max still announces.
+        // Once per connection, and only once the levels have arrived.
         guard announce, announcedDevice != found.name, found.headline != nil else { return }
         announcedDevice = found.name
         guard Date() >= quietUntil, Defaults[.airPodsSneakPeek] else { return }
         VornyxViewCoordinator.shared.announceAirPods()
     }
 
-    /// The first connected device that reports what a pair reports.
+    /// The first connected device that reports levels like a pair.
     private static func read() -> AirPodsBattery? {
         let paired = (IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice]) ?? []
         for candidate in paired where candidate.isConnected() {
@@ -246,11 +219,8 @@ final class AirPodsManager: ObservableObject {
         return nil
     }
 
-    /// Turn one device into a pair, or reject it.
-    ///
-    /// Keyboards and mice report a single level too, so a device has to earn
-    /// its place: per-ear levels, which nothing else has, or a single level
-    /// from audio hardware - major device class 0x04, "Audio/Video".
+    /// Turn one device into a pair, or reject it. Keyboards and mice report a
+    /// single level too, so that counts only for device class 0x04, audio.
     private static func battery(of device: IOBluetoothDevice) -> AirPodsBattery? {
         let left = level(device, "batteryPercentLeft")
         let right = level(device, "batteryPercentRight")
@@ -269,7 +239,7 @@ final class AirPodsManager: ObservableObject {
             productID: appleProductID(device))
     }
 
-    /// The Bluetooth product ID, when the vendor is Apple - Beats included.
+    /// The Bluetooth product ID, when the vendor is Apple (Beats included).
     private static func appleProductID(_ device: IOBluetoothDevice) -> UInt16? {
         func read(_ name: String) -> UInt16? {
             let selector = NSSelectorFromString(name)
@@ -284,9 +254,7 @@ final class AirPodsManager: ObservableObject {
     }
 
     /// One battery getter. They return an unsigned char, so the call goes
-    /// through the implementation pointer: `perform` is only defined for
-    /// methods that return objects. Zero means "not reported" - the case reads
-    /// zero whenever its lid is shut.
+    /// through the implementation pointer. Zero means not reported.
     private static func level(_ device: IOBluetoothDevice, _ name: String) -> Int? {
         let selector = NSSelectorFromString(name)
         guard device.responds(to: selector), let implementation = device.method(for: selector) else {

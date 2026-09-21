@@ -45,6 +45,13 @@ struct ShelfView: View {
         return true
     }
     
+    private func scrollToHighlight(_ proxy: ScrollViewProxy) {
+        guard let target = tvm.highlightScrollTarget else { return }
+        withAnimation(.smooth(duration: 0.35)) {
+            proxy.scrollTo(target, anchor: .trailing)
+        }
+    }
+
     private func updateQuickLookSelection() {
         guard quickLookService.isQuickLookOpen && !selection.selectedIDs.isEmpty else { return }
         
@@ -118,13 +125,20 @@ struct ShelfView: View {
                         .fontWeight(.medium)
                 }
             } else {
-                ScrollView(.horizontal) {
-                    HStack(spacing: spacing) {
-                        ForEach(tvm.items) { item in
-                            ShelfItemView(item: item)
-                                .environmentObject(quickLookService)
+                ScrollViewReader { proxy in
+                    ScrollView(.horizontal) {
+                        HStack(spacing: spacing) {
+                            ForEach(tvm.items) { item in
+                                ShelfItemView(item: item)
+                                    .environmentObject(quickLookService)
+                                    .id(item.id)
+                            }
                         }
                     }
+                    // What just arrived is added at the end, which on a full
+                    // shelf is out of sight: bring it in before it flashes.
+                    .onAppear { scrollToHighlight(proxy) }
+                    .onChange(of: tvm.highlightToken) { _, _ in scrollToHighlight(proxy) }
                 }
                 .padding(-spacing)
                 .scrollIndicators(.never)

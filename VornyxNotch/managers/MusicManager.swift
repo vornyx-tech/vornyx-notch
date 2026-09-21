@@ -26,7 +26,15 @@ class MusicManager: ObservableObject {
     private let mediaChecker = MediaChecker()
 
     // Active controller
+    /// The one the notch is showing. Every command goes to it, so the rest
+    /// of the class is unchanged by there being two.
     private var activeController: (any MediaControllerProtocol)?
+    private var primaryController: (any MediaControllerProtocol)?
+    private var secondaryController: (any MediaControllerProtocol)?
+    /// The last state each source sent, which is how `chooseSource` knows who
+    /// is playing without asking either app again.
+    private var primaryState: PlaybackState?
+    private var secondaryState: PlaybackState?
 
     // Published properties for UI
     @Published var songTitle: String = "I'm Handsome"
@@ -116,18 +124,16 @@ class MusicManager: ObservableObject {
         flipWorkItem?.cancel()
         transitionWorkItem?.cancel()
 
-        // Release active controller
+        // Release both sources, not only the one on screen.
         activeController = nil
+        primaryController = nil
+        secondaryController = nil
+        primaryState = nil
+        secondaryState = nil
     }
 
     // MARK: - Setup Methods
     private func createController(for type: MediaControllerType) -> (any MediaControllerProtocol)? {
-        // Cleanup previous controller
-        if activeController != nil {
-            controllerCancellables.removeAll()
-            activeController = nil
-        }
-
         let newController: (any MediaControllerProtocol)?
 
         switch type {
@@ -151,9 +157,8 @@ class MusicManager: ObservableObject {
             controller.playbackStatePublisher
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] state in
-                    guard let self = self,
-                          self.activeController === controller else { return }
-                    self.updateFromPlaybackState(state)
+                    guard let self else { return }
+                    self.record(state, from: controller)
                 }
                 .store(in: &controllerCancellables)
         }
@@ -162,19 +167,75 @@ class MusicManager: ObservableObject {
     }
 
     private func setActiveControllerBasedOnPreference() {
+        controllerCancellables.removeAll()
+        primaryController = nil
+        secondaryController = nil
+        primaryState = nil
+        secondaryState = nil
+
         let preferredType = Defaults[.mediaController]
         print("Preferred Media Controller: \(preferredType)")
 
         // If NowPlaying is deprecated but that's the preference, use Apple Music instead
-        let controllerType = (self.isNowPlayingDeprecated && preferredType == .nowPlaying)
-            ? .appleMusic
-            : preferredType
+        let controllerType: MediaControllerType =
+            (self.isNowPlayingDeprecated && preferredType == .nowPlaying) ? .appleMusic : preferredType
 
-        if let controller = createController(for: controllerType) {
-            setActiveController(controller)
-        } else if controllerType != .appleMusic, let fallbackController = createController(for: .appleMusic) {
+        primaryController = createController(for: controllerType)
+        if primaryController == nil, controllerType != .appleMusic {
             // Fallback to Apple Music if preferred controller couldn't be created
-            setActiveController(fallbackController)
+            primaryController = createController(for: .appleMusic)
+        }
+
+        if let secondType = Defaults[.secondaryMediaController],
+           secondType != .nowPlaying, secondType != controllerType {
+            secondaryController = createController(for: secondType)
+        }
+
+        if let primaryController {
+            setActiveController(primaryController)
+        }
+    }
+
+    /// Files a state under the source that sent it, then lets the pair decide
+    /// which one the notch is showing. Only the chosen source's states go on to
+    /// `updateFromPlaybackState`: fed both, the artwork animation and the lyrics
+    /// lookup would thrash between two players.
+    private func record(_ state: PlaybackState, from controller: any MediaControllerProtocol) {
+        if controller === primaryController {
+            primaryState = state
+        } else if controller === secondaryController {
+            secondaryState = state
+        } else {
+            return
+        }
+
+        chooseSource()
+        guard activeController === controller else { return }
+        updateFromPlaybackState(state)
+    }
+
+    /// Whichever is playing wins. The primary breaks a tie, and when neither is
+    /// playing the notch stays where it is, so a pair of idle players does not
+    /// flip the notch back and forth between them.
+    private func chooseSource() {
+        guard let secondary = secondaryController else {
+            if let primaryController, activeController !== primaryController {
+                setActiveController(primaryController)
+            }
+            return
+        }
+
+        let wanted: (any MediaControllerProtocol)?
+        if primaryState?.isPlaying == true {
+            wanted = primaryController
+        } else if secondaryState?.isPlaying == true {
+            wanted = secondary
+        } else {
+            wanted = activeController ?? primaryController
+        }
+
+        if let wanted, activeController !== wanted {
+            setActiveController(wanted)
         }
     }
 

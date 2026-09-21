@@ -28,6 +28,53 @@ final class ShelfStateViewModel: ObservableObject {
     }
 
 
+    // MARK: - Pointing at what just landed
+
+    /// Changes each time something asks for items to be pointed out, so views
+    /// already on screen hear about it.
+    @Published private(set) var highlightToken = UUID()
+    /// The item to scroll to: the last of the ones pointed out.
+    private(set) var highlightScrollTarget: UUID?
+    /// Items still waiting to flash. Taken one by one by the item views, so a
+    /// view that only appears once the notch has opened still gets its flash,
+    /// and one that appears again later does not get it twice.
+    private var pendingHighlights: Set<UUID> = []
+    private var highlightExpiry: Task<Void, Never>?
+
+    /// Flash these items, where they sit on the shelf, so it is plain where
+    /// something that arrived has gone.
+    func highlight(_ ids: [UUID]) {
+        guard !ids.isEmpty else { return }
+        pendingHighlights = Set(ids)
+        highlightScrollTarget = ids.last
+        highlightToken = UUID()
+
+        // Nobody opened the shelf to see it: it is old news by the next look.
+        highlightExpiry?.cancel()
+        highlightExpiry = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(8))
+            guard !Task.isCancelled else { return }
+            self?.pendingHighlights.removeAll()
+            self?.highlightScrollTarget = nil
+        }
+    }
+
+    /// True once for an item waiting to flash.
+    func takeHighlight(_ id: UUID) -> Bool {
+        pendingHighlights.remove(id) != nil
+    }
+
+    /// Add, and say which items on the shelf now stand for what was added -
+    /// the existing one where an item was already there.
+    @discardableResult
+    func addReturningIDs(_ newItems: [ShelfItem]) -> [UUID] {
+        add(newItems)
+        return newItems.compactMap { new in
+            let key = new.identityKey
+            return items.first { $0.identityKey == key }?.id
+        }
+    }
+
     func add(_ newItems: [ShelfItem]) {
         guard !newItems.isEmpty else { return }
         var merged = items

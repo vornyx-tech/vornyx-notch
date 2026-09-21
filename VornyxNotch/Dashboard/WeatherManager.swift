@@ -2,8 +2,6 @@
 //  WeatherManager.swift
 //  VornyxNotch
 //
-//  The forecast behind the dashboard's weather page.
-//
 
 import CoreLocation
 import Defaults
@@ -33,11 +31,7 @@ struct WeatherSnapshot: Equatable {
     var fetched: Date
 }
 
-/// What the WMO weather code means, in a glyph and a word.
-///
-/// Open-Meteo reports conditions as WMO codes rather than text, which is the
-/// good way round: the mapping to an icon and a label lives here, in one place,
-/// instead of being parsed back out of somebody's English.
+/// What the WMO weather code Open-Meteo reports means, in a glyph and a word.
 enum WeatherCode {
     static func symbol(_ code: Int, isDay: Bool) -> String {
         switch code {
@@ -54,11 +48,7 @@ enum WeatherCode {
         }
     }
 
-    /// The colours the weather wears.
-    ///
-    /// Chosen for what the sky looks like rather than what the data means -
-    /// rain is not "bad" and clear is not "good", so this is not a red-to-green
-    /// scale. Three per condition, because the glow needs blobs to mix.
+    /// The colours the weather wears. Three per condition, for the glow to mix.
     static func palette(_ code: Int, isDay: Bool) -> [Color] {
         switch code {
         case 0:
@@ -130,15 +120,10 @@ final class WeatherManager: NSObject, ObservableObject {
     private var pendingLocation: CheckedContinuation<CLLocation, Error>?
     private var locationTimeout: Task<Void, Never>?
 
-    /// How long to wait for a fix before giving up on it.
-    ///
-    /// `requestLocation` is not guaranteed to call back at all - with Location
-    /// Services off system-wide it can simply never answer - and an await on a
-    /// continuation that never resumes is a permanent "Getting the forecast…".
+    /// How long to wait for a fix. `requestLocation` is not guaranteed to call
+    /// back at all when Location Services are off system-wide.
     private let locationPatience: Duration = .seconds(8)
 
-    /// Weather does not change fast enough to be worth asking more often, and
-    /// the page is opened far more often than that.
     private let staleAfter: TimeInterval = 15 * 60
 
     private override init() {
@@ -155,9 +140,7 @@ final class WeatherManager: NSObject, ObservableObject {
     }
 
     func refresh() {
-        // Cancel and restart rather than bail out. Refusing while a fetch is in
-        // flight means one stuck fetch disables every later attempt, including
-        // the "Try again" button - which is exactly when a retry matters most.
+        // Cancel and restart, so one stuck fetch does not disable "Try again".
         fetchTask?.cancel()
         settle(.failure(LocationError.unavailable))
 
@@ -191,7 +174,7 @@ final class WeatherManager: NSObject, ObservableObject {
         case denied
         case unknownPlace(String)
         case unavailable
-        /// The prompt is on screen. Not a failure - the answer arrives at
+        /// The prompt is on screen; the answer arrives at
         /// `locationManagerDidChangeAuthorization`, which starts the fetch again.
         case awaitingPermission
 
@@ -205,9 +188,7 @@ final class WeatherManager: NSObject, ObservableObject {
         }
     }
 
-    /// A typed-in place wins over the device's own location: someone who has
-    /// gone to the trouble of naming a city means it, and it is also the way
-    /// out when location is denied.
+    /// A typed-in place wins over the device's own location.
     private func resolvePlace() async throws -> (CLLocationCoordinate2D, String) {
         let typed = Defaults[.weatherPlace].trimmingCharacters(in: .whitespaces)
         if !typed.isEmpty {
@@ -224,9 +205,7 @@ final class WeatherManager: NSObject, ObservableObject {
         case .denied, .restricted:
             throw LocationError.denied
         case .notDetermined:
-            // Ask, then stop here. Calling requestLocation before the answer
-            // comes back just fails, and showing "couldn't work out where you
-            // are" while the prompt is still on screen would be nonsense.
+            // Ask, then stop here: requestLocation fails before the answer comes back.
             locationManager.requestWhenInUseAuthorization()
             throw LocationError.awaitingPermission
         default:
@@ -310,10 +289,8 @@ final class WeatherManager: NSObject, ObservableObject {
         let (data, _) = try await session.data(from: components.url!)
         let decoded = try JSONDecoder().decode(ForecastResponse.self, from: data)
 
-        // POSIX, because this parses a fixed machine format rather than
-        // anything the reader sees: under a non-Gregorian regional calendar
-        // "yyyy" means that calendar's year, "2026-09-10" fails to parse, and
-        // the `compactMap` below silently drops every day of the forecast.
+        // POSIX: under a non-Gregorian regional calendar "yyyy" means that
+        // calendar's year and every day of the forecast fails to parse.
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "yyyy-MM-dd"
@@ -385,8 +362,7 @@ extension WeatherManager: CLLocationManagerDelegate {
     }
 
     /// The answer to the permission prompt arrives here, long after the request
-    /// returned. Retry once it does, so the page fills in by itself rather than
-    /// sitting on an error until it is opened again.
+    /// returned. Retry once it does.
     nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         Task { @MainActor in
             switch manager.authorizationStatus {

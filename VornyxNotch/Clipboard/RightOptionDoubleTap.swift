@@ -5,19 +5,15 @@
 
 import AppKit
 
-/// Calls back on a double tap of the right Option key.
-///
-/// A lone modifier tapped twice collides with nothing: Option on its own
-/// types nothing, and the right one is rarely pressed except on purpose. Left
-/// Option is left alone - it is half of every special-character chord.
+/// Calls back on a double tap of the right Option key. Left Option is left
+/// alone, being half of every special-character chord.
 ///
 /// Modifier presses only arrive as `flagsChanged` events, which a global
-/// monitor receives once the app is trusted for Accessibility - the same
-/// trust the media keys rely on. Without it the monitor simply stays silent.
+/// monitor receives once the app is trusted for Accessibility. Without it the
+/// monitor stays silent.
 final class RightOptionDoubleTap {
     private static let rightOptionKeyCode: UInt16 = 61
-    /// NX_DEVICERALTKEYMASK: set while the right Option key specifically is
-    /// down, so holding left Option does not read as the right one.
+    /// NX_DEVICERALTKEYMASK: set only while the right Option key is down.
     private static let rightOptionMask: UInt = 0x40
     /// Longest press that still counts as a tap rather than a hold.
     private static let maxPress: TimeInterval = 0.3
@@ -42,7 +38,7 @@ final class RightOptionDoubleTap {
         let mask: NSEvent.EventTypeMask = [.flagsChanged, .keyDown]
 
         // The global monitor misses events aimed at this app, so a local one
-        // covers the moments Settings or the notch is key.
+        // covers them.
         if let global = NSEvent.addGlobalMonitorForEvents(matching: mask, handler: { [weak self] event in
             self?.handle(event)
         }) {
@@ -68,8 +64,7 @@ final class RightOptionDoubleTap {
     }
 
     private func handle(_ event: NSEvent) {
-        // Anything else in between - a letter, another modifier - means Option
-        // was part of a chord, not a tap.
+        // Anything else in between means Option was part of a chord.
         guard event.type == .flagsChanged, event.keyCode == Self.rightOptionKeyCode else {
             reset()
             return

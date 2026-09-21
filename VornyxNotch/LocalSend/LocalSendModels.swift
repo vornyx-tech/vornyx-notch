@@ -2,14 +2,13 @@
 //  LocalSendModels.swift
 //  VornyxNotch
 //
-//  What goes over the wire, spelled the way LocalSend spells it.
+//  What goes over the wire.
 //
 
 import Foundation
 import UniformTypeIdentifiers
 
-/// Protocol constants. Every one of these is compared against what other
-/// implementations send, so none of them is ours to tune.
+/// Fixed by the LocalSend protocol.
 enum LocalSendProtocol {
     static let version = "2.2"
     static let port: UInt16 = 53317
@@ -19,11 +18,6 @@ enum LocalSendProtocol {
 
 /// The self-description every device sends: in a multicast announcement, a
 /// register request, and at the top of a transfer request.
-///
-/// `deviceModel` and `deviceType` are omitted rather than sent as null when
-/// unknown, which is what the reference implementation does. `port` and
-/// `protocol` are absent from `/info` and register *responses*, so they are
-/// optional here too.
 struct LocalSendInfo: Codable, Equatable {
     var alias: String
     var version: String
@@ -33,17 +27,14 @@ struct LocalSendInfo: Codable, Equatable {
     var port: Int?
     var `protocol`: String?
     var download: Bool?
-    /// Only in multicast announcements. Always `true` when we send it, and
-    /// ignored when we read it - modern LocalSend treats both values alike.
+    /// Only in multicast announcements.
     var announce: Bool?
 }
 
 /// One file offered in a transfer request.
 ///
-/// `fileType` is a MIME type derived from the extension, falling back to
-/// `application/octet-stream`. Older peers send one of a handful of bare
-/// words instead (`image`, `video`, `pdf`, `text`, `apk`, `other`), which only
-/// matters for display, so it is kept as a plain string.
+/// `fileType` is a MIME type, but older peers send a bare word instead
+/// (`image`, `video`, `pdf`, `text`, `apk`, `other`), so it stays a string.
 struct LocalSendFile: Codable, Equatable {
     var id: String
     var fileName: String
@@ -75,15 +66,12 @@ struct LocalSendPrepareUploadResponse: Codable {
     var files: [String: String]
 }
 
-/// Every error body LocalSend sends, and the only shape it parses.
+/// The only error body shape LocalSend sends or parses.
 struct LocalSendErrorBody: Codable {
     var message: String
 }
 
-/// A peer we can send to.
-///
-/// Identified by fingerprint, not address: the same phone moves between
-/// addresses, and over HTTPS the fingerprint is what the handshake proves.
+/// A peer we can send to, identified by fingerprint rather than address.
 struct LocalSendDevice: Identifiable, Equatable {
     var id: String { fingerprint }
     var fingerprint: String
@@ -96,8 +84,7 @@ struct LocalSendDevice: Identifiable, Equatable {
     var lastSeen: Date
 
     var baseURL: URL? {
-        // IPv6 literals need brackets in a URL, and link-local ones a scope
-        // that `URL` will not take - so those peers are skipped upstream.
+        // IPv6 literals need brackets in a URL.
         let hostPart = host.contains(":") ? "[\(host)]" : host
         return URL(string: "\(isHTTPS ? "https" : "http")://\(hostPart):\(port)")
     }

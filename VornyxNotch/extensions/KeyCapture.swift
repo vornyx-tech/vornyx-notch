@@ -8,16 +8,11 @@
 import AppKit
 import SwiftUI
 
-/// Hands a view the keys pressed while it is on screen.
+/// Hands a view the keys pressed while it is on screen. `onKeyPress` needs a
+/// focused responder, which the non-activating notch panel never has; a local
+/// monitor sees the same events without one.
 ///
-/// SwiftUI's `onKeyPress` is no use here. It needs a focused responder, and the
-/// notch is a non-activating panel: nothing inside it is ever focused unless
-/// the panel is deliberately given key status first. A local monitor sees the
-/// same events without needing a first responder, for exactly as long as the
-/// view asks for them.
-///
-/// Return `true` from the handler to swallow the key, `false` to let it carry
-/// on to whatever would normally get it.
+/// Return `true` from the handler to swallow the key, `false` to pass it on.
 private struct KeyCapture: ViewModifier {
     let isEnabled: Bool
     let handler: (NSEvent) -> Bool
@@ -58,7 +53,7 @@ extension View {
 
 // MARK: - Key codes
 
-/// The handful of keys the notch reacts to, named rather than numbered.
+/// The keys the notch reacts to.
 enum NotchKey: UInt16 {
     case returnKey = 36
     case tab = 48

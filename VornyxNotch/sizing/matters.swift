@@ -13,104 +13,56 @@ let downloadSneakSize: CGSize = .init(width: 65, height: 1)
 let batterySneakSize: CGSize = .init(width: 160, height: 1)
 
 let shadowPadding: CGFloat = 20
-/// Stock size of the open notch; the width is user-adjustable from Appearance
-/// settings, the height follows the content.
+/// Stock size of the open notch; the height follows the content.
 let defaultOpenNotchSize: CGSize = .init(width: 640, height: 190)
 
-/// How far the home page reaches out to the sides.
-///
-/// Code-only, like `cornerRadiusInsets` and `AlbumArtStyle`: edit and rebuild.
-/// Only the home page uses it - the shelf and clipboard keep the stock width,
-/// and the dashboard has its own.
+/// Home page width; the shelf and clipboard use the default.
 let homeNotchBaseWidth: CGFloat = 560
 
 /// The AirPods panel beside the player, and the gap before it.
-///
-/// The home page is the one tab with a width set in code rather than by its
-/// content, so anything added to it has to buy its own room here.
 let airPodsWidgetWidth: CGFloat = 112
 let airPodsWidgetGap: CGFloat = 15
 
-/// How far the home page reaches out, with or without the AirPods panel.
-///
-/// The panel only takes its room while a pair is connected. Taking one ear out
-/// keeps the pair connected, so the notch widens once per connection rather
-/// than with every earbud.
+/// Home page width, with or without the AirPods panel.
 func homePageWidth(showingAirPods: Bool) -> CGFloat {
     homeNotchBaseWidth + (showingAirPods ? airPodsWidgetWidth + airPodsWidgetGap : 0)
 }
 
-/// The widest the home page can get - what the window has to be able to hold.
+/// The widest the home page can get.
 var homeNotchWidth: CGFloat {
     homePageWidth(showingAirPods: Defaults[.showAirPodsWidget])
 }
 
-/// Width of the open notch for a given tab. Only the home page follows the
-/// width setting - the shelf and calendar keep the full width, because
-/// shrinking them would squeeze content that needs the room.
-/// The dashboard holds a month, a shortcut grid and a chat side by side, so it
-/// widens the notch while it is open and hands the width back on the way out.
+/// The dashboard widens the notch while it is open and hands the width back.
 let dashboardNotchWidth: CGFloat = 900
 
-/// A six-row month grid does not fit the stock 190pt, so the dashboard is
-/// taller too. Without this the content overflows its frame and SwiftUI
-/// centres the overflow, lifting the header off the top of the screen.
-///
-/// This is where the dashboard *starts*; a long AI transcript grows it towards
-/// `dashboardNotchMaxHeight`.
+/// A six-row month grid does not fit the stock height. Where the dashboard
+/// starts; a long AI transcript grows it towards `dashboardNotchMaxHeight`.
 let dashboardNotchHeight: CGFloat = 252
 
-/// How tall the dashboard may grow to show more of a long AI transcript.
-///
-/// The notch stretching to fit the chat is the point - reading a reply four
-/// lines at a time is miserable - but it has to stop somewhere, or one long
-/// answer turns the notch into most of the screen. Past this the transcript
-/// scrolls instead.
+/// How tall the dashboard may grow; past this the transcript scrolls instead.
 let dashboardNotchMaxHeight: CGFloat = 400
 
-/// The one spring every change of the notch's own size runs on: growing for a
-/// clipboard row, stretching around a long reply, opening the mirror, and
-/// widening from one tab to the next.
-///
-/// One constant rather than a number written out at each site. They were
-/// drifting apart - a row opening animated on a different curve from the height
-/// it caused - and two springs disagreeing about the same change is exactly
-/// what makes a resize look like a stutter instead of a movement.
-///
-/// Long and softly damped on purpose: the notch travels a long way when it
-/// resizes, and a quick spring over that distance reads as a snap. The slight
-/// overshoot is what makes the size change noticeable rather than merely done.
+/// The spring every change of the notch's own size runs on.
 let notchResizeAnimation = Animation.spring(
     response: 0.52, dampingFraction: 0.78, blendDuration: 0.25
 )
 
-/// How long the notch stays put after resizing itself before it will act on
-/// the pointer being outside it. Long enough to walk the pointer back.
+/// How long the notch ignores the pointer being outside it after a resize.
 let notchResizeGrace: TimeInterval = 3
 
-/// How much taller the notch gets for each extra row of clipboard cards.
-///
-/// Roughly one card plus the gap above it, so the cards in a two-row clipboard
-/// are the same size as the cards in a one-row one - the notch makes room for
-/// the new row rather than the new row squeezing the old one.
+/// Extra height per row of clipboard cards: one card plus the gap above it.
 let clipboardRowGrowth: CGFloat = 137
 
-/// The most rows the clipboard will open out to, one press of the down arrow at
-/// a time. Three fills about half a laptop screen with the notch, which is as
-/// far as this should ever go.
+/// The most rows the clipboard will open out to.
 let clipboardMaxRows: Int = 3
 
-/// The clipboard with every row open. The window has to be able to hold this,
-/// so it is worked out here rather than left implicit.
+/// The clipboard with every row open.
 var clipboardMaxHeight: CGFloat {
     defaultOpenNotchSize.height + CGFloat(clipboardMaxRows - 1) * clipboardRowGrowth
 }
 
-/// How far the growth has to be off before the notch resizes again.
-///
-/// Heights are measured while the resize is still springing, so every frame of
-/// the animation reports a slightly different shortfall. Without a dead band
-/// the notch chases its own animation and never settles.
+/// Dead band on the growth, since heights are measured while the spring runs.
 let notchGrowthDeadBand: CGFloat = 6
 
 /// Height of the open notch for a given tab.
@@ -132,53 +84,44 @@ func openNotchWidth(for view: NotchViews, showingAirPods: Bool) -> CGFloat {
 /// How tall the big-screen mirror panel may be.
 let mirrorBigScreenHeightRange: ClosedRange<CGFloat> = 120...420
 
-/// Extra height the notch needs when the mirror is set to stretch it downwards.
-/// Reserved on the window whenever the mode is active, so opening the mirror
-/// does not have to resize the window mid-animation.
+/// Extra height reserved whenever the mirror is set to stretch the notch down.
 var mirrorBigScreenReservedHeight: CGFloat {
     guard Defaults[.showMirror], Defaults[.mirrorDisplayMode] == .bigScreen else { return 0 }
     return Defaults[.mirrorBigScreenHeight].clamped(to: mirrorBigScreenHeightRange)
 }
 
-/// The LocalSend strip under the open notch's page: devices to drop onto, or
-/// the transfer in flight.
+/// The LocalSend strip under the open notch's page.
 let localSendStripHeight: CGFloat = 84
 
-/// Room the window keeps for that strip, the same way it does for the mirror:
-/// the window cannot resize mid-animation, so the room has to already be there
-/// the moment a drag makes the strip appear.
+/// Room the window keeps for that strip; it cannot resize mid-animation.
 var localSendReservedHeight: CGFloat {
     Defaults[.localSendEnabled] ? localSendStripHeight + 8 : 0
 }
 
-/// Margin of error around the *open* notch: how far the pointer may stray past
-/// its sides and bottom edge before the notch counts as un-hovered and closes.
-///
-/// Turn this up if the notch closes when you clip a corner on the way to a
-/// control; turn it down if it lingers. Closed, the notch does not use this at
-/// all - its hover region stays exactly the notch, because hover-to-open would
-/// otherwise trigger from well outside it.
-///
-/// `openNotchSize` grows by the same amount, because the region cannot reach
-/// past the window that hosts it: on the dashboard the notch is already the
-/// full window width, so without the extra room there is nowhere to stray to.
+/// The most the strip stretches down for a long text. Past it the field scrolls.
+let localSendComposeMaxGrowth: CGFloat = 72
+
+/// The field's height plus this is the strip's height, once the text overflows.
+let localSendComposeMargin: CGFloat = 40
+
+/// How far the pointer may stray past the open notch's sides and bottom edge
+/// before it counts as un-hovered. `openNotchSize` grows by the same amount,
+/// since the region cannot reach past the window hosting it. Unused when closed.
 let openNotchHoverSlack: CGFloat = 28
 
-/// Size the window has to be: wide enough for the widest tab, tall enough for
-/// the big-screen mirror if that mode is on, plus the hover slack on the sides
-/// and bottom.
+/// How close a dragged file has to come to the closed notch to open it.
+let dragOpenSlack = CGSize(width: 40, height: 32)
+
+/// Size the window has to be: the widest tab, the big-screen mirror if that mode
+/// is on, plus the hover slack. Transparent outside the notch shape.
 var openNotchSize: CGSize {
-    // The window has to be able to hold the widest tab, so it is sized for the
-    // dashboard even while a narrower tab is showing. It is transparent
-    // outside the notch shape, so the extra width costs nothing visually.
     .init(
         width: max(homeNotchWidth, defaultOpenNotchSize.width, dashboardNotchWidth)
             + openNotchHoverSlack * 2,
-        // The *grown* heights, not the starting ones: the window cannot resize
-        // mid-animation, so it has to already hold the tallest the notch is
-        // allowed to get - the dashboard stretched around a long reply, or the
-        // clipboard opened out to all its rows.
-        height: max(defaultOpenNotchSize.height, dashboardNotchMaxHeight, clipboardMaxHeight)
+        // The grown heights, since the window cannot resize mid-animation.
+        height: max(
+            defaultOpenNotchSize.height + (Defaults[.localSendEnabled] ? localSendComposeMaxGrowth : 0),
+            dashboardNotchMaxHeight, clipboardMaxHeight)
             + mirrorBigScreenReservedHeight
             + localSendReservedHeight
             + openNotchHoverSlack
@@ -193,19 +136,8 @@ typealias NotchCornerRadiusInsets = (
     closed: (top: CGFloat, bottom: CGFloat)
 )
 
-/// The notch's corner radii.
-///
-/// Code-only, like `AlbumArtStyle`: deliberately NOT surfaced in Settings.
-/// Edit the numbers here and rebuild.
-///
-/// - `top` is the radius where the notch meets the screen edge - the outward
-///   flare at the top corners.
-/// - `bottom` is the radius of its lower corners.
-/// - The `opened` pair is used while the notch is open, `closed` otherwise.
-///
-/// `NotchShape` caps whatever it is given against the box it draws into, so a
-/// value too large for the current notch height simply stops having an effect
-/// rather than folding the shape in on itself.
+/// The notch's corner radii. `top` is the outward flare where the notch meets
+/// the screen edge, `bottom` its lower corners.
 let cornerRadiusInsets: NotchCornerRadiusInsets = (
     opened: (top: 26, bottom: 57),
     closed: (top: 6, bottom: 14)
@@ -223,31 +155,19 @@ var openNotchCornerRadius: CGFloat { cornerRadiusInsets.opened.bottom }
 /// Gap between the notch's inner edge and the panels drawn inside it.
 let notchContentInset: CGFloat = 12
 
-/// Corner radius for a panel sitting directly inside the open notch.
-///
-/// Apple's concentric rule: an inner radius is the outer radius minus the gap
-/// between them, which keeps the two curves parallel all the way round.
-/// Matching the outer number instead makes the inner corner look too tight;
-/// picking an unrelated number - which is what a hardcoded 16 was - makes the
-/// curves visibly disagree. Follows the user's own corner radius setting.
+/// Corner radius for a panel sitting directly inside the open notch. Apple's
+/// concentric rule: inner radius is the outer radius minus the gap between them.
 var innerPanelCornerRadius: CGFloat {
     max(6, openNotchCornerRadius - notchContentInset)
 }
 
-/// One level deeper again: a tile inside one of those panels.
-///
-/// `cap` matters on small tiles: concentric rounding is derived from the notch,
-/// and on a card only ~110pt tall an unbounded radius eats the corners and
-/// pushes content into the curve. Past roughly an eighth of the shorter side a
-/// rounded rectangle stops reading as a rectangle at all.
+/// One level deeper again: a tile inside one of those panels. `cap` keeps the
+/// notch-derived radius from eating the corners of a small tile.
 func nestedCornerRadius(inset: CGFloat, cap: CGFloat = .infinity) -> CGFloat {
     min(max(4, innerPanelCornerRadius - inset), cap)
 }
 
-/// Code-only styling for the player artwork.
-/// 
-/// Deliberately NOT surfaced in Settings - these are developer knobs. Change a
-/// value here and rebuild; nothing in the UI exposes them.
+/// Styling for the player artwork.
 enum AlbumArtStyle {
     /// Artwork corner radius on the open notch's home page.
     static let openCornerRadius: CGFloat = 30
@@ -258,63 +178,47 @@ enum AlbumArtStyle {
     /// Size of that badge.
     static let appIconSize: CGFloat = 33
 
-    /// Tuning for the living glow behind the artwork. Also code-only.
+    /// Tuning for the living glow behind the artwork.
     enum Glow {
         static let blur: CGFloat = 45
         static let baseScale: (x: CGFloat, y: CGFloat) = (1.3, 1.4)
         static let baseRotation: Double = 92
         static let baseOpacity: Double = 0.5
 
-        /// How far each property wanders from its resting value.
-        ///
-        /// These have to be large. A 40pt blur is a low-pass filter: it erases
-        /// exactly the small movements that would read as motion on a sharp
-        /// image, so anything subtler than roughly the blur radius simply is
-        /// not visible.
+        /// How far each property wanders. Large: a blur this heavy erases
+        /// anything subtler than its own radius.
         static let scaleSwing: CGFloat = 0.22
         static let rotationSwing: Double = 30
         static let driftRadius: CGFloat = 28
         static let opacitySwing: Double = 0.22
 
-        /// How much stronger the glow is when the notch is Liquid Glass.
-        ///
-        /// Over black the glow has nothing to compete with. Over glass, with
-        /// whatever is behind the notch showing through, the same glow washes
-        /// out - so it is turned up there, and only there. 1 is the black look.
+        /// Glow strength on Liquid Glass; 1 is the black look.
         static let liquidGlassIntensity: Double = 2.5
 
-        /// Seconds per cycle. Deliberately not multiples of one another, so
-        /// the combined motion takes minutes to repeat and never reads as a
-        /// loop.
+        /// Seconds per cycle, sharing no common multiple.
         static let breathePeriod: Double = 3.7
         static let rotatePeriod: Double = 6.1
         static let swayPeriod: Double = 4.3
         static let bobPeriod: Double = 5.9
         static let shimmerPeriod: Double = 2.9
 
-        /// The glow moves slowly, so it does not need a high frame rate, and
-        /// each frame re-blurs a full-size image - the expensive part.
+        /// Low: each frame re-blurs a full-size image.
         static let frameRate: Double = 12
     }
 }
 
-/// Tuning for the weather page's glow. Code-only, like `AlbumArtStyle`.
-///
-/// Same idea as the album art's living glow, with colour standing in for the
-/// artwork: a few soft blobs of the condition's palette, blurred past
-/// recognition and drifting on periods that share no common multiple, so the
-/// motion never lines up into a visible loop.
+/// Tuning for the weather page's glow: blurred blobs of the condition's palette.
 enum WeatherGlowStyle {
-    /// Big, because a blur this heavy is a low-pass filter - anything smaller
-    /// than roughly the blur radius simply does not read as movement.
+    /// Big: anything smaller than the blur radius does not read as movement.
     static let blur: CGFloat = 42
     static let opacity: Double = 0.5
+    /// Stronger on glass, where the value above reads as a faint stain.
+    static let glassOpacity: Double = 0.85
     static let baseScale: CGFloat = 1.0
     static let scaleSwing: CGFloat = 0.22
     static let driftRadius: CGFloat = 26
 
-    /// Where each blob sits, as a fraction of the page. Spread out rather than
-    /// stacked, so the colours meet in the middle instead of muddying.
+    /// Where each blob sits, as a fraction of the page.
     static let anchors: [(x: Double, y: Double)] = [(0.18, 0.30), (0.62, 0.72), (0.92, 0.22)]
 
     static let breathePeriod: Double = 4.1
@@ -322,23 +226,14 @@ enum WeatherGlowStyle {
     static let bobPeriod: Double = 6.7
 
     /// How far in from the page's edges the glow has faded to nothing.
-    ///
-    /// The dashboard clips this column, and a blurred blob meeting a clip is a
-    /// hard straight line - the glow ends up looking boxed in rather than
-    /// floating. Fading it out first leaves the clip nothing to cut.
     static let edgeFade: CGFloat = 28
 
-    /// It moves slowly, so it does not need a high frame rate.
     static let frameRate: Double = 12
 }
 
-/// Tuning for the falling weather. Code-only, like `WeatherGlowStyle`.
+/// Tuning for the falling weather.
 enum WeatherPrecipitationStyle {
-    /// How many drops at each intensity.
-    ///
-    /// Higher than they look like they should be: the page is only ~330x215,
-    /// and at fifty drops that is one streak per fifteen hundred square points
-    /// - which is drizzle you have to go looking for rather than weather.
+    /// How many drops at each intensity, over a page of roughly 330x215.
     static let dropsLight = 55
     static let dropsMedium = 110
     static let dropsHeavy = 170
@@ -349,44 +244,26 @@ enum WeatherPrecipitationStyle {
     static let snowSpeed: ClosedRange<Double> = 0.10...0.22
 
     /// How far a drop leans as it falls, as a fraction of the view's width.
-    /// Rain on a still day is not vertical, and vertical rain looks like a
-    /// screensaver.
     static let rainSlant: Double = 0.055
     /// How far a flake wanders either side of its line.
     static let snowSway: Double = 9
 
     static let rainLength: ClosedRange<Double> = 10...24
     static let flakeRadius: ClosedRange<Double> = 1.0...2.4
-    /// Kept down deliberately: the page's own text sits under this, and rain
-    /// you have to look for is the point - weather, not a foreground.
+    /// Kept low: the page's own text sits under this.
     static let opacity: ClosedRange<Double> = 0.22...0.58
-    /// Thin enough to read as rain, thick enough to see on a small dark page.
     static let rainWidth: CGFloat = 1.2
 
-    /// Rain needs a real frame rate - at the glow's twelve it stutters visibly,
-    /// because a falling drop crosses several of its own lengths per frame.
+    /// Higher than the glow's: a drop crosses several of its own lengths per frame.
     static let frameRate: Double = 30
 
-    /// How far in from the top the shower fades out.
-    ///
-    /// The page clips its contents, so without this a drop is chopped
-    /// mid-streak against a dead straight line - which is what gives the whole
-    /// thing away as a drawing. Roughly a drop's own length, so a streak is
-    /// gone by the time it reaches the cut rather than fading halfway down the
-    /// page.
+    /// How far in from the top the shower fades out; roughly a drop's length.
     static let topFade: CGFloat = 22
 
-    /// How far past the bottom of the page the shower is allowed to run.
-    ///
-    /// The page stops above the dots, and the dots stop above the notch's own
-    /// edge, which left the rain ending in a band of flat black with the
-    /// weather plainly still going on above it. The shower runs on behind the
-    /// dots instead and fades out down there, where there is nothing left to
-    /// cut it. The left zone's clip is opened by the same amount to let it.
+    /// How far past the page's bottom the shower runs, behind the page dots.
     static let bottomBleed: CGFloat = 14
 
-    /// Longer than the top's: it has the bleed to fade across, and a shower
-    /// thinning out towards the ground reads better than one switched off.
+    /// Longer than the top's: it has the bleed to fade across.
     static let bottomFade: CGFloat = 30
 }
 
@@ -410,7 +287,6 @@ enum MusicPlayerImageSizes {
 }
 
 @MainActor func getClosedNotchSize(screenUUID: String? = nil) -> CGSize {
-    // Default notch size, to avoid using optionals
     var notchHeight: CGFloat = Defaults[.nonNotchHeight]
     var notchWidth: CGFloat = 185
 
@@ -420,18 +296,14 @@ enum MusicPlayerImageSizes {
         selectedScreen = NSScreen.screen(withUUID: uuid)
     }
 
-    // Check if the screen is available
     if let screen = selectedScreen {
-        // Calculate and set the exact width of the notch
         if let topLeftNotchpadding: CGFloat = screen.auxiliaryTopLeftArea?.width,
            let topRightNotchpadding: CGFloat = screen.auxiliaryTopRightArea?.width
         {
             notchWidth = screen.frame.width - topLeftNotchpadding - topRightNotchpadding + 4
         }
 
-        // Check if the Mac has a notch
         if screen.safeAreaInsets.top > 0 {
-            // This is a display WITH a notch - use notch height settings
             notchHeight = Defaults[.notchHeight]
             if Defaults[.notchHeightMode] == .matchRealNotchSize {
                 notchHeight = screen.safeAreaInsets.top
@@ -439,7 +311,6 @@ enum MusicPlayerImageSizes {
                 notchHeight = screen.frame.maxY - screen.visibleFrame.maxY
             }
         } else {
-            // This is a display WITHOUT a notch - use non-notch height settings
             notchHeight = Defaults[.nonNotchHeight]
             if Defaults[.nonNotchHeightMode] == .matchMenuBar {
                 notchHeight = screen.frame.maxY - screen.visibleFrame.maxY

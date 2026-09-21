@@ -28,18 +28,10 @@ enum LocalSendClientError: LocalizedError {
     }
 }
 
-/// Talks to peers the way LocalSend requires.
-///
-/// Two rules, both enforced during the TLS handshake rather than after it:
-/// we always present our own certificate, because a receiving LocalSend hangs
-/// up on clients without one; and a peer is only spoken to if its certificate
-/// hashes to the fingerprint we expect, so a file meant for one phone cannot
-/// be handed to whatever else answers on that address.
-///
-/// One session per peer, like the reference client. Connections are reused
-/// within a session, and a reused connection skips the handshake - so sharing
-/// one session across peers would let a later request ride an earlier peer's
-/// verified connection.
+/// Talks to peers the way LocalSend requires: always present our own
+/// certificate, and only speak to a peer whose certificate hashes to the
+/// fingerprint we expect. One session per peer, since a reused connection
+/// skips the handshake.
 actor LocalSendClient {
     private let identity: SecIdentity
     private var sessions: [String: URLSession] = [:]
@@ -50,11 +42,8 @@ actor LocalSendClient {
 
     // MARK: - Discovery
 
-    /// Say hello to a device and learn what it is.
-    ///
-    /// Pinned when an announcement has told us the fingerprint. Unpinned when
-    /// probing a bare address, in which case the device's identity is the
-    /// certificate it presented, not the fingerprint it writes in the body.
+    /// Say hello to a device and learn what it is. Unpinned when probing a bare
+    /// address, where the identity is the certificate it presented.
     func register(
         host: String, port: Int, https: Bool, expectedFingerprint: String?,
         info: LocalSendInfo, timeout: TimeInterval
@@ -75,8 +64,7 @@ actor LocalSendClient {
         if let expectedFingerprint {
             session = self.session(for: expectedFingerprint)
         } else {
-            // Its own session, thrown away afterwards: an unpinned probe must
-            // not leave a connection behind for a pinned request to reuse.
+            // Its own session: an unpinned probe leaves no connection to reuse.
             session = Self.makeSession()
         }
         defer { if expectedFingerprint == nil { session.finishTasksAndInvalidate() } }
@@ -93,11 +81,8 @@ actor LocalSendClient {
 
     // MARK: - Sending
 
-    /// Ask the device to take these files.
-    ///
-    /// Waits as long as the person on the other end takes to decide - there is
-    /// deliberately no timeout. Returns nil when the device accepted nothing,
-    /// which is a 204 or an empty token map, and is not an error.
+    /// Ask the device to take these files. No timeout: it waits on a person.
+    /// Nil when the device accepted nothing, which is not an error.
     func prepareUpload(
         to device: LocalSendDevice, info: LocalSendInfo, files: [LocalSendFile]
     ) async throws -> LocalSendPrepareUploadResponse? {
@@ -130,9 +115,8 @@ actor LocalSendClient {
         try Self.check(response, data, prepare: false)
     }
 
-    /// Tell the device to stop. Best effort: the receiver holds a single
-    /// session slot for everyone, and an abandoned session locks every other
-    /// sender out until it is cancelled - so this is always worth trying.
+    /// Tell the device to stop. Best effort, but worth trying: the receiver
+    /// has one session slot, and an abandoned session blocks every sender.
     func cancel(on device: LocalSendDevice, sessionId: String?) async {
         guard var request = try? makeRequest(
             device, path: "/cancel", query: sessionId.map { [("sessionId", $0)] } ?? [])
@@ -141,9 +125,10 @@ actor LocalSendClient {
         _ = try? await session(for: device.fingerprint).data(for: request, delegate: delegate(for: device))
     }
 
-    /// Drop the connection pool for a device that has gone.
+    /// Drop the connection pool for a device that has gone, letting whatever
+    /// is still running on it finish.
     func forget(_ fingerprint: String) {
-        sessions.removeValue(forKey: fingerprint)?.invalidateAndCancel()
+        sessions.removeValue(forKey: fingerprint)?.finishTasksAndInvalidate()
     }
 
     // MARK: - Plumbing
@@ -192,9 +177,8 @@ actor LocalSendClient {
         return request
     }
 
-    /// 403 means "declined" only in answer to prepare-upload. On an upload the
-    /// same code means a bad token or the wrong address, which is a failure,
-    /// not a decision someone made.
+    /// 403 means "declined" only for prepare-upload; on an upload it means a
+    /// bad token or the wrong address.
     private static func check(_ response: URLResponse, _ data: Data, prepare: Bool) throws {
         guard let http = response as? HTTPURLResponse else { throw LocalSendClientError.invalidResponse }
         guard !(200..<300).contains(http.statusCode) else { return }
@@ -217,8 +201,7 @@ private final class TrustDelegate: NSObject, URLSessionTaskDelegate, @unchecked 
     let expectedFingerprint: String?
     let progress: (@Sendable (Int64) -> Void)?
 
-    /// What the peer's certificate actually hashed to - its identity when we
-    /// did not know what to expect.
+    /// What the peer's certificate hashed to, for when we had no expectation.
     private(set) var observedFingerprint: String?
 
     init(identity: SecIdentity, expectedFingerprint: String?, progress: (@Sendable (Int64) -> Void)? = nil) {
@@ -233,8 +216,7 @@ private final class TrustDelegate: NSObject, URLSessionTaskDelegate, @unchecked 
     ) {
         switch challenge.protectionSpace.authenticationMethod {
         case NSURLAuthenticationMethodServerTrust:
-            // No chain, no hostname: peers are addressed by IP and their
-            // certificates are self-signed. The fingerprint is the check.
+            // No chain, no hostname: the fingerprint is the check.
             guard let trust = challenge.protectionSpace.serverTrust,
                   let chain = SecTrustCopyCertificateChain(trust) as? [SecCertificate],
                   let leaf = chain.first

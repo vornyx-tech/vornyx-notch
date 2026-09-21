@@ -11,7 +11,7 @@ struct WebShortcut: Codable, Identifiable, Equatable, Defaults.Serializable {
     let id: UUID
     var title: String
     var url: URL
-    /// Cached favicon bytes, so the grid draws instantly and offline.
+    /// Cached favicon bytes, so the grid draws offline.
     var iconData: Data?
 
     var host: String { url.host() ?? url.absoluteString }
@@ -35,14 +35,14 @@ final class WebShortcutsManager: ObservableObject {
         didSet { Defaults[.webShortcuts] = shortcuts }
     }
 
-    /// Two rows of three. More than that and the tiles get too small to hit.
+    /// Two rows of three.
     static let capacity = 6
 
     var isFull: Bool { shortcuts.count >= Self.capacity }
 
     private init() {}
 
-    /// Accepts what someone would actually paste: with or without a scheme.
+    /// Accepts a URL with or without a scheme.
     static func normalise(_ raw: String) -> URL? {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
@@ -79,9 +79,7 @@ final class WebShortcutsManager: ObservableObject {
         return name.prefix(1).uppercased() + name.dropFirst()
     }
 
-    /// Tries DuckDuckGo's icon service first because bare /favicon.ico is
-    /// missing on plenty of modern sites, then falls back to it anyway.
-    /// A failure is fine - the tile falls back to a monogram.
+    /// DuckDuckGo's icon service first: bare /favicon.ico is missing on many sites.
     private static func fetchIcon(for url: URL) async -> Data? {
         guard let host = url.host() else { return nil }
 

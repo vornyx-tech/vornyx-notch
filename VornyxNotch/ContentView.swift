@@ -411,13 +411,6 @@ struct ContentView: View {
               AirPodsLiveActivity()
                   .environmentObject(vm)
                   .transition(.opacity)
-          // Sound moved somewhere else. Below the pair's own
-          // banner, which says the same thing with the levels.
-          } else if coordinator.expandingView.type == .audioRoute && coordinator.expandingView.show
-                      && vm.notchState == .closed && !vm.hideOnClosed && Defaults[.audioRouteSneakPeek] {
-              AudioRouteLiveActivity()
-                  .environmentObject(vm)
-                  .transition(.opacity)
           // A running countdown outranks the banner's own timeout:
           // it stays for as long as it is counting, rather than
           // showing for three seconds and leaving.
@@ -431,7 +424,7 @@ struct ContentView: View {
               TimerLiveActivity()
                   .environmentObject(vm)
                   .transition(.opacity)
-          } else if coordinator.sneakPeek.show && Defaults[.inlineHUD] && (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && vm.notchState == .closed {
+          } else if coordinator.sneakPeek.show && Defaults[.inlineHUD] && (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && (coordinator.sneakPeek.type != .audioRoute) && vm.notchState == .closed {
               InlineHUD(type: $coordinator.sneakPeek.type, value: $coordinator.sneakPeek.value, icon: $coordinator.sneakPeek.icon, hoverAnimation: $isHovering, gestureProgress: $gestureProgress)
                   .transition(.opacity)
           } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .music) && vm.notchState == .closed && (musicManager.isPlaying || !musicManager.isPlayerIdle) && coordinator.musicLiveActivityEnabled && !vm.hideOnClosed {
@@ -532,11 +525,11 @@ struct ContentView: View {
             VStack(alignment: .leading) {
                 if coordinator.helloAnimationRunning {
                     Spacer()
-                    HelloAnimation(onFinish: {
+                    LogoAnimation(onFinish: {
                         vm.closeHello()
                     }).frame(
                         width: getClosedNotchSize().width,
-                        height: 80
+                        height: 72
                     )
                     .padding(.top, 40)
                     Spacer()
@@ -544,7 +537,7 @@ struct ContentView: View {
                     closedNotchContent()
 
                       if coordinator.sneakPeek.show {
-                          if (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && !Defaults[.inlineHUD] && vm.notchState == .closed {
+                          if (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && (coordinator.sneakPeek.type != .audioRoute) && !Defaults[.inlineHUD] && vm.notchState == .closed {
                               SystemEventIndicatorModifier(
                                   eventType: $coordinator.sneakPeek.type,
                                   value: $coordinator.sneakPeek.value,
@@ -563,6 +556,13 @@ struct ContentView: View {
                               .padding(.bottom, 10)
                               .padding(.leading, 4)
                               .padding(.trailing, 8)
+                          }
+                          // Sound moved somewhere else: dropped down under the
+                          // notch, the way the music sneak peek is.
+                          else if coordinator.sneakPeek.type == .audioRoute {
+                              if vm.notchState == .closed && !vm.hideOnClosed && Defaults[.audioRouteSneakPeek] {
+                                  AudioRouteSneakPeek()
+                              }
                           }
                           // Old sneak peek music
                           else if coordinator.sneakPeek.type == .music {
@@ -618,6 +618,7 @@ struct ContentView: View {
         // mistaken for the pointer leaving.
         .onChange(of: coordinator.currentView) { _, _ in holdOpenAfterResize() }
         .onChange(of: coordinator.clipboardRows) { _, _ in holdOpenAfterResize() }
+        .onChange(of: coordinator.localSendComposeGrowth) { _, _ in holdOpenAfterResize() }
         .onChange(of: dashboardGrowth) { _, _ in holdOpenAfterResize() }
         .onChange(of: showsBigScreenMirror) { _, _ in holdOpenAfterResize() }
         // The chat gives the keyboard back when it goes away; the notch is
@@ -627,6 +628,9 @@ struct ContentView: View {
             VornyxNotchSkyLightWindow.takeKeyboardFocus()
         }
         .onDrop(of: [.fileURL, .url, .utf8PlainText, .plainText, .data], delegate: GeneralDropTargetDelegate(isTargeted: $vm.generalDropTargeting))
+        .onReceive(NotificationCenter.default.publisher(for: .localSendRevealShelf)) { _ in
+            revealShelfForDelivery()
+        }
         .onChange(of: clipboardEnabled) { _, enabled in
             if !enabled && coordinator.currentView == .clipboard {
                 coordinator.currentView = .home
@@ -676,13 +680,18 @@ struct ContentView: View {
     /// by making the decision itself: on the notch, stay; not on it, close.
     ///
     /// Three seconds, because the pointer may have a long way to travel.
-    private func holdOpenAfterResize() {
+    ///
+    /// A longer hold already running is kept, not cut short: opening the shelf
+    /// for a delivery asks for longer, and the tab change it makes asks again
+    /// for the usual three seconds a moment later.
+    private func holdOpenAfterResize(for duration: TimeInterval = notchResizeGrace) {
         guard vm.notchState == .open else { return }
-        suppressHoverCloseUntil = Date().addingTimeInterval(notchResizeGrace)
+        let until = max(suppressHoverCloseUntil, Date().addingTimeInterval(duration))
+        suppressHoverCloseUntil = until
 
         resizeHoldTask?.cancel()
         resizeHoldTask = Task { @MainActor in
-            try? await Task.sleep(for: .seconds(notchResizeGrace))
+            try? await Task.sleep(for: .seconds(max(0, until.timeIntervalSinceNow)))
             guard !Task.isCancelled,
                   vm.notchState == .open,
                   !isHovering,
@@ -697,6 +706,27 @@ struct ContentView: View {
             else { return }
             vm.close()
         }
+    }
+
+    /// Files arrived over LocalSend: open on the shelf, where they flash, and
+    /// stay long enough to be seen before closing again if the pointer is not
+    /// on the notch.
+    private func revealShelfForDelivery() {
+        // One notch opens, not one per display: the one on the screen in use.
+        if Defaults[.showOnAllDisplays] {
+            let mouse = NSEvent.mouseLocation
+            guard NSScreen.screens.first(where: { $0.frame.contains(mouse) })?.displayUUID == vm.screenUUID
+            else { return }
+        }
+        // Mid-typing on another page, the page stays; the flash waits for the
+        // next look at the shelf.
+        guard !coordinator.keyboardSession || vm.notchState == .closed else { return }
+
+        withAnimation(VornyxViewCoordinator.tabChangeAnimation) {
+            coordinator.currentView = .shelf
+        }
+        if vm.notchState == .closed { doOpen() }
+        holdOpenAfterResize(for: 5)
     }
 
     private func endKeyboardSession() {
@@ -714,7 +744,7 @@ struct ContentView: View {
             + (showsBigScreenMirror
                ? mirrorBigScreenHeight.clamped(to: mirrorBigScreenHeightRange) + 8
                : 0)
-            + (showsLocalSendStrip ? localSendStripHeight + 8 : 0)
+            + (showsLocalSendStrip ? localSendStripHeight + coordinator.localSendComposeGrowth + 8 : 0)
     }
 
     /// Room for the clipboard's extra rows, which it opens out to on a press of
@@ -1163,8 +1193,16 @@ private struct NotchBackground: View, Animatable {
     private let middleDim: Double = 0.60
     /// How tall the last stretch is, over which the dimming lets go.
     private let clearingHeight: CGFloat = 64
-    /// Dimming at the bottom edge, where the glass is left nearly clear.
+    /// Dimming just above the bottom edge.
     private let bottomDim: Double = 0.40
+    /// The last sliver, where the dimming lets go almost entirely and the glass
+    /// is left as clear as it gets.
+    private let edgeHeight: CGFloat = 20
+    private let edgeDim: Double = 0.04
+    /// Part way down that sliver, so the dimming eases off instead of turning
+    /// a corner where the clearing ends - a straight ramp showed the join as a
+    /// faint line across the notch.
+    private let edgeKneeDim: Double = 0.20
 
     /// The notch's outline at this frame's radii.
     private var shape: NotchShape {
@@ -1185,6 +1223,8 @@ private struct NotchBackground: View, Animatable {
                     let bandEnd = min(1, blackBandHeight / height)
                     let fadeEnd = min(1, (blackBandHeight + fadeHeight) / height)
                     let clearingStart = min(1, max(fadeEnd, 1 - clearingHeight / height))
+                    let edgeStart = min(1, max(clearingStart, 1 - edgeHeight / height))
+                    let edgeKnee = edgeStart + (1 - edgeStart) * 0.35
 
                     LinearGradient(
                         stops: [
@@ -1192,7 +1232,9 @@ private struct NotchBackground: View, Animatable {
                             .init(color: .black, location: bandEnd),
                             .init(color: .black.opacity(middleDim), location: fadeEnd),
                             .init(color: .black.opacity(middleDim), location: clearingStart),
-                            .init(color: .black.opacity(bottomDim), location: 1),
+                            .init(color: .black.opacity(bottomDim), location: edgeStart),
+                            .init(color: .black.opacity(edgeKneeDim), location: edgeKnee),
+                            .init(color: .black.opacity(edgeDim), location: 1),
                         ],
                         startPoint: .top, endPoint: .bottom)
                 }

@@ -9,7 +9,6 @@ import AVFoundation
 import Combine
 import Defaults
 import KeyboardShortcuts
-import Sparkle
 import SwiftUI
 
 @main
@@ -17,16 +16,6 @@ struct DynamicNotchApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @Default(.menubarIcon) var showMenuBarIcon
     @Environment(\.openWindow) var openWindow
-
-    let updaterController: SPUStandardUpdaterController
-
-    init() {
-        updaterController = SPUStandardUpdaterController(
-            startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
-
-        // Initialize the settings window controller with the updater controller
-        SettingsWindowController.shared.setUpdaterController(updaterController)
-    }
 
     var body: some Scene {
         MenuBarExtra("Vornyx Notch", systemImage: "sparkle", isInserted: $showMenuBarIcon) {
@@ -36,7 +25,6 @@ struct DynamicNotchApp: App {
                 }
             }
             .keyboardShortcut(KeyEquivalent(","), modifiers: .command)
-            CheckForUpdatesView(updater: updaterController.updater)
             Divider()
             Button("Restart Vornyx Notch") {
                 ApplicationRelauncher.restart()
@@ -226,15 +214,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         guard let uuid = screen.displayUUID else { return }
         
         let screenFrame = screen.frame
-        let notchHeight = openNotchSize.height
-        let notchWidth = openNotchSize.width
-        
-        // Create notch region at the top-center of the screen where an open notch would occupy
+        let closed = getClosedNotchSize(screenUUID: uuid)
+
+        // The closed notch and a little around it - not the open notch's
+        // whole window. That window is sized for the tallest and widest the
+        // notch can ever get, a third of the screen's width and well down it,
+        // so a file dragged anywhere near the top of a Finder window opened
+        // the notch over it.
         let notchRegion = CGRect(
-            x: screenFrame.midX - notchWidth / 2,
-            y: screenFrame.maxY - notchHeight,
-            width: notchWidth,
-            height: notchHeight
+            x: screenFrame.midX - closed.width / 2 - dragOpenSlack.width,
+            y: screenFrame.maxY - closed.height - dragOpenSlack.height,
+            width: closed.width + dragOpenSlack.width * 2,
+            height: closed.height + dragOpenSlack.height
         )
         
         let detector = DragDetector(notchRegion: notchRegion)
@@ -705,6 +696,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 extension Notification.Name {
     static let selectedScreenChanged = Notification.Name("SelectedScreenChanged")
     static let notchHeightChanged = Notification.Name("NotchHeightChanged")
+    /// Files from LocalSend have landed on the shelf: open it to show them.
+    static let localSendRevealShelf = Notification.Name("LocalSendRevealShelf")
     static let showOnAllDisplaysChanged = Notification.Name("showOnAllDisplaysChanged")
     static let automaticallySwitchDisplayChanged = Notification.Name("automaticallySwitchDisplayChanged")
     static let expandedDragDetectionChanged = Notification.Name("expandedDragDetectionChanged")

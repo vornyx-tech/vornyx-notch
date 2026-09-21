@@ -11,18 +11,14 @@ import Network
 
 /// Multicast discovery, the way LocalSend does it.
 ///
-/// Announcements go to 224.0.0.167:53317 and nobody answers them over UDP. A
-/// device that hears one answers by calling `/register` on the announcer - so
-/// being findable depends on our server running, and finding someone else
-/// means calling *their* `/register` when their announcement arrives.
+/// Announcements go to 224.0.0.167:53317 and are never answered over UDP: a
+/// device that hears one calls `/register` on the announcer instead.
 ///
-/// BSD sockets rather than `NWConnectionGroup`, to copy the reference socket
-/// options exactly: address and port reuse, so LocalSend itself can run on the
-/// same Mac; a TTL of one, so announcements stay on the local network; and
-/// loopback left on, with our own messages recognised by fingerprint.
+/// BSD sockets rather than `NWConnectionGroup`, for address and port reuse so
+/// LocalSend itself can run on the same Mac. Loopback stays on, and our own
+/// announcements are recognised by fingerprint.
 final class LocalSendDiscovery: @unchecked Sendable {
-    /// An announcement from another device, and the address it came from.
-    /// The address is the datagram's source, never anything in the payload.
+    /// An announcement from another device, and the datagram's source address.
     var onAnnouncement: (@MainActor (LocalSendInfo, String) -> Void)?
 
     private let queue = DispatchQueue(label: "tech.vornyx.notch.localsend.discovery")
@@ -48,8 +44,7 @@ final class LocalSendDiscovery: @unchecked Sendable {
         setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, socklen_t(MemoryLayout<Int32>.size))
         setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &yes, socklen_t(MemoryLayout<Int32>.size))
 
-        // The wildcard address, not an interface's: that is what makes the
-        // socket receive datagrams addressed to the group.
+        // The wildcard address, so the socket receives datagrams sent to the group.
         var address = sockaddr_in()
         address.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
         address.sin_family = sa_family_t(AF_INET)
@@ -81,8 +76,7 @@ final class LocalSendDiscovery: @unchecked Sendable {
         source.resume()
         self.source = source
 
-        // Wi-Fi to Ethernet, a new network, a VPN: membership is per interface,
-        // so it has to be taken out again on whatever is new.
+        // Membership is per interface, so rejoin whenever the path changes.
         let monitor = NWPathMonitor()
         monitor.pathUpdateHandler = { [weak self] _ in
             self?.queue.async { self?.joinGroups() }
@@ -99,10 +93,8 @@ final class LocalSendDiscovery: @unchecked Sendable {
         descriptor = -1
     }
 
-    /// Three sends at roughly 100 ms, 600 ms and 2.6 s - the reference cadence.
-    ///
-    /// LocalSend never re-announces on a timer either. A device that turns up
-    /// later finds us when it announces itself, which makes us register with it.
+    /// Three sends at roughly 100 ms, 600 ms and 2.6 s, the reference cadence.
+    /// There is no timer: a device that turns up later announces itself.
     func announce(_ info: LocalSendInfo) {
         guard let payload = try? JSONEncoder().encode(info) else { return }
         var elapsed = 0.0
@@ -122,8 +114,7 @@ final class LocalSendDiscovery: @unchecked Sendable {
             var membership = ip_mreq(
                 imr_multiaddr: in_addr(s_addr: inet_addr(LocalSendProtocol.multicastGroup)),
                 imr_interface: interface.address)
-            // Fails with EADDRINUSE on an interface we already joined, which is
-            // the expected answer after a path change, not a problem.
+            // EADDRINUSE just means we already joined this interface.
             setsockopt(descriptor, IPPROTO_IP, IP_ADD_MEMBERSHIP, &membership,
                        socklen_t(MemoryLayout<ip_mreq>.size))
         }
@@ -140,8 +131,7 @@ final class LocalSendDiscovery: @unchecked Sendable {
 
         let fd = descriptor
         for interface in Self.interfaces() {
-            // A multicast datagram leaves by a single interface, so each one is
-            // picked in turn - otherwise only the default route's network hears.
+            // A datagram leaves by one interface, so pick each in turn.
             var outgoing = interface.address
             setsockopt(fd, IPPROTO_IP, IP_MULTICAST_IF, &outgoing, socklen_t(MemoryLayout<in_addr>.size))
             payload.withUnsafeBytes { bytes in

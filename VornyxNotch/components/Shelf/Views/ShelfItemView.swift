@@ -20,6 +20,9 @@ struct ShelfItemView: View {
     @State private var showStack = false
     @State private var cachedPreviewImage: NSImage?
     @State private var debouncedDropTarget = false
+    @ObservedObject private var shelf = ShelfStateViewModel.shared
+    /// Lit by the delivery flash.
+    @State private var flashing = false
 
     private var isSelected: Bool { viewModel.isSelected }
     private var shouldHideDuringDrag: Bool { selection.isDragging && selection.isSelected(item.id) && false }
@@ -40,6 +43,10 @@ struct ShelfItemView: View {
                 .padding(.vertical, 10)
                 .padding(.horizontal, 5)
                 .background(backgroundView)
+                // Small enough to stay inside the room the shelf's scroll view
+                // leaves around its items: a bigger glow was cut off flat.
+                .shadow(color: Color.effectiveAccent.opacity(flashing ? 0.7 : 0), radius: 6)
+                .scaleEffect(flashing ? 1.03 : 1)
                 .contentShape(Rectangle())
                 .animation(.easeInOut(duration: 0.1), value: debouncedDropTarget)
                 .animation(.easeInOut(duration: 0.1), value: isSelected)
@@ -71,7 +78,11 @@ struct ShelfItemView: View {
                 debouncedDropTarget = targeted
             }
         }
+        // Here since just now, from LocalSend: flash where it landed. On appear
+        // too, because the shelf is usually not on screen when it arrives.
+        .onChange(of: shelf.highlightToken) { _, _ in flashIfPending() }
         .onAppear {
+            flashIfPending()
             Task { 
                 await viewModel.loadThumbnail()
                 // Pre-render drag preview once on appear
@@ -125,8 +136,25 @@ struct ShelfItemView: View {
             )
     }
 
+    /// Twice on, twice off, in the accent colour. After a beat, so the notch
+    /// has finished opening and the first flash is not spent mid-animation.
+    private func flashIfPending() {
+        guard shelf.takeHighlight(item.id) else { return }
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(450))
+            for _ in 0..<2 {
+                withAnimation(.easeOut(duration: 0.2)) { flashing = true }
+                try? await Task.sleep(for: .milliseconds(380))
+                withAnimation(.easeIn(duration: 0.3)) { flashing = false }
+                try? await Task.sleep(for: .milliseconds(340))
+            }
+        }
+    }
+
     private var backgroundColor: Color {
-        if debouncedDropTarget {
+        if flashing {
+            return Color.effectiveAccent.opacity(0.35)
+        } else if debouncedDropTarget {
             return Color.accentColor.opacity(0.25)
         } else if isSelected {
             return Color.accentColor.opacity(0.15)
@@ -136,7 +164,9 @@ struct ShelfItemView: View {
     }
 
     private var strokeColor: Color {
-        if debouncedDropTarget {
+        if flashing {
+            return Color.effectiveAccent.opacity(0.95)
+        } else if debouncedDropTarget {
             return Color.accentColor.opacity(0.9)
         } else if isSelected {
             return Color.accentColor.opacity(0.8)
@@ -146,7 +176,9 @@ struct ShelfItemView: View {
     }
 
     private var strokeWidth: CGFloat {
-        if debouncedDropTarget {
+        if flashing {
+            return 2
+        } else if debouncedDropTarget {
             return 3
         } else if isSelected {
             return 2
