@@ -34,6 +34,9 @@ final class IndicatorsManager: ObservableObject {
     @Published private(set) var indicators = SystemIndicators()
 
     private var ticker: AnyCancellable?
+    /// Caps Lock on its own, faster ticker: reading modifier flags costs
+    /// nothing, and a second's wait for the light is a second too long.
+    private var capsTicker: AnyCancellable?
     /// Last answer from the helper, and the question still out, if any.
     private var focusFromMenuBar = false
     private var focusQuery: Task<Void, Never>?
@@ -46,16 +49,29 @@ final class IndicatorsManager: ObservableObject {
         ticker = Timer.publish(every: 1, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in self?.poll() }
+        capsTicker = Timer.publish(every: 0.2, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in self?.pollCapsLock() }
     }
 
     func stop() {
         ticker?.cancel()
         ticker = nil
+        capsTicker?.cancel()
+        capsTicker = nil
         focusQuery?.cancel()
         focusQuery = nil
     }
 
     // MARK: - Polling
+
+    private func pollCapsLock() {
+        let on = Defaults[.showCapsLockIndicator] && NSEvent.modifierFlags.contains(.capsLock)
+        guard on != indicators.capsLock else { return }
+        var next = indicators
+        next.capsLock = on
+        indicators = next
+    }
 
     private func poll() {
         var next = SystemIndicators()

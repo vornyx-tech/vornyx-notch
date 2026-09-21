@@ -67,6 +67,8 @@ private enum EdgeSignal: Equatable {
     case progress(Color, Double)
     /// One thing worth noticing: charged, or nearly empty.
     case attention(Color)
+    /// A state that is simply on, such as Caps Lock: a steady outline.
+    case steady(Color)
     /// Music is playing: the cover's own colour, barely there.
     case ambient(Color)
 }
@@ -86,6 +88,7 @@ struct NotchEdgeLight: View {
     @Default(.notchEdgeProgress) private var edgeProgress
     @Default(.notchEdgeBattery) private var edgeBattery
     @Default(.notchEdgeAmbient) private var edgeAmbient
+    @Default(.showCapsLockIndicator) private var capsLockIndicator
 
     /// True for a few seconds after the battery fills; the level then sits at
     /// 100 with nothing to mark the moment.
@@ -109,6 +112,8 @@ struct NotchEdgeLight: View {
                         breathing(halo(tint), duration: 1.1)
                     case .attention(let tint):
                         breathing(halo(tint), duration: 1.8)
+                    case .steady(let tint):
+                        halo(tint).opacity(0.85)
                     case .progress(let tint, let fraction):
                         progress(tint, fraction)
                     case .ambient(let tint):
@@ -166,6 +171,12 @@ struct NotchEdgeLight: View {
         if edgeBattery {
             if justCharged { return .attention(.green) }
             if battery.levelBattery <= 20, !battery.isPluggedIn { return .attention(.red) }
+        }
+
+        // Caps Lock has no other tell while the notch is closed: the lights in
+        // the header only exist once it is open.
+        if Defaults[.showCapsLockIndicator], monitor.indicators.capsLock {
+            return .steady(Color.effectiveAccent)
         }
 
         if edgeAmbient, !isOpen, musicManager.isPlaying {

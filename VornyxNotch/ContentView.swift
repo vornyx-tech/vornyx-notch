@@ -227,6 +227,20 @@ struct ContentView: View {
                                 handleUpGesture(translation: translation, phase: phase)
                             }
                     }
+                    // Swiping across the closed notch skips tracks. Only while
+                    // closed: open, the same swipe moves between tabs.
+                    .conditionalModifier(Defaults[.mediaSwipeGesture] && Defaults[.enableGestures]) { view in
+                        view
+                            .horizontalSwipe(threshold: 45) { direction in
+                                guard vm.notchState == .closed else { return }
+                                switch direction {
+                                case .left: MusicManager.shared.nextTrack()
+                                case .right: MusicManager.shared.previousTrack()
+                                default: break
+                                }
+                                if Defaults[.enableHaptics] { haptics.toggle() }
+                            }
+                    }
                     // The pointer's margin of error around the open notch, as
                     // transparent padding wrapped *around* the notch rather
                     // than a backdrop behind it: the notch paints an opaque
