@@ -481,7 +481,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         setupDragDetectors()
 
-        if coordinator.firstLaunch {
+        if coordinator.firstLaunch || VornyxViewCoordinator.forcesFirstOpen {
             DispatchQueue.main.async {
                 self.showOnboardingWindow()
             }
@@ -695,6 +695,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 ))
             window.isRestorable = false
             window.identifier = NSUserInterfaceItemIdentifier("OnboardingWindow")
+            // A menu bar app loses focus to every system permission prompt, and
+            // an ordinary window then sinks behind whatever was in front.
+            window.level = .floating
+            window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
             onboardingWindowController = NSWindowController(window: window)
         }
