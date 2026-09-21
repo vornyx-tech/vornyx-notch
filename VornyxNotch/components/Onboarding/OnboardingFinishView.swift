@@ -29,10 +29,9 @@ struct OnboardingFinishView: View {
                 .font(.system(size: 34, weight: .semibold))
                 .padding(.top, 22)
 
-            Text("Move the pointer to the notch to open it. Everything else,\nfrom the notch's shape to what each tab shows, is in Settings.")
+            Text("Point at the notch and it opens. The rest is in Settings.")
                 .font(.system(size: 13))
-                .foregroundStyle(.white.opacity(0.55))
-                .lineSpacing(3)
+                .foregroundStyle(.white.opacity(0.5))
                 .padding(.top, 8)
 
             Spacer(minLength: 0)

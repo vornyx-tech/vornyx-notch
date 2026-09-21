@@ -55,6 +55,7 @@ struct OnboardingView: View {
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(.bottom, 18)
 
                 OnboardingProgress(step: step)
                     .padding(.bottom, 22)
@@ -137,48 +138,39 @@ struct FeatureTourView: View {
 
     private struct Feature: Identifiable {
         let id = UUID()
-        let symbol: String
         let title: String
         let detail: String
     }
 
     private let features: [Feature] = [
-        .init(symbol: "sparkles",
-              title: "AI chat",
-              detail: "Ask a question in the notch, answered with your own Gemini key."),
-        .init(symbol: "antenna.radiowaves.left.and.right",
-              title: "LocalSend",
-              detail: "Files and text to any device on the network. No account, no cloud."),
-        .init(symbol: "cloud.sun.fill",
-              title: "Weather",
-              detail: "Now and the days ahead, on the dashboard."),
-        .init(symbol: "square.grid.2x2.fill",
-              title: "Shortcuts",
-              detail: "Your sites and tools a click away, beside the calendar and timer."),
+        .init(title: "AI chat", detail: "Your own Gemini key, no subscription"),
+        .init(title: "LocalSend", detail: "Files across the room, never the cloud"),
+        .init(title: "Weather", detail: "Today and the week, on the dashboard"),
+        .init(title: "Shortcuts", detail: "The sites you keep reopening"),
     ]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("More than a player")
+            Text("Also in here")
                 .font(.system(size: 27, weight: .semibold))
                 .padding(.top, 26)
 
-            Text("Every part of this can be switched on or off in Settings.")
+            Text("Turn any of it off in Settings.")
                 .font(.system(size: 13))
-                .foregroundStyle(.white.opacity(0.55))
+                .foregroundStyle(.white.opacity(0.5))
                 .padding(.top, 6)
 
             VStack(spacing: 0) {
                 ForEach(Array(features.enumerated()), id: \.element.id) { index, feature in
                     if index > 0 {
                         Rectangle()
-                            .fill(.white.opacity(0.08))
+                            .fill(.white.opacity(0.07))
                             .frame(height: 1)
                     }
-                    FeatureRow(symbol: feature.symbol, title: feature.title, detail: feature.detail)
+                    FeatureRow(index: index + 1, title: feature.title, detail: feature.detail)
                 }
             }
-            .padding(.top, 26)
+            .padding(.top, 24)
 
             Spacer(minLength: 16)
 
@@ -199,30 +191,28 @@ struct FeatureTourView: View {
     }
 
     private struct FeatureRow: View {
-        let symbol: String
+        let index: Int
         let title: String
         let detail: String
 
         var body: some View {
-            HStack(alignment: .top, spacing: 14) {
-                Image(systemName: symbol)
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(Color.effectiveAccent)
-                    .frame(width: 22, alignment: .center)
-                    .padding(.top, 2)
+            HStack(alignment: .firstTextBaseline, spacing: 14) {
+                Text(String(format: "%02d", index))
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .foregroundStyle(Color.effectiveAccent.opacity(0.8))
 
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(title)
-                        .font(.system(size: 14, weight: .semibold))
-                    Text(detail)
-                        .font(.system(size: 12))
-                        .foregroundStyle(.white.opacity(0.5))
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+                Text(title)
+                    .font(.system(size: 14, weight: .semibold))
 
-                Spacer(minLength: 0)
+                Spacer(minLength: 12)
+
+                Text(detail)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.white.opacity(0.45))
+                    .multilineTextAlignment(.trailing)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(.vertical, 14)
+            .padding(.vertical, 13)
         }
     }
 }
