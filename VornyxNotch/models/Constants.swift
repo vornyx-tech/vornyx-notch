@@ -269,6 +269,8 @@ extension Defaults.Keys {
     // MARK: Gestures
     static let enableGestures = Key<Bool>("enableGestures", default: true)
     static let closeGestureEnabled = Key<Bool>("closeGestureEnabled", default: true)
+    /// A horizontal swipe across the closed notch skips tracks.
+    static let mediaSwipeGesture = Key<Bool>("mediaSwipeGesture", default: true)
     static let gestureSensitivity = Key<CGFloat>("gestureSensitivity", default: 200.0)
     
     // MARK: Media playback
