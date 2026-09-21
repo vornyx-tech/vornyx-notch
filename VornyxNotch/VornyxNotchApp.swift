@@ -670,12 +670,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func showOnboardingWindow(step: OnboardingStep = .welcome) {
         if onboardingWindowController == nil {
             let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 400, height: 600),
+                contentRect: NSRect(x: 0, y: 0, width: 460, height: 640),
                 styleMask: [.titled, .fullSizeContentView],
                 backing: .buffered,
                 defer: false
             )
             window.center()
+            window.appearance = NSAppearance(named: .darkAqua)
+            window.backgroundColor = .black
             window.title = "Onboarding"
             window.titlebarAppearsTransparent = true
             window.titleVisibility = .hidden

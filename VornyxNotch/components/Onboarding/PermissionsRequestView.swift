@@ -57,10 +57,7 @@ struct PermissionRequestView: View {
             .padding(.top, 10)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-        .background(
-            VisualEffectView(material: .underWindowBackground, blendingMode: .behindWindow)
-                .ignoresSafeArea()
-        )
+
     }
 }
 
@@ -197,10 +194,7 @@ struct PermissionsChecklistView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(
-            VisualEffectView(material: .underWindowBackground, blendingMode: .behindWindow)
-                .ignoresSafeArea()
-        )
+
         .task { refresh() }
         // The location answer arrives through the manager's delegate, not from
         // the call that put the prompt up.

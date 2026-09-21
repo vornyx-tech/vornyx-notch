@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-enum OnboardingStep {
+enum OnboardingStep: Int, CaseIterable {
     case welcome
     case permissions
     case musicPermission
@@ -21,48 +21,106 @@ struct OnboardingView: View {
     let onOpenSettings: () -> Void
 
     var body: some View {
-        ZStack {
-            switch step {
-            case .welcome:
-                WelcomeView {
-                    withAnimation(.easeInOut(duration: 0.6)) {
-                        step = .permissions
-                    }
-                }
-                .transition(.opacity)
+        ZStack(alignment: .top) {
+            OnboardingBackdrop()
 
-            case .permissions:
-                PermissionsChecklistView {
-                    withAnimation(.easeInOut(duration: 0.6)) {
-                        step = .musicPermission
-                    }
-                }
-                .transition(.opacity)
+            VStack(spacing: 0) {
+                OnboardingNotchMark()
+                    .padding(.bottom, 4)
 
-            case .musicPermission:
-                MusicControllerSelectionView(
-                    onContinue: {
-                        withAnimation(.easeInOut(duration: 0.6)) {
+                ZStack {
+                    switch step {
+                    case .welcome:
+                        WelcomeView { advance(to: .permissions) }
+                            .transition(.opacity)
+
+                    case .permissions:
+                        PermissionsChecklistView { advance(to: .musicPermission) }
+                            .transition(.opacity)
+
+                    case .musicPermission:
+                        MusicControllerSelectionView(onContinue: {
                             VornyxViewCoordinator.shared.firstLaunch = false
-                            step = .features
-                        }
-                    }
-                )
-                .transition(.opacity)
+                            advance(to: .features)
+                        })
+                        .transition(.opacity)
 
-            case .features:
-                FeatureTourView {
-                    withAnimation(.easeInOut(duration: 0.6)) {
-                        step = .finished
+                    case .features:
+                        FeatureTourView { advance(to: .finished) }
+                            .transition(.opacity)
+
+                    case .finished:
+                        OnboardingFinishView(onFinish: onFinish, onOpenSettings: onOpenSettings)
+                            .transition(.opacity)
                     }
                 }
-                .transition(.opacity)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            case .finished:
-                OnboardingFinishView(onFinish: onFinish, onOpenSettings: onOpenSettings)
+                OnboardingProgress(step: step)
+                    .padding(.bottom, 22)
             }
         }
-        .frame(width: 400, height: 600)
+        .frame(width: 460, height: 640)
+        .preferredColorScheme(.dark)
+    }
+
+    private func advance(to next: OnboardingStep) {
+        withAnimation(.easeInOut(duration: 0.45)) { step = next }
+    }
+}
+
+/// Near-black with the accent bleeding in from the top, the way the notch is
+/// lit by album art.
+private struct OnboardingBackdrop: View {
+    var body: some View {
+        ZStack(alignment: .top) {
+            Color(red: 0.04, green: 0.04, blue: 0.05)
+
+            RadialGradient(
+                colors: [Color.effectiveAccent.opacity(0.38), .clear],
+                center: .top, startRadius: 0, endRadius: 360
+            )
+            .blur(radius: 40)
+
+            LinearGradient(
+                colors: [.white.opacity(0.06), .clear],
+                startPoint: .top, endPoint: .center
+            )
+        }
+        .ignoresSafeArea()
+    }
+}
+
+/// The product's own silhouette, drawn where a title bar would be.
+private struct OnboardingNotchMark: View {
+    var body: some View {
+        NotchShape(topCornerRadius: 8, bottomCornerRadius: 14)
+            .fill(.black)
+            .frame(width: 132, height: 26)
+            .overlay {
+                Image(nsImage: NSApplication.shared.applicationIconImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(height: 15)
+                    .offset(y: -1)
+            }
+            .frame(maxWidth: .infinity, alignment: .center)
+    }
+}
+
+/// One dot per step, the current one stretched into a bar.
+private struct OnboardingProgress: View {
+    let step: OnboardingStep
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(OnboardingStep.allCases, id: \.rawValue) { item in
+                Capsule()
+                    .fill(item == step ? Color.effectiveAccent : .white.opacity(0.18))
+                    .frame(width: item == step ? 18 : 6, height: 6)
+            }
+        }
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: step)
     }
 }
 
@@ -87,73 +145,88 @@ struct FeatureTourView: View {
     private let features: [Feature] = [
         .init(symbol: "sparkles",
               title: "AI chat",
-              detail: "Ask a question in the notch and get an answer with your own Gemini key."),
+              detail: "Ask a question in the notch, answered with your own Gemini key."),
         .init(symbol: "antenna.radiowaves.left.and.right",
               title: "LocalSend",
-              detail: "Send files and text to any device on the network, no account and no cloud."),
+              detail: "Files and text to any device on the network. No account, no cloud."),
         .init(symbol: "cloud.sun.fill",
               title: "Weather",
-              detail: "Current conditions and the days ahead on the dashboard."),
+              detail: "Now and the days ahead, on the dashboard."),
         .init(symbol: "square.grid.2x2.fill",
               title: "Shortcuts",
-              detail: "Your sites and tools a click away, next to the calendar and timer."),
+              detail: "Your sites and tools a click away, beside the calendar and timer."),
     ]
 
     var body: some View {
-        VStack(spacing: 18) {
-            Spacer(minLength: 8)
-
+        VStack(alignment: .leading, spacing: 0) {
             Text("More than a player")
-                .font(.title)
-                .fontWeight(.bold)
+                .font(.system(size: 27, weight: .semibold))
+                .padding(.top, 26)
 
-            Text("All of this lives in the notch, and every part of it can be turned on or off in Settings.")
-                .font(.callout)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 28)
+            Text("Every part of this can be switched on or off in Settings.")
+                .font(.system(size: 13))
+                .foregroundStyle(.white.opacity(0.55))
+                .padding(.top, 6)
 
-            VStack(alignment: .leading, spacing: 14) {
-                ForEach(features) { feature in
-                    HStack(alignment: .top, spacing: 12) {
-                        Image(systemName: feature.symbol)
-                            .font(.system(size: 17))
-                            .foregroundColor(.effectiveAccent)
-                            .frame(width: 26, alignment: .center)
-
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(feature.title)
-                                .font(.headline)
-                            Text(feature.detail)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
+            VStack(spacing: 0) {
+                ForEach(Array(features.enumerated()), id: \.element.id) { index, feature in
+                    if index > 0 {
+                        Rectangle()
+                            .fill(.white.opacity(0.08))
+                            .frame(height: 1)
                     }
+                    FeatureRow(symbol: feature.symbol, title: feature.title, detail: feature.detail)
                 }
             }
-            .padding(.horizontal, 28)
+            .padding(.top, 26)
 
-            Spacer()
+            Spacer(minLength: 16)
 
-            Button(remaining > 0 ? "Continue in \(remaining)" : "Continue", action: onContinue)
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .disabled(remaining > 0)
-                .keyboardShortcut(remaining > 0 ? nil : .defaultAction)
-                .padding(.bottom, 24)
+            Button(action: onContinue) {
+                Text(remaining > 0 ? "Continue in \(remaining)" : "Continue")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .disabled(remaining > 0)
+            .keyboardShortcut(remaining > 0 ? nil : .defaultAction)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(
-            VisualEffectView(material: .underWindowBackground, blendingMode: .behindWindow)
-                .ignoresSafeArea()
-        )
+        .padding(.horizontal, 34)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onReceive(tick) { _ in
             if remaining > 0 { remaining -= 1 }
+        }
+    }
+
+    private struct FeatureRow: View {
+        let symbol: String
+        let title: String
+        let detail: String
+
+        var body: some View {
+            HStack(alignment: .top, spacing: 14) {
+                Image(systemName: symbol)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(Color.effectiveAccent)
+                    .frame(width: 22, alignment: .center)
+                    .padding(.top, 2)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.system(size: 14, weight: .semibold))
+                    Text(detail)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.white.opacity(0.5))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 0)
+            }
+            .padding(.vertical, 14)
         }
     }
 }
 
 #Preview {
-    FeatureTourView(onContinue: {})
+    OnboardingView(onFinish: {}, onOpenSettings: {})
 }

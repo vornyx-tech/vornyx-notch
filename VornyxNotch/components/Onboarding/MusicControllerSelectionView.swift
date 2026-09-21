@@ -69,10 +69,7 @@ struct MusicControllerSelectionView: View {
                 .padding(.bottom, 24)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(
-            VisualEffectView(material: .underWindowBackground, blendingMode: .behindWindow)
-                .ignoresSafeArea()
-        )
+
     }
 }
 
@@ -136,5 +133,5 @@ extension MediaControllerType {
 
 #Preview {
     MusicControllerSelectionView(onContinue: {})
-        .frame(width: 400, height: 600)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
 }
