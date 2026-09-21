@@ -229,7 +229,12 @@ class VornyxViewCoordinator: ObservableObject {
             }
 
         Task { @MainActor in
-            helloAnimationRunning = firstLaunch || Self.forcesFirstOpen
+            // A beat after the window is up, so the greeting animates open
+            // instead of being there from the first frame.
+            if firstLaunch || Self.forcesFirstOpen {
+                try? await Task.sleep(for: .milliseconds(280))
+                helloAnimationRunning = true
+            }
 
             if Defaults[.hudReplacement] {
                 let authorized = await XPCHelperClient.shared.isAccessibilityAuthorized()

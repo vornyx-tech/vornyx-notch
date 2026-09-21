@@ -206,6 +206,10 @@ struct ContentView: View {
                             .animation(notchResizeAnimation, value: showsBigScreenMirror)
                             .animation(notchResizeAnimation, value: pods.widgetShowing)
                             .animation(notchResizeAnimation, value: openNotchContentHeight)
+                            // The first-launch greeting opening and collapsing.
+                            .animation(
+                                .spring(response: 0.62, dampingFraction: 0.86, blendDuration: 0.2),
+                                value: coordinator.helloAnimationRunning)
                     }
                     .contentShape(Rectangle())
                     .onTapGesture {
@@ -538,6 +542,9 @@ struct ContentView: View {
                     // the camera housing, so the logo starts below it.
                     .padding(.top, vm.effectiveClosedNotchHeight + 16)
                     .padding(.bottom, 24)
+                    .transition(
+                        .opacity.combined(with: .scale(scale: 0.88, anchor: .top))
+                    )
                 } else {
                     closedNotchContent()
 
