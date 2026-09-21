@@ -24,10 +24,9 @@ struct WelcomeView: View {
                 .font(.system(size: 34, weight: .semibold))
                 .padding(.top, 22)
 
-            Text("The space around the notch, put to work: music, a shelf for\nfiles, the clipboard, and a dashboard behind them.")
+            Text("Music, a shelf, the clipboard. In the notch.")
                 .font(.system(size: 13))
-                .foregroundStyle(.white.opacity(0.55))
-                .lineSpacing(3)
+                .foregroundStyle(.white.opacity(0.5))
                 .padding(.top, 8)
 
             Spacer(minLength: 0)
