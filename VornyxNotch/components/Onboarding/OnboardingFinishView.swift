@@ -17,12 +17,12 @@ struct OnboardingFinishView: View {
 
             Image(systemName: "checkmark")
                 .font(.system(size: 26, weight: .semibold))
-                .foregroundStyle(Color.effectiveAccent)
+                .foregroundStyle(Color.onboardingAccent)
                 .frame(width: 64, height: 64)
                 .background {
                     Circle()
-                        .fill(Color.effectiveAccent.opacity(0.12))
-                        .overlay(Circle().strokeBorder(Color.effectiveAccent.opacity(0.35), lineWidth: 1))
+                        .fill(Color.onboardingAccent.opacity(0.12))
+                        .overlay(Circle().strokeBorder(Color.onboardingAccent.opacity(0.35), lineWidth: 1))
                 }
 
             Text("Ready")
@@ -41,7 +41,7 @@ struct OnboardingFinishView: View {
                     Text("Start using it")
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(OnboardingPrimaryButtonStyle())
                 .controlSize(.large)
                 .keyboardShortcut(.defaultAction)
 

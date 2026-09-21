@@ -24,7 +24,7 @@ struct PermissionRequestView: View {
                 .resizable()
                 .scaledToFit()
                 .frame(width: 70, height: 56)
-                .foregroundColor(.effectiveAccent)
+                .foregroundColor(.onboardingAccent)
                 .padding(.top, 32)
 
             Text(title)
@@ -52,7 +52,7 @@ struct PermissionRequestView: View {
                 Button("Not Now") { onSkip() }
                     .buttonStyle(.bordered)
                 Button("Allow Access") { onAllow() }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(OnboardingPrimaryButtonStyle())
             }
             .padding(.top, 10)
         }
@@ -165,7 +165,7 @@ struct PermissionsChecklistView: View {
             VStack(spacing: 8) {
                 Image(systemName: "lock.shield")
                     .font(.system(size: 32))
-                    .foregroundStyle(Color.effectiveAccent)
+                    .foregroundStyle(Color.onboardingAccent)
                 Text("Permissions")
                     .font(.title)
                     .fontWeight(.semibold)
@@ -189,7 +189,7 @@ struct PermissionsChecklistView: View {
 
             if let onContinue {
                 Button("Continue") { onContinue() }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(OnboardingPrimaryButtonStyle())
                     .padding(.bottom, 20)
             }
         }
@@ -207,9 +207,9 @@ struct PermissionsChecklistView: View {
         return HStack(spacing: 12) {
             Image(systemName: kind.icon)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Color.effectiveAccent)
+                .foregroundStyle(Color.onboardingAccent)
                 .frame(width: 26, height: 26)
-                .background(Circle().fill(Color.effectiveAccent.opacity(0.14)))
+                .background(Circle().fill(Color.onboardingAccent.opacity(0.14)))
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(kind.title)
@@ -255,7 +255,7 @@ struct PermissionsChecklistView: View {
             }
         case .notAsked, .unknown:
             Button(asking == kind ? "..." : "Allow") { ask(kind) }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(OnboardingPrimaryButtonStyle())
                 .controlSize(.small)
                 .disabled(asking != nil)
         }
