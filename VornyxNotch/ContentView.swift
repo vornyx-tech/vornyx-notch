@@ -1196,18 +1196,9 @@ private struct NotchBackground: View, Animatable {
     private let fadeHeight: CGFloat = 90
     /// Dimming through the middle, where most of the white text sits.
     private let middleDim: Double = 0.60
-    /// How tall the last stretch is, over which the dimming lets go.
-    private let clearingHeight: CGFloat = 64
-    /// Dimming just above the bottom edge.
-    private let bottomDim: Double = 0.40
-    /// The last sliver, where the dimming lets go almost entirely and the glass
-    /// is left as clear as it gets.
-    private let edgeHeight: CGFloat = 20
-    private let edgeDim: Double = 0.04
-    /// Part way down that sliver, so the dimming eases off instead of turning
-    /// a corner where the clearing ends - a straight ramp showed the join as a
-    /// faint line across the notch.
-    private let edgeKneeDim: Double = 0.20
+    /// Dimming at the bottom edge. Held close to the middle value: letting it
+    /// go left a bright clear line along the bottom of the notch.
+    private let bottomDim: Double = 0.55
 
     /// The notch's outline at this frame's radii.
     private var shape: NotchShape {
@@ -1227,19 +1218,12 @@ private struct NotchBackground: View, Animatable {
                     let height = max(proxy.size.height, 1)
                     let bandEnd = min(1, blackBandHeight / height)
                     let fadeEnd = min(1, (blackBandHeight + fadeHeight) / height)
-                    let clearingStart = min(1, max(fadeEnd, 1 - clearingHeight / height))
-                    let edgeStart = min(1, max(clearingStart, 1 - edgeHeight / height))
-                    let edgeKnee = edgeStart + (1 - edgeStart) * 0.35
-
                     LinearGradient(
                         stops: [
                             .init(color: .black, location: 0),
                             .init(color: .black, location: bandEnd),
                             .init(color: .black.opacity(middleDim), location: fadeEnd),
-                            .init(color: .black.opacity(middleDim), location: clearingStart),
-                            .init(color: .black.opacity(bottomDim), location: edgeStart),
-                            .init(color: .black.opacity(edgeKneeDim), location: edgeKnee),
-                            .init(color: .black.opacity(edgeDim), location: 1),
+                            .init(color: .black.opacity(bottomDim), location: 1),
                         ],
                         startPoint: .top, endPoint: .bottom)
                 }
