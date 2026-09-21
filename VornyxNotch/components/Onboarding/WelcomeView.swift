@@ -37,7 +37,7 @@ struct WelcomeView: View {
                 Text("Get started")
                     .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(OnboardingPrimaryButtonStyle())
             .controlSize(.large)
             .keyboardShortcut(.defaultAction)
 

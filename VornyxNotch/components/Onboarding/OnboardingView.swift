@@ -7,6 +7,43 @@
 
 import SwiftUI
 
+extension Color {
+    /// Onboarding runs on its own warm accent rather than the user's, so the
+    /// first thing anyone sees looks the same on every Mac.
+    static let onboardingAccent = Color(red: 219 / 255, green: 205 / 255, blue: 184 / 255)
+}
+
+/// Filled button for onboarding: the warm accent needs a dark label, which the
+/// system's prominent style does not give it.
+struct OnboardingPrimaryButtonStyle: ButtonStyle {
+    var compact: Bool = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        Filled(configuration: configuration, compact: compact)
+    }
+
+    private struct Filled: View {
+        let configuration: Configuration
+        let compact: Bool
+        @Environment(\.isEnabled) private var isEnabled
+
+        var body: some View {
+            configuration.label
+                .font(.system(size: compact ? 12 : 14, weight: .semibold))
+                .foregroundStyle(.black.opacity(isEnabled ? 0.88 : 0.45))
+                .padding(.vertical, compact ? 5 : 10)
+                .padding(.horizontal, compact ? 14 : 18)
+                .background {
+                    Capsule().fill(
+                        Color.onboardingAccent
+                            .opacity(isEnabled ? (configuration.isPressed ? 0.72 : 1) : 0.22)
+                    )
+                }
+                .contentShape(Capsule())
+        }
+    }
+}
+
 enum OnboardingStep: Int, CaseIterable {
     case welcome
     case permissions
@@ -78,7 +115,7 @@ private struct OnboardingBackdrop: View {
             Color(red: 0.04, green: 0.04, blue: 0.05)
 
             RadialGradient(
-                colors: [Color.effectiveAccent.opacity(0.38), .clear],
+                colors: [Color.onboardingAccent.opacity(0.38), .clear],
                 center: .top, startRadius: 0, endRadius: 360
             )
             .blur(radius: 40)
@@ -117,7 +154,7 @@ private struct OnboardingProgress: View {
         HStack(spacing: 6) {
             ForEach(OnboardingStep.allCases, id: \.rawValue) { item in
                 Capsule()
-                    .fill(item == step ? Color.effectiveAccent : .white.opacity(0.18))
+                    .fill(item == step ? Color.onboardingAccent : .white.opacity(0.18))
                     .frame(width: item == step ? 18 : 6, height: 6)
             }
         }
@@ -178,7 +215,7 @@ struct FeatureTourView: View {
                 Text(remaining > 0 ? "Continue in \(remaining)" : "Continue")
                     .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(OnboardingPrimaryButtonStyle())
             .controlSize(.large)
             .disabled(remaining > 0)
             .keyboardShortcut(remaining > 0 ? nil : .defaultAction)
@@ -199,7 +236,7 @@ struct FeatureTourView: View {
             HStack(alignment: .firstTextBaseline, spacing: 14) {
                 Text(String(format: "%02d", index))
                     .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .foregroundStyle(Color.effectiveAccent.opacity(0.8))
+                    .foregroundStyle(Color.onboardingAccent.opacity(0.8))
 
                 Text(title)
                     .font(.system(size: 14, weight: .semibold))
