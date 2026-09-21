@@ -198,6 +198,8 @@ extension Defaults.Keys {
     /// A light while a Focus is on. Read from Control Center's menu bar item.
     static let showFocusIndicator = Key<Bool>("showFocusIndicator", default: false)
     static let showCapsLockIndicator = Key<Bool>("showCapsLockIndicator", default: true)
+    /// Say it under the closed notch as it happens, as well as lighting the edge.
+    static let capsLockSneakPeek = Key<Bool>("capsLockSneakPeek", default: true)
     /// The notch outlining itself while the camera or microphone is in use.
     static let recordingGlow = Key<Bool>("recordingGlow", default: true)
     /// The outline filling as a LocalSend transfer or the timer runs.

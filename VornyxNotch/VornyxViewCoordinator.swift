@@ -21,6 +21,7 @@ enum SneakContentType {
     case airpods
     case timer
     case audioRoute
+    case capsLock
 }
 
 struct sneakPeek {
@@ -286,7 +287,7 @@ class VornyxViewCoordinator: ObservableObject {
         sneakPeekDuration = duration ?? Defaults[.sneakPeekDuration]
         // Music and the output changing are news of their own; everything
         // else here stands in for the system HUD, and only when it is replaced.
-        if type != .music && type != .audioRoute {
+        if type != .music && type != .audioRoute && type != .capsLock {
             // close()
             if !Defaults[.hudReplacement] {
                 return

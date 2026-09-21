@@ -71,6 +71,11 @@ final class IndicatorsManager: ObservableObject {
         var next = indicators
         next.capsLock = on
         indicators = next
+
+        if Defaults[.capsLockSneakPeek] {
+            VornyxViewCoordinator.shared.toggleSneakPeek(
+                status: true, type: .capsLock, duration: 1.4, value: on ? 1 : 0)
+        }
     }
 
     private func poll() {

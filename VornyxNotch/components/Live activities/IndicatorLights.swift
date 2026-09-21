@@ -231,3 +231,30 @@ struct NotchEdgeLight: View {
         }
     }
 }
+
+/// Said under the closed notch when Caps Lock goes on or off.
+struct CapsLockSneakPeek: View {
+    let isOn: Bool
+
+    @State private var arrivals = 0
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 6) {
+            Image(systemName: isOn ? "capslock.fill" : "capslock")
+                .foregroundStyle(isOn ? Color.effectiveAccent : .gray)
+                .contentTransition(.symbolEffect(.replace))
+                .symbolEffect(.bounce, value: arrivals)
+                .frame(width: 18)
+
+            Text(isOn ? "Caps Lock on" : "Caps Lock off")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.gray)
+                .lineLimit(1)
+
+            Spacer(minLength: 0)
+        }
+        .padding(.bottom, 10)
+        .onAppear { arrivals += 1 }
+        .onChange(of: isOn) { _, _ in arrivals += 1 }
+    }
+}

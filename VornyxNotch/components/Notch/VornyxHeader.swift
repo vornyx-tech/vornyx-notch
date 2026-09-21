@@ -198,11 +198,15 @@ struct VornyxHeader: View {
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .frame(width: headerIconSize.width, height: headerIconSize.height)
+        // Without a shape to test against, only the glyph's own pixels counted
+        // as inside, so the lift arrived late and left early: a menu draws no
+        // background of its own to fill the frame.
+        .contentShape(Rectangle())
         // A menu takes no button style, so the lift the icon buttons beside it
         // get from `springyTile` is given to it directly.
         .scaleEffect(audioMenuHovering ? 1.08 : 1)
         .brightness(audioMenuHovering ? 0.12 : 0)
-        .animation(.spring(response: 0.26, dampingFraction: 0.7), value: audioMenuHovering)
+        .animation(.spring(response: 0.22, dampingFraction: 0.72), value: audioMenuHovering)
         .onHover { audioMenuHovering = $0 }
         .help(audio.current.map { "Output: \($0.name)" } ?? "Sound output")
         .onAppear { audio.start() }
