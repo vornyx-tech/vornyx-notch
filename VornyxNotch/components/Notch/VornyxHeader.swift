@@ -191,22 +191,22 @@ struct VornyxHeader: View {
                 openSystemSettings("x-apple.systempreferences:com.apple.preferences.Bluetooth")
             }
         } label: {
+            // The lift lives on the glyph, not on the menu: scaling the whole
+            // control moved its edge under a still pointer, which entered and
+            // left over and over and left the icon shivering.
             Image(systemName: audio.current.map(audio.symbol(for:)) ?? "speaker.wave.2.fill")
                 .foregroundStyle(.white.opacity(0.6))
                 .imageScale(.small)
+                .scaleEffect(audioMenuHovering ? 1.08 : 1)
+                .brightness(audioMenuHovering ? 0.12 : 0)
+                .animation(.spring(response: 0.22, dampingFraction: 0.72), value: audioMenuHovering)
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
+        // A fixed frame with a shape to test against: the hover area never
+        // moves, whatever the glyph inside it is doing.
         .frame(width: headerIconSize.width, height: headerIconSize.height)
-        // Without a shape to test against, only the glyph's own pixels counted
-        // as inside, so the lift arrived late and left early: a menu draws no
-        // background of its own to fill the frame.
         .contentShape(Rectangle())
-        // A menu takes no button style, so the lift the icon buttons beside it
-        // get from `springyTile` is given to it directly.
-        .scaleEffect(audioMenuHovering ? 1.08 : 1)
-        .brightness(audioMenuHovering ? 0.12 : 0)
-        .animation(.spring(response: 0.22, dampingFraction: 0.72), value: audioMenuHovering)
         .onHover { audioMenuHovering = $0 }
         .help(audio.current.map { "Output: \($0.name)" } ?? "Sound output")
         .onAppear { audio.start() }

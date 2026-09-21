@@ -33,23 +33,36 @@ struct LockScreenPlayerView: View {
         .padding(.horizontal, 22)
         .padding(.vertical, 18)
         .frame(width: Self.cardWidth)
-        .background {
-            RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 26, style: .continuous)
-                        .fill(Color(nsColor: music.avgColor).opacity(0.22))
-                }
-                .overlay {
-                    RoundedRectangle(cornerRadius: 26, style: .continuous)
-                        .strokeBorder(.white.opacity(0.16), lineWidth: 1)
-                }
-                .shadow(color: .black.opacity(0.35), radius: 24, y: 10)
-        }
+        .background { cardSurface }
+        // Room for the shadow to fade out in. Without it the window's own edge
+        // cuts the glow off square, and the card reads as a box with corners.
+        .padding(34)
         .onReceive(tick) { date in
             guard music.isPlaying else { return }
             now = date
         }
+    }
+
+    /// Liquid Glass where the system draws it, a material before that, tinted
+    /// by the cover either way.
+    @ViewBuilder
+    private var cardSurface: some View {
+        let shape = RoundedRectangle(cornerRadius: 26, style: .continuous)
+
+        ZStack {
+            if #available(macOS 26.0, *) {
+                Rectangle()
+                    .fill(.clear)
+                    .glassEffect(.regular, in: shape)
+            } else {
+                shape.fill(.ultraThinMaterial)
+            }
+
+            shape.fill(Color(nsColor: music.avgColor).opacity(0.18))
+            shape.strokeBorder(.white.opacity(0.14), lineWidth: 1)
+        }
+        .compositingGroup()
+        .shadow(color: .black.opacity(0.3), radius: 22, y: 8)
     }
 
     // MARK: - Rows
@@ -229,7 +242,7 @@ final class LockScreenPlayerController {
     }
 
     private func makeWindow() -> NSWindow {
-        let size = CGSize(width: 440, height: 190)
+        let size = CGSize(width: 440 + 68, height: 190 + 68)
         let window = VornyxNotchSkyLightWindow(
             contentRect: NSRect(origin: .zero, size: size),
             styleMask: [.borderless, .nonactivatingPanel],
@@ -244,8 +257,8 @@ final class LockScreenPlayerController {
         return window
     }
 
-    /// Centred, a third of the way down: the login field sits under the middle
-    /// of the screen, and the card belongs above it.
+    /// Centred, resting just above the user's picture rather than over the
+    /// clock: the login field sits about a fifth of the way up the screen.
     private func position(_ window: NSWindow) {
         guard let screen = NSScreen.notched ?? NSScreen.main else { return }
         let frame = screen.frame
@@ -253,7 +266,7 @@ final class LockScreenPlayerController {
         window.setFrameOrigin(
             NSPoint(
                 x: frame.midX - size.width / 2,
-                y: frame.midY + frame.height * 0.08
+                y: frame.minY + frame.height * 0.22
             )
         )
     }
