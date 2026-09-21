@@ -461,10 +461,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
+        // The notch belongs on the built-in display. A stored preference can
+        // point at a screen that is no longer the right one, so every launch
+        // claims the notched screen back; Settings can still move it after that.
+        if let notchedScreen = NSScreen.notched, let notchedUUID = notchedScreen.displayUUID,
+           coordinator.preferredScreenUUID != notchedUUID {
+            coordinator.preferredScreenUUID = notchedUUID
+        }
+
         if !Defaults[.showOnAllDisplays] {
             let viewModel = self.vm
             let window = createVornyxNotchWindow(
-                for: NSScreen.main ?? NSScreen.screens.first!, with: viewModel)
+                for: NSScreen.notched ?? NSScreen.main ?? NSScreen.screens.first!, with: viewModel)
             self.window = window
             adjustWindowPosition(changeAlpha: true)
         } else {
@@ -610,6 +618,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             if let preferredScreen = NSScreen.screen(withUUID: coordinator.preferredScreenUUID ?? "") {
                 coordinator.selectedScreenUUID = coordinator.preferredScreenUUID ?? ""
                 selectedScreen = preferredScreen
+            } else if let notchedScreen = NSScreen.notched, let notchedUUID = notchedScreen.displayUUID {
+                // Without a display picked in Settings, the notch belongs on the
+                // built-in screen, whatever macOS currently calls the main one.
+                coordinator.selectedScreenUUID = notchedUUID
+                selectedScreen = notchedScreen
             } else if Defaults[.automaticallySwitchDisplay], let mainScreen = NSScreen.main,
                       let mainUUID = mainScreen.displayUUID {
                 coordinator.selectedScreenUUID = mainUUID

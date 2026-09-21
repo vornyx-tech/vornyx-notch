@@ -22,6 +22,11 @@ extension NSScreen {
         return uuidString
     }
     
+    /// The built-in display with the hardware notch, if this Mac has one.
+    static var notched: NSScreen? {
+        NSScreen.screens.first { $0.safeAreaInsets.top > 0 }
+    }
+
     /// Find a screen by its UUID
     @MainActor static func screen(withUUID uuid: String) -> NSScreen? {
         return NSScreenUUIDCache.shared.screen(forUUID: uuid)

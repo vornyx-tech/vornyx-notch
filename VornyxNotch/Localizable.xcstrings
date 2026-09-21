@@ -3075,6 +3075,7 @@
       }
     },
     "Automatically check for updates" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -3175,6 +3176,7 @@
       }
     },
     "Automatically download updates" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -4615,6 +4617,7 @@
       }
     },
     "Check for Updates…" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -20838,6 +20841,7 @@
       }
     },
     "Software updates" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
