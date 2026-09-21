@@ -5,7 +5,6 @@
 //  Created by Alexander on 2025-06-23.
 //
 
-
 import SwiftUI
 
 struct OnboardingFinishView: View {
@@ -13,46 +12,50 @@ struct OnboardingFinishView: View {
     let onOpenSettings: () -> Void
 
     var body: some View {
-        VStack(spacing: 20) {
-            Spacer()
+        VStack(alignment: .leading, spacing: 0) {
+            Spacer(minLength: 0)
 
-            Image(systemName: "sparkles")
-                .font(.system(size: 60))
-                .foregroundColor(.effectiveAccent)
-                .padding()
-
-            Text("You're All Set!")
-                .font(.largeTitle)
-                .fontWeight(.bold)
-
-            Text("You can now enjoy the app. If you want to tweak things further, you can always visit the settings.")
-                .font(.body)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
-            
-            Spacer()
-            Spacer()
-
-            VStack(spacing: 12) {
-                Button(action: onOpenSettings) {
-                    Label("Customize in Settings", systemImage: "gear")
-                        .controlSize(.large)
+            Image(systemName: "checkmark")
+                .font(.system(size: 26, weight: .semibold))
+                .foregroundStyle(Color.effectiveAccent)
+                .frame(width: 64, height: 64)
+                .background {
+                    Circle()
+                        .fill(Color.effectiveAccent.opacity(0.12))
+                        .overlay(Circle().strokeBorder(Color.effectiveAccent.opacity(0.35), lineWidth: 1))
                 }
-                .controlSize(.large)
 
-                Button("Finish", action: onFinish)
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .keyboardShortcut(.defaultAction)
+            Text("Ready")
+                .font(.system(size: 34, weight: .semibold))
+                .padding(.top, 22)
+
+            Text("Move the pointer to the notch to open it. Everything else,\nfrom the notch's shape to what each tab shows, is in Settings.")
+                .font(.system(size: 13))
+                .foregroundStyle(.white.opacity(0.55))
+                .lineSpacing(3)
+                .padding(.top, 8)
+
+            Spacer(minLength: 0)
+
+            VStack(spacing: 10) {
+                Button(action: onFinish) {
+                    Text("Start using it")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .keyboardShortcut(.defaultAction)
+
+                Button(action: onOpenSettings) {
+                    Text("Open Settings")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
             }
-            .padding(24)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(
-            VisualEffectView(material: .underWindowBackground, blendingMode: .behindWindow)
-                .ignoresSafeArea()
-        )
+        .padding(.horizontal, 34)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
     }
 }
 
