@@ -62,9 +62,6 @@ struct OnboardingView: View {
             OnboardingBackdrop()
 
             VStack(spacing: 0) {
-                OnboardingNotchMark()
-                    .padding(.bottom, 4)
-
                 ZStack {
                     switch step {
                     case .welcome:
@@ -126,23 +123,6 @@ private struct OnboardingBackdrop: View {
             )
         }
         .ignoresSafeArea()
-    }
-}
-
-/// The product's own silhouette, drawn where a title bar would be.
-private struct OnboardingNotchMark: View {
-    var body: some View {
-        NotchShape(topCornerRadius: 8, bottomCornerRadius: 14)
-            .fill(.black)
-            .frame(width: 132, height: 26)
-            .overlay {
-                Image(nsImage: NSApplication.shared.applicationIconImage)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(height: 15)
-                    .offset(y: -1)
-            }
-            .frame(maxWidth: .infinity, alignment: .center)
     }
 }
 
