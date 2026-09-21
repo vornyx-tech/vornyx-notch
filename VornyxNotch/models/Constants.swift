@@ -167,6 +167,8 @@ extension Defaults.Keys {
     static let notchHeight = Key<CGFloat>("notchHeight", default: 32)
     //static let openLastTabByDefault = Key<Bool>("openLastTabByDefault", default: false)
     static let showOnLockScreen = Key<Bool>("showOnLockScreen", default: false)
+    /// A player card over the login screen while something is playing.
+    static let lockScreenPlayer = Key<Bool>("lockScreenPlayer", default: true)
     static let hideFromScreenRecording = Key<Bool>("hideFromScreenRecording", default: false)
     
     // MARK: Appearance

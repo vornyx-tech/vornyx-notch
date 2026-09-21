@@ -179,7 +179,9 @@ struct NotchEdgeLight: View {
             return .steady(Color.effectiveAccent)
         }
 
-        if edgeAmbient, !isOpen, musicManager.isPlaying {
+        // Open as well as closed: the glow rides the notch's own outline, so it
+        // grows and shrinks with it rather than fading out of the way.
+        if edgeAmbient, musicManager.isPlaying {
             // Lifted, or a dark cover leaves nothing to see.
             return .ambient(
                 Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.65))
@@ -208,7 +210,7 @@ struct NotchEdgeLight: View {
     /// The cover's colour on the edge, much weaker than a signal.
     private func ambient(_ tint: Color) -> some View {
         shape
-            .stroke(tint.opacity(0.5), lineWidth: 1)
+            .stroke(tint.opacity(0.5), lineWidth: isOpen ? 1.4 : 1)
             .shadow(color: tint.opacity(0.45), radius: 6)
             .shadow(color: tint.opacity(0.25), radius: 16)
     }
