@@ -151,7 +151,13 @@ final class YouTubeMusicController: MediaControllerProtocol {
                     )
                     
                     for await notification in launchNotifications {
-                        await self?.handleAppLaunched(notification)
+                        // Only the identifier crosses over: a Notification is
+                        // not Sendable, and handing one to another isolation
+                        // domain traps at runtime.
+                        let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey]
+                            as? NSRunningApplication
+                        let bundleID = app?.bundleIdentifier
+                        await self?.handleAppLaunched(bundleID: bundleID)
                     }
                 }
                 
@@ -161,25 +167,26 @@ final class YouTubeMusicController: MediaControllerProtocol {
                     )
                     
                     for await notification in terminateNotifications {
-                        await self?.handleAppTerminated(notification)
+                        let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey]
+                            as? NSRunningApplication
+                        let bundleID = app?.bundleIdentifier
+                        await self?.handleAppTerminated(bundleID: bundleID)
                     }
                 }
             }
         }
     }
     
-    private func handleAppLaunched(_ notification: Notification) async {
-        guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
-              app.bundleIdentifier == configuration.bundleIdentifier else {
+    private func handleAppLaunched(bundleID: String?) async {
+        guard bundleID == configuration.bundleIdentifier else {
             return
         }
         
         await initializeIfAppActive()
     }
     
-    private func handleAppTerminated(_ notification: Notification) async {
-        guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
-              app.bundleIdentifier == configuration.bundleIdentifier else {
+    private func handleAppTerminated(bundleID: String?) async {
+        guard bundleID == configuration.bundleIdentifier else {
             return
         }
         
