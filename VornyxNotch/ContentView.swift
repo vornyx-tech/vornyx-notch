@@ -524,15 +524,20 @@ struct ContentView: View {
         VStack(alignment: .leading) {
             VStack(alignment: .leading) {
                 if coordinator.helloAnimationRunning {
-                    Spacer()
+                    // No spacers here: the greeting runs while the notch is
+                    // closed, where the layout takes its height from content.
+                    // A spacer would take the whole window and hang the notch
+                    // halfway down the screen.
                     LogoAnimation(onFinish: {
                         vm.closeHello()
                     }).frame(
                         width: getClosedNotchSize().width,
                         height: 72
                     )
-                    .padding(.top, 40)
-                    Spacer()
+                    // Clears the hardware notch: the top of the shape is behind
+                    // the camera housing, so the logo starts below it.
+                    .padding(.top, vm.effectiveClosedNotchHeight + 16)
+                    .padding(.bottom, 24)
                 } else {
                     closedNotchContent()
 

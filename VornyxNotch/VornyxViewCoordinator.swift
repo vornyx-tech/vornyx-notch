@@ -97,6 +97,16 @@ class VornyxViewCoordinator: ObservableObject {
     private var hudEnableTask: Task<Void, Never>?
 
     @AppStorage("firstLaunch") var firstLaunch: Bool = true
+
+    /// Replays the first-launch greeting without clearing defaults.
+    /// Run with VORNYX_FIRST_OPEN=1 in the scheme's environment.
+    static var forcesFirstOpen: Bool {
+        #if DEBUG
+        ProcessInfo.processInfo.environment["VORNYX_FIRST_OPEN"] == "1"
+        #else
+        false
+        #endif
+    }
     @AppStorage("showWhatsNew") var showWhatsNew: Bool = true
     @AppStorage("musicLiveActivityEnabled") var musicLiveActivityEnabled: Bool = true
     @AppStorage("currentMicStatus") var currentMicStatus: Bool = true
@@ -135,7 +145,7 @@ class VornyxViewCoordinator: ObservableObject {
         }
     }
 
-    @Published var selectedScreenUUID: String = NSScreen.main?.displayUUID ?? ""
+    @Published var selectedScreenUUID: String = NSScreen.notched?.displayUUID ?? NSScreen.main?.displayUUID ?? ""
 
     @Published var optionKeyPressed: Bool = true
     private var accessibilityObserver: Any?
@@ -202,7 +212,7 @@ class VornyxViewCoordinator: ObservableObject {
             }
 
         Task { @MainActor in
-            helloAnimationRunning = firstLaunch
+            helloAnimationRunning = firstLaunch || Self.forcesFirstOpen
 
             if Defaults[.hudReplacement] {
                 let authorized = await XPCHelperClient.shared.isAccessibilityAuthorized()
