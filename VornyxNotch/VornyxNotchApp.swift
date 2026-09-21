@@ -81,6 +81,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @MainActor
     func onScreenLocked(_ notification: Notification) {
         isScreenLocked = true
+        LockScreenPlayerController.shared.screenLocked()
         if !Defaults[.showOnLockScreen] {
             cleanupWindows()
         } else {
@@ -91,6 +92,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @MainActor
     func onScreenUnlocked(_ notification: Notification) {
         isScreenLocked = false
+        LockScreenPlayerController.shared.screenUnlocked()
         if !Defaults[.showOnLockScreen] {
             adjustWindowPosition(changeAlpha: true)
         } else {
