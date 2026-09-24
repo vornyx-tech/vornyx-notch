@@ -28,6 +28,9 @@ import Foundation
     // The connected VPN, from scutil: name, bundleID, connectedAt (seconds
     // since 1970). Nil when none is connected.
     func connectedVPN(with reply: @escaping (NSDictionary?) -> Void)
+    // Stops a screenshot-toolbar recording: SIGINT to screencapture, as its
+    // own stop button does.
+    func stopScreenCapture()
 }
 
 /*

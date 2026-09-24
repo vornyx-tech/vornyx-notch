@@ -117,14 +117,17 @@
 		AA0000000000000000000B02 /* NotchContentRegions.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000B01 /* NotchContentRegions.swift */; };
 		AA00000000000000000C02 /* KeyCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000C01 /* KeyCapture.swift */; };
 		AA00000000000000000C12 /* AirPodsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000C11 /* AirPodsManager.swift */; };
+		56C8258AFE81D689103072F2 /* BluetoothAccess.swift in Sources */ = {isa = PBXBuildFile; fileRef = B378EC3156C8258AFE81D689 /* BluetoothAccess.swift */; };
 		291720901880133936867123 /* BluetoothDeviceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DCA69992917209018801339 /* BluetoothDeviceManager.swift */; };
 		AA00000000000000000C22 /* AirPodsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000C21 /* AirPodsView.swift */; };
 		AA00000000000000000D02 /* CountdownManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000D01 /* CountdownManager.swift */; };
 		62D4B824E3C0EAE2C0CEEE5A /* VPNManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB41599462D4B824E3C0EAE2 /* VPNManager.swift */; };
+		8DE3D748532F25E5EB88CADE /* ScreenRecordingManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79F7D8038DE3D748532F25E5 /* ScreenRecordingManager.swift */; };
 		729EF7C002F107404C4B8131 /* HotspotManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1557AEEA729EF7C002F10740 /* HotspotManager.swift */; };
 		883060E0C6E7571EB32292D9 /* BannerPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D7C6233883060E0C6E7571E /* BannerPreview.swift */; };
 		AA00000000000000000D12 /* StatsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000D11 /* StatsManager.swift */; };
 		AA00000000000000000D22 /* TimerLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000D21 /* TimerLiveActivity.swift */; };
+		F84CC566F00845C2F165C780 /* RecordingLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 356F55D6F84CC566F00845C2 /* RecordingLiveActivity.swift */; };
 		15826A9760E22569D0C7A426 /* LiveCompanion.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE1F2F2315826A9760E22569 /* LiveCompanion.swift */; };
 		C725BCA59981ABD5BC9AB721 /* HotspotLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 446FE063C725BCA59981ABD5 /* HotspotLiveActivity.swift */; };
 		AEF9DF0BBC6E2FFDF03A1315 /* DropDownBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0281034EAEF9DF0BBC6E2FFD /* DropDownBanner.swift */; };
@@ -313,14 +316,17 @@
 		AA0000000000000000000B01 /* NotchContentRegions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchContentRegions.swift; sourceTree = "<group>"; };
 		AA00000000000000000C01 /* KeyCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyCapture.swift; sourceTree = "<group>"; };
 		AA00000000000000000C11 /* AirPodsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirPodsManager.swift; sourceTree = "<group>"; };
+		B378EC3156C8258AFE81D689 /* BluetoothAccess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BluetoothAccess.swift; sourceTree = "<group>"; };
 		2DCA69992917209018801339 /* BluetoothDeviceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BluetoothDeviceManager.swift; sourceTree = "<group>"; };
 		AA00000000000000000C21 /* AirPodsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirPodsView.swift; sourceTree = "<group>"; };
 		AA00000000000000000D01 /* CountdownManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CountdownManager.swift; sourceTree = "<group>"; };
 		BB41599462D4B824E3C0EAE2 /* VPNManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VPNManager.swift; sourceTree = "<group>"; };
+		79F7D8038DE3D748532F25E5 /* ScreenRecordingManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenRecordingManager.swift; sourceTree = "<group>"; };
 		1557AEEA729EF7C002F10740 /* HotspotManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotspotManager.swift; sourceTree = "<group>"; };
 		8D7C6233883060E0C6E7571E /* BannerPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BannerPreview.swift; sourceTree = "<group>"; };
 		AA00000000000000000D11 /* StatsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsManager.swift; sourceTree = "<group>"; };
 		AA00000000000000000D21 /* TimerLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerLiveActivity.swift; sourceTree = "<group>"; };
+		356F55D6F84CC566F00845C2 /* RecordingLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingLiveActivity.swift; sourceTree = "<group>"; };
 		AE1F2F2315826A9760E22569 /* LiveCompanion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveCompanion.swift; sourceTree = "<group>"; };
 		446FE063C725BCA59981ABD5 /* HotspotLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotspotLiveActivity.swift; sourceTree = "<group>"; };
 		0281034EAEF9DF0BBC6E2FFD /* DropDownBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DropDownBanner.swift; sourceTree = "<group>"; };
@@ -574,9 +580,11 @@
 				AA00000000000000000D11 /* StatsManager.swift */,
 				AA00000000000000000D01 /* CountdownManager.swift */,
 				BB41599462D4B824E3C0EAE2 /* VPNManager.swift */,
+				79F7D8038DE3D748532F25E5 /* ScreenRecordingManager.swift */,
 				1557AEEA729EF7C002F10740 /* HotspotManager.swift */,
 				8D7C6233883060E0C6E7571E /* BannerPreview.swift */,
 				AA00000000000000000C11 /* AirPodsManager.swift */,
+				B378EC3156C8258AFE81D689 /* BluetoothAccess.swift */,
 				2DCA69992917209018801339 /* BluetoothDeviceManager.swift */,
 				149E0B962C737D00006418B1 /* WebcamManager.swift */,
 				14C08BB52C8DE42D000F8AA0 /* CalendarManager.swift */,
@@ -809,6 +817,7 @@
 				14D570CC2C5F4BB70011E668 /* VornyxBattery.swift */,
 				AA00000000000000000D41 /* IndicatorLights.swift */,
 				AA00000000000000000D21 /* TimerLiveActivity.swift */,
+				356F55D6F84CC566F00845C2 /* RecordingLiveActivity.swift */,
 				AE1F2F2315826A9760E22569 /* LiveCompanion.swift */,
 				446FE063C725BCA59981ABD5 /* HotspotLiveActivity.swift */,
 				0281034EAEF9DF0BBC6E2FFD /* DropDownBanner.swift */,
@@ -1092,6 +1101,7 @@
 				AA00000000000000000D42 /* IndicatorLights.swift in Sources */,
 				AA00000000000000000D32 /* IndicatorsManager.swift in Sources */,
 				AA00000000000000000D22 /* TimerLiveActivity.swift in Sources */,
+				F84CC566F00845C2F165C780 /* RecordingLiveActivity.swift in Sources */,
 				15826A9760E22569D0C7A426 /* LiveCompanion.swift in Sources */,
 				C725BCA59981ABD5BC9AB721 /* HotspotLiveActivity.swift in Sources */,
 				AEF9DF0BBC6E2FFDF03A1315 /* DropDownBanner.swift in Sources */,
@@ -1103,10 +1113,12 @@
 				AA00000000000000000D12 /* StatsManager.swift in Sources */,
 				AA00000000000000000D02 /* CountdownManager.swift in Sources */,
 				62D4B824E3C0EAE2C0CEEE5A /* VPNManager.swift in Sources */,
+				8DE3D748532F25E5EB88CADE /* ScreenRecordingManager.swift in Sources */,
 				729EF7C002F107404C4B8131 /* HotspotManager.swift in Sources */,
 				883060E0C6E7571EB32292D9 /* BannerPreview.swift in Sources */,
 				AA00000000000000000C22 /* AirPodsView.swift in Sources */,
 				AA00000000000000000C12 /* AirPodsManager.swift in Sources */,
+				56C8258AFE81D689103072F2 /* BluetoothAccess.swift in Sources */,
 				291720901880133936867123 /* BluetoothDeviceManager.swift in Sources */,
 				AA00000000000000000C02 /* KeyCapture.swift in Sources */,
 				118D1FD12E98FF5F00A2FF63 /* SharingStateManager.swift in Sources */,

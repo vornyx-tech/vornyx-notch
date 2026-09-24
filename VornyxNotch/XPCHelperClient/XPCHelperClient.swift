@@ -307,6 +307,17 @@ extension XPCHelperClient {
     }
 }
 
+extension XPCHelperClient {
+    nonisolated func stopScreenCapture() {
+        Task {
+            let service = await MainActor.run { ensureRemoteService() }
+            try? await service.withService { service in
+                service.stopScreenCapture()
+            }
+        }
+    }
+}
+
 struct ConnectedVPN: Equatable {
     let id: String
     let name: String

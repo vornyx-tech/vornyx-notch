@@ -315,13 +315,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Cheap to keep running: two IO registry notifications and a two-minute
         // backstop, no polling and no permission prompt.
-        AirPodsManager.shared.start()
+        // Both register for IOBluetooth's connect notifications, which block
+        // until the Bluetooth permission is answered; see BluetoothAccess.
+        BluetoothAccess.shared.whenAllowed {
+            AirPodsManager.shared.start()
+            BluetoothDeviceManager.shared.start()
+        }
         IndicatorsManager.shared.start()
         // One path monitor and a thirty-second backstop; the helper runs
         // scutil only when either fires.
         VPNManager.shared.start()
-        BluetoothDeviceManager.shared.start()
         HotspotManager.shared.start()
+        ScreenRecordingManager.shared.start()
         BannerPreview.shared.listen()
         // Two CoreAudio property listeners. Started here rather than by the
         // header's picker, which only appears once the notch has been opened -

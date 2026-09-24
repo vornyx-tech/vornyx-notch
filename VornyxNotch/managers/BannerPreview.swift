@@ -27,6 +27,7 @@ final class BannerPreview: ObservableObject {
         case focusOn, focusOff, vpnConnected, vpnDisconnected
         case batteryLow, batteryFull, bluetooth, hotspot, timer, timerEnd, lockScreen
         case airPodsPro, airPods3, airPods2, airPodsMax, speaker
+        case screenRecording, charging, unplugged
 
         var id: String { rawValue }
 
@@ -48,6 +49,9 @@ final class BannerPreview: ObservableObject {
             case .airPods2: return "AirPods 2"
             case .airPodsMax: return "AirPods Max"
             case .speaker: return "Speaker"
+            case .screenRecording: return "Screen recording"
+            case .charging: return "Charging"
+            case .unplugged: return "Unplugged"
             }
         }
     }
@@ -57,6 +61,10 @@ final class BannerPreview: ObservableObject {
     @Published private(set) var battery: (alert: BatteryStatusViewModel.BatteryAlert, level: Int)?
     @Published private(set) var bluetooth: ConnectedBluetoothDevice?
     @Published private(set) var hotspot = false
+    /// A recording "running" since this date.
+    @Published private(set) var recording: Date?
+    /// Plugged in or not, at this level, this many minutes from full.
+    @Published private(set) var power: (pluggedIn: Bool, level: Int, minutesToFull: Int)?
 
     private let log = Logger(subsystem: "tech.vornyx.notch", category: "Preview")
     private var clear: Task<Void, Never>?
@@ -82,7 +90,7 @@ final class BannerPreview: ObservableObject {
     /// Settings closes it first.
     func show(_ kind: Kind) {
         clear?.cancel()
-        focus = nil; vpn = nil; battery = nil; bluetooth = nil; hotspot = false
+        focus = nil; vpn = nil; battery = nil; bluetooth = nil; hotspot = false; recording = nil; power = nil
         let coordinator = VornyxViewCoordinator.shared
 
         switch kind {
@@ -127,6 +135,15 @@ final class BannerPreview: ObservableObject {
             }
             bluetooth = BluetoothDeviceManager.device(for: pair)
             coordinator.announceBluetooth()
+        case .screenRecording:
+            recording = Date().addingTimeInterval(-42)
+            coordinator.announceScreenRecording()
+        case .charging:
+            power = (true, 67, 83)
+            coordinator.toggleExpandingView(status: true, type: .battery)
+        case .unplugged:
+            power = (false, 67, 0)
+            coordinator.toggleExpandingView(status: true, type: .battery)
         case .speaker:
             bluetooth = ConnectedBluetoothDevice(name: "JBL Flip 6", symbol: "hifispeaker.fill", battery: 58)
             coordinator.announceBluetooth()
@@ -144,14 +161,14 @@ final class BannerPreview: ObservableObject {
         // The hotspot stays on for a while after its banner, so what the notch
         // shows while one is in use - alone, or beside the music - can be seen.
         let hold: Duration = switch kind {
-        case .hotspot: .seconds(15)
+        case .hotspot, .screenRecording: .seconds(15)
         case .focusOn: .seconds(IndicatorsManager.focusInlineSeconds)
         default: .seconds(4)
         }
         clear = Task { [weak self] in
             try? await Task.sleep(for: hold)
             guard let self, !Task.isCancelled else { return }
-            self.focus = nil; self.vpn = nil; self.battery = nil; self.bluetooth = nil; self.hotspot = false
+            self.focus = nil; self.vpn = nil; self.battery = nil; self.bluetooth = nil; self.hotspot = false; self.recording = nil; self.power = nil
         }
     }
 }

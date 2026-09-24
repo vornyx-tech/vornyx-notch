@@ -27,6 +27,7 @@ enum SneakContentType {
     case batteryAlert
     case bluetooth
     case hotspot
+    case screenRecording
 }
 
 struct sneakPeek {
@@ -425,6 +426,11 @@ class VornyxViewCoordinator: ObservableObject {
     /// Say in the closed notch that a Focus went on or off.
     func announceFocus() {
         toggleExpandingView(status: true, type: .focus)
+    }
+
+    /// Say in the closed notch that the screen is being recorded.
+    func announceScreenRecording() {
+        toggleExpandingView(status: true, type: .screenRecording)
     }
 
     /// Say in the closed notch that the Mac joined a Personal Hotspot.

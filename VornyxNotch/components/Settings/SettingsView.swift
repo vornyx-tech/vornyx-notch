@@ -474,6 +474,14 @@ struct Charge: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                Defaults.Toggle(key: .screenRecordingLiveActivity) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Screen recording in the notch")
+                        Text("A red light and the running time while the screen is recorded or shared, with Stop for the screenshot toolbar's recordings.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 Defaults.Toggle(key: .hotspotLiveActivity) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Personal Hotspot in the notch")
