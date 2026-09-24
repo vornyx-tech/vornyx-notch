@@ -26,24 +26,56 @@ struct HotspotLiveActivity: View {
                 .fill(.black)
                 .frame(width: vm.closedNotchSize.width - cornerRadiusInsets.closed.top)
 
-            Text("On")
-                .font(.system(size: 11, weight: .semibold, design: .rounded))
-                .foregroundStyle(.green)
-                .fixedSize()
+            HotspotUsage()
                 .frame(width: side, height: side)
         }
         .frame(height: vm.effectiveClosedNotchHeight, alignment: .center)
     }
 }
 
-/// The hotspot's symbol alone, for joining another activity on its left.
+/// The hotspot's symbol, with a slow green glow breathing behind it.
 struct HotspotSymbol: View {
     let side: CGFloat
 
+    @State private var glowing = false
+
     var body: some View {
         Image(systemName: "personalhotspot")
-            .font(.system(size: 12, weight: .bold))
+            .font(.system(size: 15, weight: .bold))
             .foregroundStyle(.green)
+            .background {
+                Circle()
+                    .fill(.green)
+                    .frame(width: 16, height: 16)
+                    .blur(radius: glowing ? 7 : 4)
+                    .opacity(glowing ? 0.55 : 0.12)
+                    .scaleEffect(glowing ? 1.25 : 0.8)
+            }
+            .shadow(color: .green.opacity(glowing ? 0.7 : 0.2), radius: glowing ? 4 : 1)
             .frame(width: side, height: side)
+            .onAppear {
+                withAnimation(.easeInOut(duration: 2.2).repeatForever(autoreverses: true)) {
+                    glowing = true
+                }
+            }
+    }
+}
+
+/// How much of the phone's data the hotspot has used, or On before any has.
+struct HotspotUsage: View {
+    @ObservedObject private var hotspot = HotspotManager.shared
+    @ObservedObject private var preview = BannerPreview.shared
+
+    var body: some View {
+        let bytes = preview.hotspot ? 84_000_000 : hotspot.sessionBytes
+
+        Text(bytes >= 1_000_000 ? HotspotManager.compact(bytes) : "On")
+            .font(.system(size: 10, weight: .semibold, design: .rounded))
+            .monospacedDigit()
+            .foregroundStyle(.green)
+            .contentTransition(.numericText())
+            .animation(.smooth, value: bytes / 1_000_000)
+            .fixedSize()
+            .help("Mobile data used through the hotspot since the Mac joined it")
     }
 }

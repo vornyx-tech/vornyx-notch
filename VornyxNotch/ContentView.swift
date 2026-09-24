@@ -111,7 +111,7 @@ struct ContentView: View {
         } else if showsMusicActivity || showsHotspotActivity {
             chinWidth += (2 * max(0, vm.effectiveClosedNotchHeight - 12) + 20)
             if showsHotspotAlongside {
-                chinWidth += 2 * (max(0, vm.effectiveClosedNotchHeight - 12) + 8)
+                chinWidth += 2 * (hotspotSlotWidth + 8)
             }
         } else if !coordinator.expandingView.show && vm.notchState == .closed
             && (!musicManager.isPlaying && musicManager.isPlayerIdle) && Defaults[.showNotHumanFace]
@@ -395,6 +395,10 @@ struct ContentView: View {
         (hotspot.isActive || bannerPreview.hotspot) && Defaults[.hotspotLiveActivity]
             && vm.notchState == .closed && !vm.hideOnClosed && !coordinator.expandingView.show
     }
+
+    /// Each side the hotspot adds to the music: room for "84M" on the right,
+    /// and the same on the left so the camera stays centred.
+    private var hotspotSlotWidth: CGFloat { max(26, vm.effectiveClosedNotchHeight - 6) }
 
     /// Two things to show at once: the music or the timer keeps the notch,
     /// and the hotspot's symbol joins it on the far left.
@@ -984,7 +988,7 @@ struct ContentView: View {
     func MusicLiveActivity() -> some View {
         HStack {
             if showsHotspotAlongside {
-                HotspotSymbol(side: max(0, vm.effectiveClosedNotchHeight - 12))
+                HotspotSymbol(side: hotspotSlotWidth)
                     .transition(.notchInline)
             }
 
@@ -1079,10 +1083,11 @@ struct ContentView: View {
                 radius: 5))
 
             // The same width again on the right, so the camera stays in the
-            // middle of the black when the hotspot widens the left.
+            // middle of the black: the data the hotspot has used goes there.
             if showsHotspotAlongside {
-                Color.clear
-                    .frame(width: max(0, vm.effectiveClosedNotchHeight - 12))
+                HotspotUsage()
+                    .frame(width: hotspotSlotWidth)
+                    .transition(.notchInline)
             }
         }
         .frame(

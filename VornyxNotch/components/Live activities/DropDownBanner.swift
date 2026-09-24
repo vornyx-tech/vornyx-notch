@@ -170,7 +170,7 @@ struct DropDownBanner: View {
     private var hotspotRow: some View {
         Group {
             Image(systemName: "personalhotspot")
-                .font(.system(size: 20, weight: .semibold))
+                .font(.system(size: 24, weight: .semibold))
                 .foregroundStyle(.green)
                 .symbolEffect(.pulse)
                 .frame(width: 30)
