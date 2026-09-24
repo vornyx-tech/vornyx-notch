@@ -11,6 +11,7 @@ import SwiftUI
 /// A row of small lights, shown only for what is actually on.
 struct IndicatorLights: View {
     @ObservedObject private var monitor = IndicatorsManager.shared
+    @ObservedObject private var preview = BannerPreview.shared
 
     /// Bigger in the open notch.
     var size: CGFloat = 7
@@ -26,6 +27,7 @@ struct IndicatorLights: View {
             }
         }
         .animation(.smooth(duration: 0.2), value: monitor.indicators)
+        .animation(.smooth(duration: 0.2), value: preview.focus?.on)
     }
 
     private struct Light {
@@ -45,8 +47,11 @@ struct IndicatorLights: View {
         if state.microphone {
             lights.append(.init(symbol: "mic.fill", tint: .orange, help: "Microphone in use"))
         }
-        if state.focus {
-            lights.append(.init(symbol: "moon.fill", tint: .purple, help: "Focus is on"))
+        if state.focus || preview.focus?.on == true {
+            // The mode's own symbol and colour when it is known - a briefcase
+            // for Work - so the light says which Focus, not only that one is on.
+            let mode = preview.focus?.mode ?? monitor.focusMode ?? .doNotDisturb
+            lights.append(.init(symbol: mode.symbol, tint: mode.tint, help: "\(mode.name) is on"))
         }
         if state.capsLock {
             lights.append(.init(

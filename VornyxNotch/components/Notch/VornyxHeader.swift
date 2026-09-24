@@ -55,7 +55,13 @@ struct VornyxHeader: View {
                     } else {
                         // Ahead of the buttons, so the lights sit nearest the
                         // middle of the notch where the eye already is.
-                        IndicatorLights(size: 9)
+                        // Header-icon sized, and the first thing to go when
+                        // the row runs out of room.
+                        ViewThatFits(in: .horizontal) {
+                            IndicatorLights(size: 12)
+                            EmptyView()
+                        }
+                        .layoutPriority(-1)
                         if Defaults[.showAudioPicker] {
                             audioOutputMenu
                         }
