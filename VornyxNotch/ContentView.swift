@@ -26,6 +26,8 @@ struct ContentView: View {
     @ObservedObject var countdown = CountdownManager.shared
     @ObservedObject var localSend = LocalSendManager.shared
     @ObservedObject var pods = AirPodsManager.shared
+    @ObservedObject var hotspot = HotspotManager.shared
+    @ObservedObject var bannerPreview = BannerPreview.shared
     @State private var hoverTask: Task<Void, Never>?
     @State private var isHovering: Bool = false
     @State private var resizeHoldTask: Task<Void, Never>?
@@ -106,10 +108,7 @@ struct ContentView: View {
             && vm.notchState == .closed && Defaults[.showPowerStatusNotifications]
         {
             chinWidth = 640
-        } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .music)
-            && vm.notchState == .closed && (musicManager.isPlaying || !musicManager.isPlayerIdle)
-            && coordinator.musicLiveActivityEnabled && !vm.hideOnClosed
-        {
+        } else if showsMusicActivity || showsHotspotActivity {
             chinWidth += (2 * max(0, vm.effectiveClosedNotchHeight - 12) + 20)
         } else if !coordinator.expandingView.show && vm.notchState == .closed
             && (!musicManager.isPlaying && musicManager.isPlayerIdle) && Defaults[.showNotHumanFace]
@@ -190,6 +189,20 @@ struct ContentView: View {
                 // size, so letting it report that size keeps the hover region
                 // below in step with what is actually drawn.
                 mainLayout
+                    // The second activity, beside the notch rather than in it.
+                    .overlay(alignment: .topTrailing) {
+                        if showsHotspotBubble {
+                            NotchSideBubble {
+                                Image(systemName: "personalhotspot")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundStyle(.green)
+                            }
+                            .environmentObject(vm)
+                            .offset(x: vm.effectiveClosedNotchHeight + 6 + 6)
+                            .transition(.notchInline)
+                        }
+                    }
+                    .animation(.notchBanner, value: showsHotspotBubble)
                     .conditionalModifier(true) { view in
                         let openAnimation = Animation.spring(response: 0.42, dampingFraction: 0.8, blendDuration: 0)
                         let closeAnimation = Animation.spring(response: 0.45, dampingFraction: 1.0, blendDuration: 0)
@@ -217,6 +230,7 @@ struct ContentView: View {
                             // next one: the shape and its corners ride one
                             // spring with the content inside.
                             .animation(.notchBanner, value: showsDropDownBanner)
+                            .animation(.notchBanner, value: showsHotspotActivity)
                             .animation(.notchBanner, value: coordinator.expandingView.show)
                             .animation(.notchBanner, value: coordinator.expandingView.type)
                             // The first-launch greeting opening and collapsing.
@@ -378,6 +392,27 @@ struct ContentView: View {
         }
     }
 
+    /// The music activity is in the closed notch - the same test its own arm
+    /// of the banner chain makes.
+    private var showsMusicActivity: Bool {
+        (!coordinator.expandingView.show || coordinator.expandingView.type == .music)
+            && vm.notchState == .closed && (musicManager.isPlaying || !musicManager.isPlayerIdle)
+            && coordinator.musicLiveActivityEnabled && !vm.hideOnClosed
+    }
+
+    /// A Personal Hotspot is in use and has somewhere to show: the closed
+    /// notch, with no banner passing through.
+    private var showsHotspotActivity: Bool {
+        (hotspot.isActive || bannerPreview.hotspot) && Defaults[.hotspotLiveActivity]
+            && vm.notchState == .closed && !vm.hideOnClosed && !coordinator.expandingView.show
+    }
+
+    /// Two things to show at once: the notch keeps the music or the timer,
+    /// and the hotspot splits off into a bubble beside it.
+    private var showsHotspotBubble: Bool {
+        showsHotspotActivity && (showsMusicActivity || countdown.isShowingInNotch)
+    }
+
     /// The open notch's flare where it meets the screen, so the card reads as
     /// the notch grown; its own bottom corners, since the open notch's are far
     /// too round on something this short.
@@ -503,6 +538,12 @@ struct ContentView: View {
           } else if coordinator.sneakPeek.show && Defaults[.inlineHUD] && (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && (coordinator.sneakPeek.type != .audioRoute) && (coordinator.sneakPeek.type != .capsLock) && vm.notchState == .closed {
               InlineHUD(type: $coordinator.sneakPeek.type, value: $coordinator.sneakPeek.value, icon: $coordinator.sneakPeek.icon, hoverAnimation: $isHovering, gestureProgress: $gestureProgress)
                   .transition(.opacity)
+          // The hotspot in use, when the music is not holding the notch; with
+          // music it goes in the bubble beside the notch instead.
+          } else if showsHotspotActivity && !showsMusicActivity && !countdown.isShowingInNotch {
+              HotspotLiveActivity()
+                  .environmentObject(vm)
+                  .transition(.notchInline)
           } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .music) && vm.notchState == .closed && (musicManager.isPlaying || !musicManager.isPlayerIdle) && coordinator.musicLiveActivityEnabled && !vm.hideOnClosed {
               MusicLiveActivity()
                   .frame(alignment: .center)

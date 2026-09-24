@@ -49,7 +49,7 @@ final class BannerPreview: ObservableObject {
     @Published private(set) var vpn: (vpn: ConnectedVPN, up: Bool)?
     @Published private(set) var battery: (alert: BatteryStatusViewModel.BatteryAlert, level: Int)?
     @Published private(set) var bluetooth: ConnectedBluetoothDevice?
-    @Published private(set) var hotspot: (name: String, battery: Int)?
+    @Published private(set) var hotspot = false
 
     private let log = Logger(subsystem: "tech.vornyx.notch", category: "Preview")
     private var clear: Task<Void, Never>?
@@ -75,7 +75,7 @@ final class BannerPreview: ObservableObject {
     /// Settings closes it first.
     func show(_ kind: Kind) {
         clear?.cancel()
-        focus = nil; vpn = nil; battery = nil; bluetooth = nil; hotspot = nil
+        focus = nil; vpn = nil; battery = nil; bluetooth = nil; hotspot = false
         let coordinator = VornyxViewCoordinator.shared
 
         switch kind {
@@ -100,7 +100,7 @@ final class BannerPreview: ObservableObject {
             bluetooth = ConnectedBluetoothDevice(name: "Magic Keyboard", symbol: "keyboard", battery: 76)
             coordinator.announceBluetooth()
         case .hotspot:
-            hotspot = ("iPhone", 64)
+            hotspot = true
             coordinator.announceHotspot()
         case .timer:
             CountdownManager.shared.start(90)
@@ -117,10 +117,13 @@ final class BannerPreview: ObservableObject {
 
         // A little longer than the banner itself, so it never flips back to
         // real data while still on screen.
+        // The hotspot stays on for a while after its banner, so what the notch
+        // shows while one is in use - alone, or beside the music - can be seen.
+        let hold: Duration = kind == .hotspot ? .seconds(15) : .seconds(4)
         clear = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(4))
+            try? await Task.sleep(for: hold)
             guard let self, !Task.isCancelled else { return }
-            self.focus = nil; self.vpn = nil; self.battery = nil; self.bluetooth = nil; self.hotspot = nil
+            self.focus = nil; self.vpn = nil; self.battery = nil; self.bluetooth = nil; self.hotspot = false
         }
     }
 }

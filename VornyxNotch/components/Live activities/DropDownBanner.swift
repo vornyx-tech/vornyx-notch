@@ -168,26 +168,17 @@ struct DropDownBanner: View {
     // MARK: - Hotspot
 
     private var hotspotRow: some View {
-        let name = preview.hotspot?.name ?? hotspot.phoneName
-        let level = preview.hotspot?.battery ?? hotspot.phoneBattery
-
-        return Group {
+        Group {
             Image(systemName: "personalhotspot")
                 .font(.system(size: 20, weight: .semibold))
                 .foregroundStyle(.green)
                 .symbolEffect(.pulse)
                 .frame(width: 30)
-            titles("Personal Hotspot", name.map { "Connected to \($0)" } ?? "Connected")
+            titles("Personal Hotspot", "Connected")
             Spacer(minLength: 0)
-            if let level {
-                BatteryRing(level: level)
-                    .scaleEffect(1.35)
-                    .padding(.trailing, 4)
-            } else {
-                Text("On")
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.green)
-            }
+            Text("On")
+                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                .foregroundStyle(.green)
         }
     }
 
