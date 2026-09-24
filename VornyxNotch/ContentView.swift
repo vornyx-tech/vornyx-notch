@@ -763,6 +763,11 @@ struct ContentView: View {
             state == .open
                 ? VornyxNotchSkyLightWindow.takeKeyboardFocus()
                 : endKeyboardSession()
+            // Opening the notch on a finished countdown answers the alarm -
+            // the inline banner has no Stop of its own.
+            if state == .open, countdown.state == .finished {
+                countdown.reset()
+            }
         }
         // Every way the notch changes its own size, so none of them can be
         // mistaken for the pointer leaving.

@@ -35,6 +35,8 @@ final class CountdownManager: ObservableObject {
     @Default(.timerLastDuration) var lastDuration: Double
 
     private var ticker: AnyCancellable?
+    /// The sound repeating once a countdown has finished, until Stop.
+    private var alarm: Task<Void, Never>?
     /// The wall-clock instant the countdown ends; counting ticks would drift
     /// and lose time across sleep.
     private var deadline: Date?
@@ -116,6 +118,8 @@ final class CountdownManager: ObservableObject {
     }
 
     func reset() {
+        alarm?.cancel()
+        alarm = nil
         ticker?.cancel()
         ticker = nil
         deadline = nil
@@ -168,20 +172,26 @@ final class CountdownManager: ObservableObject {
     }
 
     private func finish() {
-        // A system sound of its own: notification.m4a is the greeting played
-        // on first launch, so the timer ending sounded like the app starting.
-        if Defaults[.timerSound] {
-            (NSSound(named: "Glass") ?? NSSound(named: "Ping"))?.play()
-        }
         announce(force: true)
 
-        // Stop ends the `finished` state; this is only the backstop for a
-        // countdown nobody came back to. The notch shows it for all of it -
-        // see `isShowingInNotch` - then lets go once.
-        Task { [weak self] in
-            try? await Task.sleep(for: .seconds(60))
-            guard let self, self.state == .finished else { return }
-            self.reset()
+        // An alarm, not a notification: it keeps going until Stop. The ten
+        // minutes are only the backstop for a countdown nobody came back to;
+        // the notch shows it for all of it - see `isShowingInNotch`.
+        alarm?.cancel()
+        alarm = Task { [weak self] in
+            let started = Date()
+            while !Task.isCancelled, let self, self.state == .finished {
+                // A system sound of its own: notification.m4a is the greeting
+                // played on first launch.
+                if Defaults[.timerSound] {
+                    (NSSound(named: "Glass") ?? NSSound(named: "Ping"))?.play()
+                }
+                if Date().timeIntervalSince(started) > 600 {
+                    self.reset()
+                    return
+                }
+                try? await Task.sleep(for: .seconds(2))
+            }
         }
     }
 
