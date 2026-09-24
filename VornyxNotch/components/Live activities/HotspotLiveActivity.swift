@@ -44,14 +44,16 @@ struct HotspotSymbol: View {
             .font(.system(size: 15, weight: .bold))
             .foregroundStyle(.green)
             .background {
+                // Tight, but as bright: less spread, more opacity to make up
+                // for the light no longer spread over as much.
                 Circle()
                     .fill(.green)
-                    .frame(width: 16, height: 16)
-                    .blur(radius: glowing ? 7 : 4)
-                    .opacity(glowing ? 0.55 : 0.12)
-                    .scaleEffect(glowing ? 1.25 : 0.8)
+                    .frame(width: 12, height: 12)
+                    .blur(radius: glowing ? 3.5 : 2)
+                    .opacity(glowing ? 0.8 : 0.18)
+                    .scaleEffect(glowing ? 1.1 : 0.85)
             }
-            .shadow(color: .green.opacity(glowing ? 0.7 : 0.2), radius: glowing ? 4 : 1)
+            .shadow(color: .green.opacity(glowing ? 0.9 : 0.25), radius: glowing ? 2 : 0.5)
             .frame(width: side, height: side)
             .onAppear {
                 withAnimation(.easeInOut(duration: 2.2).repeatForever(autoreverses: true)) {
