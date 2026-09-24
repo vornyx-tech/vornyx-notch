@@ -2411,6 +2411,7 @@ private struct BannerPreviewButtons: View {
 
 private struct BannerStylePicker: View {
     @Default(.bannerStyle) private var style
+    @Default(.inputSourceLiveActivity) private var keyboardLayout
 
     var body: some View {
         Picker("Banner style", selection: $style) {
@@ -2419,5 +2420,7 @@ private struct BannerStylePicker: View {
             }
         }
         .pickerStyle(.segmented)
+        // Also under Indicators; here too, where the banners are tried.
+        Toggle("Keyboard layout banner", isOn: $keyboardLayout)
     }
 }

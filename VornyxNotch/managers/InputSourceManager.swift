@@ -5,6 +5,7 @@
 //  The keyboard layout, and a word in the notch as it changes.
 //
 
+import AppKit
 import Carbon
 import Defaults
 import Foundation
@@ -30,12 +31,25 @@ final class InputSourceManager: ObservableObject {
     private var observer: NSObjectProtocol?
     private var backstop: Timer?
     private var settle: Task<Void, Never>?
+    private var confirm: Task<Void, Never>?
+    private var appObserver: NSObjectProtocol?
+    /// Switching apps brings each app's own layout with it, when macOS keeps
+    /// one per app or document; not something the user did.
+    private var quietUntil = Date.distantPast
+    /// What the banner last said, so a switch and straight back says nothing.
+    private var announced: InputSource?
 
     private init() {}
 
     func start() {
         guard observer == nil else { return }
         current = Self.read()
+        announced = current
+        appObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
+        ) { _ in
+            Task { @MainActor in InputSourceManager.shared.quietUntil = Date().addingTimeInterval(1) }
+        }
         observer = DistributedNotificationCenter.default().addObserver(
             forName: .init("com.apple.Carbon.TISNotifySelectedKeyboardInputSourceChanged"),
             object: nil, queue: .main
@@ -68,10 +82,34 @@ final class InputSourceManager: ObservableObject {
     private func changed() -> Bool {
         guard let source = Self.read(), source != current else { return false }
         current = source
-        if Defaults[.inputSourceLiveActivity] {
+        confirmAnnouncement(of: source)
+        return true
+    }
+
+    /// The layout macOS changes on its own - Latin for a password field,
+    /// each app's or document's own as the cursor lands in it - is a real
+    /// change, just not the user's, and was putting the banner up whenever
+    /// the cursor moved. Only one that holds for a moment, away from a
+    /// password field and an app switch, and differs from the last one
+    /// shown, gets a banner.
+    private func confirmAnnouncement(of source: InputSource) {
+        confirm?.cancel()
+        confirm = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(600))
+            guard let self, !Task.isCancelled else { return }
+            guard Defaults[.inputSourceLiveActivity],
+                  Self.read() == source, source != self.announced,
+                  !IsSecureEventInputEnabled(),
+                  Date() >= self.quietUntil
+            else {
+                // Record it anyway once it has settled, so returning to the
+                // last announced one later still reads as a change.
+                if Self.read() == source, !IsSecureEventInputEnabled() { self.announced = source }
+                return
+            }
+            self.announced = source
             VornyxViewCoordinator.shared.announceInputSource()
         }
-        return true
     }
 
     static func read() -> InputSource? {
