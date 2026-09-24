@@ -24,9 +24,11 @@ struct SystemIndicators: Equatable {
 
 /// Polls the four indicators.
 ///
-/// Every source works inside the app sandbox, which rules out both
-/// `~/Library/DoNotDisturb/DB` and the Focus Status API, so Focus is read from
-/// Control Center's menu bar item by the helper.
+/// Focus comes from the best source that answers, all through the helper,
+/// which is not sandboxed: the file macOS writes the active Focus to (Full
+/// Disk Access, and it names the mode), then Control Center's menu bar item
+/// (Accessibility), then the system's own distributed notifications, which
+/// need nothing but on macOS 26 do not always say when a Focus ends.
 @MainActor
 final class IndicatorsManager: ObservableObject {
     static let shared = IndicatorsManager()
@@ -35,6 +37,13 @@ final class IndicatorsManager: ObservableObject {
     /// The helper's last answer about Focus, for Settings to explain a light
     /// that never comes on. Nil until it has answered.
     @Published private(set) var focusStatus: FocusStatus?
+    /// The active Focus, when the source can tell which one.
+    @Published private(set) var focusMode: FocusMode?
+    /// The last mode seen on, so "Off" can say which one ended.
+    @Published private(set) var lastFocusMode: FocusMode?
+    /// Whether the Focus file is readable - the source that needs nothing
+    /// else set up.
+    @Published private(set) var readsFocusFile = false
 
     private var ticker: AnyCancellable?
     /// Caps Lock on its own, faster ticker: reading modifier flags costs
@@ -43,11 +52,18 @@ final class IndicatorsManager: ObservableObject {
     /// Last answer from the helper, and the question still out, if any.
     private var focusFromMenuBar = false
     private var focusQuery: Task<Void, Never>?
+    /// What the last distributed notification said, for when neither the
+    /// file nor the menu bar can be read.
+    private var focusFromNotification: Bool?
+    private var focusObservers: [NSObjectProtocol] = []
+    /// No banner for the state found at launch, only for changes after it.
+    private var focusKnown = false
 
     private init() {}
 
     func start() {
         guard ticker == nil else { return }
+        observeFocusNotifications()
         poll()
         ticker = Timer.publish(every: 1, on: .main, in: .common)
             .autoconnect()
@@ -64,6 +80,8 @@ final class IndicatorsManager: ObservableObject {
         capsTicker = nil
         focusQuery?.cancel()
         focusQuery = nil
+        focusObservers.forEach(DistributedNotificationCenter.default().removeObserver)
+        focusObservers = []
     }
 
     // MARK: - Polling
@@ -90,7 +108,7 @@ final class IndicatorsManager: ObservableObject {
         }
         if Defaults[.showFocusIndicator] {
             next.focus = focusFromMenuBar
-            refreshFocusFromMenuBar()
+            refreshFocus()
         }
         if Defaults[.showCapsLockIndicator] {
             // Modifier flags are readable without permission or a monitor.
@@ -103,19 +121,78 @@ final class IndicatorsManager: ObservableObject {
 
     /// Asks the helper, and publishes the answer without waiting for the next
     /// tick.
-    private func refreshFocusFromMenuBar() {
+    private func refreshFocus() {
         guard focusQuery == nil else { return }
         focusQuery = Task { [weak self] in
-            let status = await XPCHelperClient.shared.focusStatus()
+            let client = XPCHelperClient.shared
+            let file = await client.focusAssertionState()
+            var focused: Bool
+            var mode: FocusMode?
+            var menuBarStatus: FocusStatus?
+
+            switch file {
+            case .on(let identifier)?:
+                focused = true
+                mode = FocusMode(identifier: identifier)
+            case .off?:
+                focused = false
+            case .unreadable?, nil:
+                menuBarStatus = await client.focusStatus()
+                switch menuBarStatus {
+                case .on?: focused = true
+                case .off?: focused = false
+                default: focused = false
+                }
+            }
+
             guard let self, !Task.isCancelled else { return }
             self.focusQuery = nil
-            if status != self.focusStatus { self.focusStatus = status }
-            let focused = status == .on
-            guard focused != self.focusFromMenuBar else { return }
-            self.focusFromMenuBar = focused
-            var next = self.indicators
-            next.focus = focused && Defaults[.showFocusIndicator]
-            if next != self.indicators { self.indicators = next }
+
+            let readsFile = file == .off || { if case .on = file { return true }; return false }()
+            if readsFile != self.readsFocusFile { self.readsFocusFile = readsFile }
+            if menuBarStatus != self.focusStatus, !readsFile { self.focusStatus = menuBarStatus }
+            // Neither source readable: the notifications are all there is.
+            if !readsFile, menuBarStatus != .on, menuBarStatus != .off {
+                focused = self.focusFromNotification ?? false
+            }
+            self.apply(focused: focused, mode: mode)
+        }
+    }
+
+    private func apply(focused: Bool, mode: FocusMode?) {
+        let changed = focused != focusFromMenuBar
+        let modeChanged = focused && mode != nil && mode != focusMode
+        focusFromMenuBar = focused
+        if focusMode != (focused ? mode : nil) { focusMode = focused ? mode : nil }
+        if focused, let mode, mode != lastFocusMode { lastFocusMode = mode }
+
+        var next = indicators
+        next.focus = focused && Defaults[.showFocusIndicator]
+        if next != indicators { indicators = next }
+
+        if focusKnown, changed || modeChanged, Defaults[.showFocusIndicator], Defaults[.focusLiveActivity] {
+            VornyxViewCoordinator.shared.announceFocus()
+        }
+        focusKnown = true
+    }
+
+    /// `_NSDoNotDisturbEnabledNotification` and its opposite: posted by the
+    /// system, delivered to a sandboxed app, and immediate - so each one also
+    /// asks the helper at once rather than waiting for the next tick.
+    private func observeFocusNotifications() {
+        guard focusObservers.isEmpty else { return }
+        let center = DistributedNotificationCenter.default()
+        for (name, on) in [("_NSDoNotDisturbEnabledNotification", true),
+                           ("_NSDoNotDisturbDisabledNotification", false)] {
+            focusObservers.append(center.addObserver(
+                forName: .init(name), object: nil, queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    guard let self, Defaults[.showFocusIndicator] else { return }
+                    self.focusFromNotification = on
+                    self.refreshFocus()
+                }
+            })
         }
     }
 

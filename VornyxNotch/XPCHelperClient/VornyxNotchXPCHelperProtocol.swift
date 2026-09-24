@@ -22,5 +22,8 @@ import Foundation
     func setScreenBrightness(_ value: Float, with reply: @escaping (Bool) -> Void)
     // Focus, read from Control Center's menu bar item (performed by the helper)
     func isFocusMenuExtraShowing(with reply: @escaping (NSNumber?) -> Void)
+    // Focus, read from the file macOS writes it to; needs Full Disk Access.
+    // "unreadable", "off", or the active mode's identifier.
+    func focusAssertionState(with reply: @escaping (NSString?) -> Void)
 }
 

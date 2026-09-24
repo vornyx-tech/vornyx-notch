@@ -438,6 +438,13 @@ struct ContentView: View {
               AirPodsLiveActivity()
                   .environmentObject(vm)
                   .transition(.opacity)
+          // Before the countdown: three seconds for the Focus, and the
+          // countdown comes back after.
+          } else if coordinator.expandingView.type == .focus && coordinator.expandingView.show
+                      && vm.notchState == .closed && !vm.hideOnClosed {
+              FocusLiveActivity()
+                  .environmentObject(vm)
+                  .transition(.opacity)
           // A running countdown outranks the banner's own timeout:
           // it stays for as long as it is counting, rather than
           // showing for three seconds and leaving.

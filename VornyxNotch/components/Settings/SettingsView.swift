@@ -451,12 +451,21 @@ struct Charge: View {
                 Defaults.Toggle(key: .showFocusIndicator) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Focus light")
-                        Text("Needs Accessibility, Focus set to show in the menu bar \"When Active\", and the menu bar itself not set to auto-hide.")
+                        Text("Best with Full Disk Access, which also tells which Focus is on. Without it: Accessibility, with Focus shown in the menu bar \"When Active\".")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         FocusLightStatus()
                     }
                 }
+                Defaults.Toggle(key: .focusLiveActivity) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Say it in the notch")
+                        Text("The Focus's icon and On or Off in the closed notch as it changes.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .disabled(!Defaults[.showFocusIndicator])
                 Defaults.Toggle(key: .showAudioPicker) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Sound output menu")
@@ -2258,6 +2267,7 @@ private struct FocusLightStatus: View {
     }
 
     private var symbol: String {
+        if indicators.readsFocusFile { return "checkmark.circle.fill" }
         switch indicators.focusStatus {
         case .on, .off: return "checkmark.circle.fill"
         case .noAccessibility, .noMenuBar: return "exclamationmark.triangle.fill"
@@ -2266,6 +2276,7 @@ private struct FocusLightStatus: View {
     }
 
     private var tint: Color {
+        if indicators.readsFocusFile { return .green }
         switch indicators.focusStatus {
         case .on, .off: return .green
         case .noAccessibility, .noMenuBar: return .orange
@@ -2274,9 +2285,13 @@ private struct FocusLightStatus: View {
     }
 
     private var message: String {
+        if indicators.readsFocusFile {
+            if let mode = indicators.focusMode { return "Working - \(mode.name) is on." }
+            return indicators.indicators.focus ? "Working - a Focus is on." : "Working - no Focus is on."
+        }
         switch indicators.focusStatus {
-        case .on: return "Working - a Focus is on."
-        case .off: return "Working - no Focus is on."
+        case .on: return "Working through the menu bar - a Focus is on."
+        case .off: return "Working through the menu bar - no Focus is on."
         case .noAccessibility: return "This build has no Accessibility access. Each new build needs it granted again."
         case .noMenuBar: return "Control Center's menu bar can't be read."
         case nil: return "Checking..."
@@ -2284,6 +2299,14 @@ private struct FocusLightStatus: View {
     }
 
     private var fix: (title: String, action: () -> Void)? {
+        if indicators.readsFocusFile { return nil }
+        // The better fix whatever else is going on: it needs no menu bar setup
+        // and names the mode.
+        if indicators.focusStatus != .on && indicators.focusStatus != .off {
+            return ("Full Disk Access", {
+                open("x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles")
+            })
+        }
         switch indicators.focusStatus {
         case .noAccessibility:
             return ("Grant", {

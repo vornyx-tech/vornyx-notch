@@ -22,6 +22,7 @@ enum SneakContentType {
     case timer
     case audioRoute
     case capsLock
+    case focus
 }
 
 struct sneakPeek {
@@ -398,6 +399,11 @@ class VornyxViewCoordinator: ObservableObject {
     func announceAudioRoute() {
         guard !(expandingView.show && expandingView.type == .airpods) else { return }
         toggleSneakPeek(status: true, type: .audioRoute, duration: 3)
+    }
+
+    /// Say in the closed notch that a Focus went on or off.
+    func announceFocus() {
+        toggleExpandingView(status: true, type: .focus)
     }
 
     /// Show the countdown in the closed notch. Started, paused, resumed and

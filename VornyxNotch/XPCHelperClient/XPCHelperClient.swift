@@ -263,6 +263,34 @@ final class XPCHelperClient: NSObject {
     }
 }
 
+extension XPCHelperClient {
+    /// The Focus file's answer. Nil when the helper could not be reached.
+    nonisolated func focusAssertionState() async -> FocusAssertion? {
+        do {
+            let service = await MainActor.run { ensureRemoteService() }
+            let result: NSString? = try await service.withContinuation { service, continuation in
+                service.focusAssertionState { value in
+                    continuation.resume(returning: value)
+                }
+            }
+            switch result as String? {
+            case nil, "unreadable": return .unreadable
+            case "off": return .off
+            case let mode?: return .on(mode: mode)
+            }
+        } catch {
+            return nil
+        }
+    }
+}
+
+enum FocusAssertion: Equatable {
+    /// No Full Disk Access.
+    case unreadable
+    case off
+    case on(mode: String)
+}
+
 /// The helper's answer about Focus; the raw values are its wire format.
 enum FocusStatus: Int {
     case off = 0

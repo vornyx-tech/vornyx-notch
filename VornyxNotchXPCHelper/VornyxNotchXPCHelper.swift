@@ -157,6 +157,33 @@ class VornyxNotchXPCHelper: NSObject, VornyxNotchXPCHelperProtocol {
         reply(NSNumber(value: probe.rawValue))
     }
 
+    /// The active Focus, from `~/Library/DoNotDisturb/DB/Assertions.json` -
+    /// the file macOS itself writes as a Focus goes on and off, and the one
+    /// source that also says which Focus. It sits behind Full Disk Access,
+    /// which the helper can use because it is not sandboxed and inherits the
+    /// app's grant.
+    ///
+    /// Approach from DynamicNotch by Evgeniy Petrukovich (GPL-3.0).
+    @objc func focusAssertionState(with reply: @escaping (NSString?) -> Void) {
+        let url = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/DoNotDisturb/DB/Assertions.json")
+        guard let data = try? Data(contentsOf: url) else { return reply("unreadable") }
+
+        struct Root: Decodable { let data: [Entry] }
+        struct Entry: Decodable { let storeAssertionRecords: [Record]? }
+        struct Record: Decodable { let assertionDetails: Details? }
+        struct Details: Decodable { let assertionDetailsModeIdentifier: String? }
+
+        // macOS cuts the file down to a stub with no Focus on, which does not
+        // decode: that is off, not unreadable.
+        guard let root = try? JSONDecoder().decode(Root.self, from: data) else { return reply("off") }
+        let mode = root.data
+            .flatMap { $0.storeAssertionRecords ?? [] }
+            .compactMap { $0.assertionDetails?.assertionDetailsModeIdentifier }
+            .first { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+        reply((mode ?? "off") as NSString)
+    }
+
     private enum FocusProbe: Int {
         case off = 0
         case on = 1
