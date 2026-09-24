@@ -66,6 +66,10 @@ struct ContentView: View {
 
     @Default(.useMusicVisualizer) var useMusicVisualizer
 
+    /// Watched so a change redraws the banner showing, not only the next one.
+
+    @Default(.bannerBottomRadius) private var bannerBottomRadius
+
     @Default(.showNotHumanFace) var showNotHumanFace
 
     @Default(.clipboardEnabled) var clipboardEnabled
@@ -375,9 +379,12 @@ struct ContentView: View {
         }
     }
 
-    /// The open notch's own corners: the card is the notch grown, and should
-    /// look like it. NotchShape caps them against the card's smaller box.
-    private var dropDownBannerRadii: (top: CGFloat, bottom: CGFloat) { cornerRadiusInsets.opened }
+    /// The open notch's flare where it meets the screen, so the card reads as
+    /// the notch grown; the bottom corners are the user's, since the open
+    /// notch's are far too round on something this short.
+    private var dropDownBannerRadii: (top: CGFloat, bottom: CGFloat) {
+        (cornerRadiusInsets.opened.top, CGFloat(bannerBottomRadius))
+    }
 
     private var showsDropDownBanner: Bool {
         vm.notchState == .closed && !vm.hideOnClosed
