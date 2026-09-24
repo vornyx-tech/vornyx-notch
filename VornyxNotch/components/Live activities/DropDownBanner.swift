@@ -279,16 +279,20 @@ struct DropDownBanner: View {
         }()
 
         return Group {
-            titles(title, value: "\(level)%", tint: plugged ? .green : .white, subtitle)
+            titles(title, value: "\(level)%", tint: batteryTint(level: level), subtitle)
             Spacer(minLength: 0)
-            VornyxBatteryView(
-                batteryWidth: 38,
-                isCharging: charging,
-                isInLowPowerMode: battery.isInLowPowerMode,
-                isPluggedIn: plugged,
-                levelBattery: Float(level),
-                isForNotification: true)
+            CompactBatteryGlyph(
+                level: level,
+                tint: batteryTint(level: level),
+                width: 40,
+                charging: charging && level < 100)
         }
+    }
+
+    /// Yellow in Low Power Mode, red at 20% and under, green otherwise.
+    private func batteryTint(level: Int) -> Color {
+        if battery.isInLowPowerMode { return .yellow }
+        return level <= 20 ? .red : .green
     }
 
     // MARK: - Hotspot

@@ -68,3 +68,45 @@ struct BatteryAlertLiveActivity: View {
         }
     }
 }
+
+/// A battery filled to exactly its level: a translucent case in the tint, the
+/// charge a solid bar across it, the tip lit only when full.
+///
+/// From DynamicNotch's BatteryCompactStatusView by Evgeniy Petrukovich
+/// (GPL-3.0), sized by `width`.
+struct CompactBatteryGlyph: View {
+    let level: Int
+    let tint: Color
+    var width: CGFloat = 28
+    /// Breathes while charging.
+    var charging = false
+
+    @State private var breathing = false
+
+    var body: some View {
+        let height = width * 16 / 28
+        let fraction = CGFloat(max(0, min(level, 100))) / 100
+
+        HStack(spacing: width * 1.5 / 28) {
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: height * 0.375, style: .continuous)
+                    .fill(tint.opacity(0.3))
+                Rectangle()
+                    .fill(tint.gradient)
+                    .frame(width: fraction * width)
+                    .opacity(charging && breathing ? 0.7 : 1)
+            }
+            .frame(width: width, height: height)
+            .clipShape(RoundedRectangle(cornerRadius: height * 0.375, style: .continuous))
+
+            RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                .fill(level >= 100 ? AnyShapeStyle(tint.gradient) : AnyShapeStyle(tint.opacity(0.3)))
+                .frame(width: max(2, width / 14), height: height * 0.375)
+        }
+        .animation(.smooth(duration: 0.4), value: level)
+        .onAppear {
+            guard charging else { return }
+            withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) { breathing = true }
+        }
+    }
+}

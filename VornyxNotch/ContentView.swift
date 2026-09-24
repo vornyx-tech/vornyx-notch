@@ -511,17 +511,19 @@ struct ContentView: View {
                     .fill(.black)
                     .frame(width: vm.closedNotchSize.width + 10)
 
-                HStack {
-                    VornyxBatteryView(
-                        batteryWidth: 30,
-                        isCharging: batteryModel.isCharging,
-                        isInLowPowerMode: batteryModel.isInLowPowerMode,
-                        isPluggedIn: batteryModel.isPluggedIn,
-                        levelBattery: batteryModel.levelBattery,
-                        isForNotification: true
-                    )
+                // The level and a battery filled to it, as DynamicNotch draws
+                // its Charging banner.
+                HStack(spacing: 6) {
+                    let level = Int(batteryModel.levelBattery)
+                    let tint: Color = batteryModel.isInLowPowerMode ? .yellow : (level <= 20 ? .red : .green)
+                    Text("\(level)%")
+                        .font(.system(size: 14))
+                        .foregroundStyle(tint.gradient)
+                    CompactBatteryGlyph(
+                        level: level, tint: tint,
+                        charging: batteryModel.isCharging && level < 100)
                 }
-                .frame(width: 76, alignment: .trailing)
+                .frame(width: 96, alignment: .trailing)
             }
             .frame(height: vm.effectiveClosedNotchHeight, alignment: .center)
           } else if coordinator.expandingView.type == .airpods && coordinator.expandingView.show
