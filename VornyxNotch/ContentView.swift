@@ -86,22 +86,17 @@ struct ContentView: View {
     }
 
     private var topCornerRadius: CGFloat {
-        usesOpenedRadii
-            ? cornerRadiusInsets.opened.top
-            : cornerRadiusInsets.closed.top
+        if usesOpenedRadii { return cornerRadiusInsets.opened.top }
+        return showsDropDownBanner ? dropDownBannerRadii.top : cornerRadiusInsets.closed.top
     }
 
     private var currentNotchBottomRadius: CGFloat {
-        usesOpenedRadii ? cornerRadiusInsets.opened.bottom : cornerRadiusInsets.closed.bottom
+        if usesOpenedRadii { return cornerRadiusInsets.opened.bottom }
+        return showsDropDownBanner ? dropDownBannerRadii.bottom : cornerRadiusInsets.closed.bottom
     }
 
     private var currentNotchShape: NotchShape {
-        NotchShape(
-            topCornerRadius: topCornerRadius,
-            bottomCornerRadius: usesOpenedRadii
-                ? cornerRadiusInsets.opened.bottom
-                : cornerRadiusInsets.closed.bottom
-        )
+        NotchShape(topCornerRadius: topCornerRadius, bottomCornerRadius: currentNotchBottomRadius)
     }
 
     private var computedChinWidth: CGFloat {
@@ -142,7 +137,7 @@ struct ContentView: View {
                         .horizontal,
                         vm.notchState == .open
                         ? cornerRadiusInsets.opened.top
-                        : cornerRadiusInsets.closed.bottom
+                        : (showsDropDownBanner ? dropDownBannerRadii.top : cornerRadiusInsets.closed.bottom)
                     )
                     .padding([.horizontal, .bottom], vm.notchState == .open ? 12 : 0)
                     // Height belongs here, with the width and *before* the
@@ -215,6 +210,12 @@ struct ContentView: View {
                             // did not quite hug the black.
                             .animation(notchResizeAnimation, value: musicManager.isPlaying)
                             .animation(notchResizeAnimation, value: musicManager.isPlayerIdle)
+                            // A banner growing the notch, or handing it to the
+                            // next one: the shape and its corners ride one
+                            // spring with the content inside.
+                            .animation(.notchBanner, value: showsDropDownBanner)
+                            .animation(.notchBanner, value: coordinator.expandingView.show)
+                            .animation(.notchBanner, value: coordinator.expandingView.type)
                             // The first-launch greeting opening and collapsing.
                             .animation(
                                 .spring(response: 0.62, dampingFraction: 0.86, blendDuration: 0.2),
@@ -374,6 +375,10 @@ struct ContentView: View {
         }
     }
 
+    /// Bigger than the closed notch's own: the card hangs well below the
+    /// camera, and small corners on something that size read as a box.
+    private let dropDownBannerRadii = (top: CGFloat(12), bottom: CGFloat(26))
+
     private var showsDropDownBanner: Bool {
         vm.notchState == .closed && !vm.hideOnClosed
             && coordinator.expandingView.show && coordinator.expandingView.type.hasDropDownBanner
@@ -405,6 +410,11 @@ struct ContentView: View {
             LocalSendLiveActivity()
                 .environmentObject(vm)
                 .transition(.opacity)
+        } else if showsDropDownBanner {
+            // Only the banner below: a countdown or the music either side of
+            // the camera as well would be two things at once.
+            Color.clear
+                .frame(width: vm.closedNotchSize.width, height: vm.effectiveClosedNotchHeight)
         } else {
             notchBannerChain()
         }
@@ -443,29 +453,29 @@ struct ContentView: View {
                       && vm.notchState == .closed && !vm.hideOnClosed && Defaults[.airPodsSneakPeek] {
               AirPodsLiveActivity()
                   .environmentObject(vm)
-                  .transition(.opacity)
+                  .transition(.notchInline)
           // Before the countdown: three seconds for the Focus, and the
           // countdown comes back after.
           } else if coordinator.expandingView.type == .focus && coordinator.expandingView.show
                       && vm.notchState == .closed && !vm.hideOnClosed && Defaults[.bannerStyle] == .inline {
               FocusLiveActivity()
                   .environmentObject(vm)
-                  .transition(.opacity)
+                  .transition(.notchInline)
           } else if coordinator.expandingView.type == .vpn && coordinator.expandingView.show
                       && vm.notchState == .closed && !vm.hideOnClosed && Defaults[.bannerStyle] == .inline {
               VPNLiveActivity()
                   .environmentObject(vm)
-                  .transition(.opacity)
+                  .transition(.notchInline)
           } else if coordinator.expandingView.type == .batteryAlert && coordinator.expandingView.show
                       && vm.notchState == .closed && !vm.hideOnClosed && Defaults[.bannerStyle] == .inline {
               BatteryAlertLiveActivity()
                   .environmentObject(vm)
-                  .transition(.opacity)
+                  .transition(.notchInline)
           } else if coordinator.expandingView.type == .bluetooth && coordinator.expandingView.show
                       && vm.notchState == .closed && !vm.hideOnClosed && Defaults[.bannerStyle] == .inline {
               BluetoothLiveActivity()
                   .environmentObject(vm)
-                  .transition(.opacity)
+                  .transition(.notchInline)
           // A running countdown outranks the banner's own timeout:
           // it stays for as long as it is counting, rather than
           // showing for three seconds and leaving.
@@ -604,7 +614,7 @@ struct ContentView: View {
                     if showsDropDownBanner {
                         DropDownBanner()
                             .environmentObject(vm)
-                            .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .top)))
+                            .transition(.notchDropDown)
                     }
 
                       if coordinator.sneakPeek.show {

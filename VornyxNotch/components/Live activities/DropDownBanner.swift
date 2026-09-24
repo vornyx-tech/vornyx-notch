@@ -145,28 +145,20 @@ struct DropDownBanner: View {
     private var batteryRow: some View {
         let isLow = (preview.battery?.alert ?? battery.alert) != .full
         let level = preview.battery?.level ?? Int(battery.levelBattery)
-        let tint: Color = isLow ? .red : .green
+        let lowPower = battery.isInLowPowerMode && preview.battery == nil
+        let tint: Color = lowPower ? .yellow : (isLow ? .red : .green)
 
         return Group {
             titles(
                 isLow ? "Battery Low" : "Full Battery", value: "\(level)%", tint: tint,
-                isLow ? "Plug in, or turn on Low Power Mode." : "Your Mac is fully charged.")
+                isLow
+                    ? (lowPower ? "Low Power Mode is on. Plug in soon." : "Turn on Low Power Mode, or plug in.")
+                    : "Your Mac is fully charged.")
             Spacer(minLength: 0)
             if isLow {
-                Image(systemName: "battery.25percent")
-                    .font(.system(size: 26, weight: .regular))
-                    .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(tint)
-                    .opacity(pulse ? 0.45 : 1)
+                LowBatteryIndicator(tint: tint, pulses: !lowPower)
             } else {
-                HStack(spacing: 0) {
-                    Capsule().fill(.white.opacity(0.25)).frame(width: 18, height: 2)
-                    RoundedRectangle(cornerRadius: 3, style: .continuous)
-                        .fill(.white.opacity(0.12))
-                        .frame(width: 16, height: 22)
-                        .overlay(Circle().fill(tint).frame(width: 4, height: 4)
-                            .shadow(color: tint, radius: pulse ? 5 : 1))
-                }
+                MagSafeIndicator()
             }
         }
     }
@@ -191,6 +183,77 @@ struct DropDownBanner: View {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 18))
                     .foregroundStyle(.green)
+            }
+        }
+    }
+}
+
+/// A battery nearly empty inside a pill, its last bar blinking and a ring
+/// closing in on it.
+///
+/// From DynamicNotch's LowPowerNotchView by Evgeniy Petrukovich (GPL-3.0).
+private struct LowBatteryIndicator: View {
+    let tint: Color
+    let pulses: Bool
+
+    @State private var pulse = false
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 30)
+                .fill(tint.opacity(0.2))
+                .frame(width: 66, height: 38)
+
+            HStack(spacing: 2) {
+                RoundedRectangle(cornerRadius: 8).fill(tint.opacity(0.4)).frame(width: 34, height: 20)
+                RoundedRectangle(cornerRadius: 8).fill(tint.opacity(0.4)).frame(width: 3, height: 7)
+            }
+            .padding(.trailing, 4)
+
+            RoundedRectangle(cornerRadius: 6)
+                .fill(tint.gradient)
+                .frame(width: 7, height: 12)
+                .opacity(pulses ? (pulse ? 1 : 0.3) : 1)
+                .offset(x: -12)
+
+            if pulses {
+                RoundedRectangle(cornerRadius: 30)
+                    .stroke(tint.opacity(0.9).gradient, lineWidth: 1.5)
+                    .frame(width: pulse ? 7 : 26, height: pulse ? 12 : 28)
+                    .offset(x: -12)
+                    .opacity(pulse ? 0.3 : 1)
+            }
+        }
+        .onAppear {
+            guard pulses else { return }
+            withAnimation(.easeInOut(duration: 1).repeatForever(autoreverses: true)) { pulse = true }
+        }
+    }
+}
+
+/// A MagSafe plug in the port, its light going from charging orange to green.
+///
+/// From DynamicNotch's FullPowerNotchView by Evgeniy Petrukovich (GPL-3.0).
+private struct MagSafeIndicator: View {
+    @State private var charged = false
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Rectangle().fill(.gray.opacity(0.15)).frame(width: 26, height: 5)
+            ZStack {
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(.gray.opacity(0.2).gradient)
+                    .frame(width: 30, height: 38)
+                Circle()
+                    .fill(charged ? .green : .orange)
+                    .shadow(color: charged ? .green : .orange, radius: 5)
+                    .frame(width: 5, height: 5)
+            }
+            Rectangle().fill(.white.opacity(0.4)).frame(width: 3, height: 30)
+        }
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                withAnimation(.spring(duration: 0.3)) { charged = true }
             }
         }
     }

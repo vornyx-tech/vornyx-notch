@@ -352,7 +352,7 @@ class VornyxViewCoordinator: ObservableObject {
         browser: BrowserType = .chromium
     ) {
         Task { @MainActor in
-            withAnimation(.smooth) {
+            withAnimation(.notchBanner) {
                 self.expandingView.show = status
                 self.expandingView.type = type
                 self.expandingView.value = value
