@@ -9,7 +9,9 @@
 //  https://github.com/jackson-storm/dynamicnotch - LockScreenNowPlayingPanelView,
 //  LockScreenNowPlayingView, LockScreenLyricsView, LockScreenClockView,
 //  LockScreenWidgetSurface, PlayerProgressBar and PlayerControlButton, with
-//  their sizes and placement as they are there.
+//  their sizes and placement. The look is ours: the stacked clock, the moving
+//  background, the cover's colour lighting the cover, the bar and the lyrics,
+//  and Liquid Glass on the card.
 //
 
 import AppKit
@@ -26,10 +28,14 @@ struct LockScreenRootView: View {
     private static let expandedPanelHeight: CGFloat = panelSize.height - 20
     private static let artworkSize: CGFloat = 500
     private static let artworkSpacing: CGFloat = 90
-    private static let clockHeight: CGFloat = 76
     private static let lyricsWidth: CGFloat = 520
     private static let lyricsSpacing: CGFloat = 90
     private static let panelCenterYOffset: CGFloat = (panelSize.height / 2) + 80
+
+    /// The cover's own colour, lifted so a dark cover still lights something.
+    private var coverColor: Color {
+        Color(nsColor: music.avgColor).ensureMinimumBrightness(factor: 0.55)
+    }
 
     var body: some View {
         GeometryReader { proxy in
@@ -38,18 +44,15 @@ struct LockScreenRootView: View {
 
             ZStack {
                 if expanded {
-                    LockScreenArtworkBackground(artwork: music.albumArt)
+                    LockScreenArtworkBackground(artwork: music.albumArt, tint: coverColor)
                         .ignoresSafeArea()
                         .transition(.opacity)
 
-                    TimelineView(.periodic(from: .now, by: 30)) { context in
-                        LockScreenClock(
-                            date: context.date,
-                            width: Self.artworkSize + 120,
-                            height: Self.clockHeight)
+                    TimelineView(.periodic(from: .now, by: 1)) { context in
+                        LockScreenClock(date: context.date)
                     }
                     .transition(.move(edge: .top).combined(with: .opacity))
-                    .offset(y: -height / 2 + 130)
+                    .offset(y: -height / 2 + 120)
 
                     Button { withAnimation(.spring(response: 0.65)) { expanded = false } } label: {
                         Image(nsImage: music.albumArt)
@@ -57,7 +60,9 @@ struct LockScreenRootView: View {
                             .aspectRatio(contentMode: .fill)
                             .frame(width: Self.artworkSize, height: Self.artworkSize)
                             .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
-                            .shadow(color: .black.opacity(0.45), radius: 24, x: 0, y: 16)
+                            // Lit by its own colour, not a black drop shadow.
+                            .shadow(color: coverColor.opacity(0.55), radius: 40, x: 0, y: 18)
+                            .shadow(color: .black.opacity(0.3), radius: 12, x: 0, y: 8)
                     }
                     .buttonStyle(PressFadeButtonStyle())
                     .transition(.scale(scale: 0.82).combined(with: .opacity))
@@ -65,12 +70,12 @@ struct LockScreenRootView: View {
                 }
 
                 if showsLyrics {
-                    LockScreenLyrics(width: Self.lyricsWidth)
+                    LockScreenLyrics(width: Self.lyricsWidth, glow: coverColor)
                         .transition(.move(edge: .trailing).combined(with: .opacity))
                         .offset(x: (Self.artworkSize + Self.artworkSpacing) / 2, y: -42)
                 }
 
-                LockScreenMusicCard(expanded: $expanded)
+                LockScreenMusicCard(expanded: $expanded, tint: coverColor)
                     .frame(
                         width: Self.panelSize.width,
                         height: expanded ? Self.expandedPanelHeight : Self.panelSize.height,
@@ -96,6 +101,8 @@ struct LockScreenRootView: View {
 private struct LockScreenMusicCard: View {
     @ObservedObject private var music = MusicManager.shared
     @Binding var expanded: Bool
+    /// The cover's colour, for the bar.
+    let tint: Color
 
     @State private var scrubProgress: CGFloat?
 
@@ -156,6 +163,7 @@ private struct LockScreenMusicCard: View {
             Spacer()
 
             LockScreenProgressBar(
+                tint: tint,
                 progress: shown,
                 elapsed: duration > 0 ? TimeInterval(shown) * duration : elapsed,
                 duration: duration,
@@ -212,17 +220,25 @@ private struct LockScreenMusicCard: View {
 /// widget surface, untinted, at normal brightness.
 private struct LockScreenCardSurface: View {
     let cornerRadius: CGFloat
+    @Default(.liquidGlassNotch) private var liquidGlass
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-        shape
-            .fill(.ultraThinMaterial)
-            .overlay { shape.stroke(.white.opacity(0.15), lineWidth: 1) }
+        Group {
+            // The notch's own glass when it is on, so the lock screen matches.
+            if #available(macOS 26.0, *), liquidGlass {
+                Rectangle().fill(.clear).glassEffect(.clear, in: shape)
+            } else {
+                shape.fill(.ultraThinMaterial)
+            }
+        }
+        .overlay { shape.stroke(.white.opacity(0.15), lineWidth: 1) }
     }
 }
 
 /// Elapsed, a scrubbable bar that thickens under the pointer, and the length.
 private struct LockScreenProgressBar: View {
+    let tint: Color
     let progress: CGFloat
     let elapsed: TimeInterval
     let duration: TimeInterval
@@ -244,11 +260,15 @@ private struct LockScreenProgressBar: View {
                     Capsule(style: .continuous)
                         .fill(.white.opacity(0.15))
                         .frame(height: track)
+                    // The cover's colour, glowing, where DynamicNotch has white.
                     Rectangle()
-                        .fill(.white.opacity(scrubbing ? 0.8 : 0.5))
+                        .fill(LinearGradient(
+                            colors: [tint.opacity(scrubbing ? 0.95 : 0.75), tint],
+                            startPoint: .leading, endPoint: .trailing))
                         .frame(width: proxy.size.width * min(max(progress, 0), 1), height: track)
                 }
                 .clipShape(Capsule(style: .continuous))
+                .shadow(color: tint.opacity(0.6), radius: 6)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 .contentShape(Rectangle())
                 .gesture(
@@ -374,9 +394,14 @@ private struct PressFadeButtonStyle: ButtonStyle {
 // MARK: - Background
 
 /// The cover, over black, blown up past the screen's corners and blurred to
-/// its colours.
+/// its colours - turning slowly and breathing, with its colour pooled at the
+/// bottom.
 private struct LockScreenArtworkBackground: View {
     let artwork: NSImage
+    let tint: Color
+
+    @State private var turn: Double = 0
+    @State private var breathe: CGFloat = 1
 
     var body: some View {
         GeometryReader { proxy in
@@ -384,7 +409,7 @@ private struct LockScreenArtworkBackground: View {
             ZStack {
                 Color.black
                 // A tiny copy scaled up is blurry already, so a smaller blur
-                // on top lands where DynamicNotch's 200 does, for less work.
+                // on top is enough, for less work.
                 Image(nsImage: Self.thumbnail(of: artwork))
                     .resizable()
                     .interpolation(.medium)
@@ -393,13 +418,19 @@ private struct LockScreenArtworkBackground: View {
                     .blur(radius: 70)
                     .saturation(1.45)
                     .opacity(0.6)
+                    .scaleEffect(breathe)
+                    .rotationEffect(.degrees(turn))
                     .position(x: proxy.size.width / 2, y: proxy.size.height / 2)
-                LinearGradient(
-                    colors: [.white.opacity(0.08), .black.opacity(0.16)],
-                    startPoint: .topLeading, endPoint: .bottomTrailing)
+                RadialGradient(
+                    colors: [tint.opacity(0.35), .clear],
+                    center: .bottom, startRadius: 0, endRadius: proxy.size.height * 0.8)
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
             .clipped()
+        }
+        .onAppear {
+            withAnimation(.linear(duration: 60).repeatForever(autoreverses: false)) { turn = 360 }
+            withAnimation(.easeInOut(duration: 8).repeatForever(autoreverses: true)) { breathe = 1.3 }
         }
     }
 
@@ -415,38 +446,21 @@ private struct LockScreenArtworkBackground: View {
 
 // MARK: - Clock
 
-/// The time and the date side by side, both large.
+/// The date small over the time large, the way a phone's lock screen has it.
 private struct LockScreenClock: View {
     let date: Date
-    let width: CGFloat
-    let height: CGFloat
-
-    private static let dateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = .autoupdatingCurrent
-        formatter.dateFormat = "EEE d MMM"
-        return formatter
-    }()
 
     var body: some View {
-        let components = Calendar.current.dateComponents([.hour, .minute], from: date)
-        let dateString = Self.dateFormatter.string(from: date)
-
-        HStack(alignment: .center, spacing: 58) {
-            Spacer()
-            Text(String(format: "%02d:%02d", components.hour ?? 0, components.minute ?? 0))
-                .font(.system(size: 38, weight: .semibold, design: .rounded))
+        VStack(spacing: 0) {
+            Text(date.formatted(.dateTime.weekday(.wide).day().month(.wide)))
+                .font(.system(size: 20, weight: .semibold, design: .rounded))
+                .foregroundStyle(.white.opacity(0.75))
+            Text(date.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)).minute()))
+                .font(.system(size: 92, weight: .bold, design: .rounded))
                 .monospacedDigit()
-                .foregroundStyle(.white)
-            Text(dateString.prefix(1).localizedUppercase + dateString.dropFirst())
-                .font(.system(size: 38, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.8))
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-                .fixedSize(horizontal: true, vertical: false)
-            Spacer()
+                .foregroundStyle(.white.opacity(0.92))
+                .contentTransition(.numericText())
         }
-        .frame(width: width, height: height, alignment: .leading)
         .shadow(color: .black.opacity(0.28), radius: 10, x: 0, y: 4)
     }
 }
@@ -460,6 +474,8 @@ private struct LockScreenLyrics: View {
     @ObservedObject private var music = MusicManager.shared
 
     let width: CGFloat
+    /// The cover's colour, glowing behind the line being sung.
+    let glow: Color
     private let height: CGFloat = 520
 
     var body: some View {
@@ -513,16 +529,20 @@ private struct LockScreenLyrics: View {
 
     private func line(_ text: String, distance: Int, onTap: (() -> Void)?) -> some View {
         let active = distance == 0
-        let far = min(CGFloat(abs(distance)), 4)
+        let far: CGFloat = min(CGFloat(abs(distance)), 4)
+        let opacity: Double = active ? 0.98 : max(0.15, 0.45 - Double(far) * 0.07)
+        let scale: CGFloat = max(0.82, 1 - far * 0.045)
+        let shadow: Color = active ? glow.opacity(0.7) : .clear
         return Text(text.isEmpty ? " " : text)
             .font(.system(size: active ? 38 : 30, weight: .bold, design: .rounded))
-            .foregroundStyle(.white.opacity(active ? 0.98 : max(0.15, 0.45 - Double(far) * 0.07)))
+            .foregroundStyle(.white.opacity(opacity))
             .lineLimit(nil)
             .multilineTextAlignment(.leading)
             .fixedSize(horizontal: false, vertical: true)
-            .scaleEffect(max(0.82, 1 - far * 0.045), anchor: .leading)
+            .scaleEffect(scale, anchor: .leading)
             .offset(x: active ? 0 : 10)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .shadow(color: shadow, radius: 14)
             .contentTransition(.opacity)
             .zIndex(Double(10 - far))
             .contentShape(Rectangle())
