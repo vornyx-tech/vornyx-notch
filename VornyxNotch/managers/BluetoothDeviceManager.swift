@@ -18,12 +18,19 @@ import IOKit
 struct ConnectedBluetoothDevice: Equatable {
     let name: String
     let symbol: String
-    /// 0-100, when the device reports it.
+    /// 0-100, when the device reports it: the lower ear, for a pair.
     let battery: Int?
+    /// A pair's own levels, ear by ear and the case, when it reports them.
+    var left: Int? = nil
+    var right: Int? = nil
+    var caseLevel: Int? = nil
+
+    var hasEars: Bool { left != nil || right != nil }
 }
 
-/// Announces every Bluetooth device that connects, except the pairs
-/// `AirPodsManager` already announces with their own, richer banner.
+/// Announces every Bluetooth device that connects. AirPods and Beats come in
+/// through `announcePair`, since `AirPodsManager` is the one that waits for
+/// their levels; everything else is read here.
 @MainActor
 final class BluetoothDeviceManager: ObservableObject {
     static let shared = BluetoothDeviceManager()
@@ -72,6 +79,19 @@ final class BluetoothDeviceManager: ObservableObject {
         }
     }
 
+    /// A pair `AirPodsManager` has found, with its levels, in the same banner
+    /// as any other device.
+    func announcePair(_ pair: AirPodsBattery) {
+        latest = Self.device(for: pair)
+        VornyxViewCoordinator.shared.announceBluetooth()
+    }
+
+    static func device(for pair: AirPodsBattery) -> ConnectedBluetoothDevice {
+        ConnectedBluetoothDevice(
+            name: pair.name, symbol: pair.model.symbol, battery: pair.headline,
+            left: pair.left, right: pair.right, caseLevel: pair.caseLevel)
+    }
+
     // MARK: - Reading
 
     /// By the device's class: major 0x05 is peripherals, 0x04 audio.
@@ -86,7 +106,8 @@ final class BluetoothDeviceManager: ObservableObject {
             }
             if minor & 0x0F == 0x01 || minor & 0x0F == 0x02 { return "gamecontroller" }
             return "keyboard"
-        case 0x04: return "headphones"
+        // Audio: minor 0x05 is a loudspeaker; the rest are worn.
+        case 0x04: return minor == 0x05 || minor == 0x07 ? "hifispeaker.fill" : "headphones"
         case 0x02: return "iphone"
         case 0x01: return "laptopcomputer"
         default: return "dot.radiowaves.left.and.right"

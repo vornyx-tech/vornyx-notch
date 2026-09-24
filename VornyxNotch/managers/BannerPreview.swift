@@ -26,6 +26,7 @@ final class BannerPreview: ObservableObject {
     enum Kind: String, CaseIterable, Identifiable {
         case focusOn, focusOff, vpnConnected, vpnDisconnected
         case batteryLow, batteryFull, bluetooth, hotspot, timer, timerEnd, lockScreen
+        case airPodsPro, airPods3, airPods2, airPodsMax, speaker
 
         var id: String { rawValue }
 
@@ -42,6 +43,11 @@ final class BannerPreview: ObservableObject {
             case .timer: return "Timer"
             case .timerEnd: return "Timer ending"
             case .lockScreen: return "Lock screen"
+            case .airPodsPro: return "AirPods Pro"
+            case .airPods3: return "AirPods 3"
+            case .airPods2: return "AirPods 2"
+            case .airPodsMax: return "AirPods Max"
+            case .speaker: return "Speaker"
             }
         }
     }
@@ -110,6 +116,20 @@ final class BannerPreview: ObservableObject {
             CountdownManager.shared.start(3)
         case .lockScreen:
             LockScreenPlayerController.shared.preview()
+        case .airPodsPro, .airPods3, .airPods2, .airPodsMax:
+            // Real product IDs, so each goes through the same model lookup a
+            // connecting pair does.
+            let pair: AirPodsBattery = switch kind {
+            case .airPodsPro: AirPodsBattery(name: "AirPods Pro", left: 72, right: 71, caseLevel: 48, productID: 0x2014)
+            case .airPods3: AirPodsBattery(name: "AirPods", left: 64, right: 66, caseLevel: 90, productID: 0x2013)
+            case .airPods2: AirPodsBattery(name: "AirPods", left: 38, right: 41, caseLevel: 17, productID: 0x200F)
+            default: AirPodsBattery(name: "AirPods Max", single: 83, productID: 0x201F)
+            }
+            bluetooth = BluetoothDeviceManager.device(for: pair)
+            coordinator.announceBluetooth()
+        case .speaker:
+            bluetooth = ConnectedBluetoothDevice(name: "JBL Flip 6", symbol: "hifispeaker.fill", battery: 58)
+            coordinator.announceBluetooth()
         }
 
         log.notice("preview \(kind.rawValue, privacy: .public)")

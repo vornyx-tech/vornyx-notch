@@ -241,6 +241,18 @@ struct DropDownBanner: View {
 
     // MARK: - Bluetooth
 
+    @ViewBuilder
+    private func labelledRing(_ level: Int?, _ label: String) -> some View {
+        if let level {
+            VStack(spacing: 2) {
+                BatteryRing(level: level)
+                Text(label)
+                    .font(.system(size: 8, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.5))
+            }
+        }
+    }
+
     private var bluetoothRow: some View {
         let device = preview.bluetooth ?? bluetooth.latest
 
@@ -251,7 +263,14 @@ struct DropDownBanner: View {
                 .frame(width: 30)
             titles(device?.name ?? "Bluetooth", "Connected")
             Spacer(minLength: 0)
-            if let level = device?.battery {
+            if let device, device.hasEars {
+                // Ear by ear and the case, the way the AirPods widget shows it.
+                HStack(spacing: 10) {
+                    labelledRing(device.left, "L")
+                    labelledRing(device.right, "R")
+                    labelledRing(device.caseLevel, "Case")
+                }
+            } else if let level = device?.battery {
                 BatteryRing(level: level)
                     .scaleEffect(1.35)
                     .padding(.trailing, 4)

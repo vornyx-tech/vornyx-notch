@@ -207,7 +207,9 @@ final class AirPodsManager: ObservableObject {
         guard announce, announcedDevice != found.name, found.headline != nil else { return }
         announcedDevice = found.name
         guard Date() >= quietUntil, Defaults[.airPodsSneakPeek] else { return }
-        VornyxViewCoordinator.shared.announceAirPods()
+        // The Bluetooth banner, like any other device, with the pair's own
+        // drawing and levels.
+        BluetoothDeviceManager.shared.announcePair(found)
     }
 
     /// The first connected device that reports levels like a pair.

@@ -418,7 +418,7 @@ class VornyxViewCoordinator: ObservableObject {
     ///
     /// A sneak peek, like the music one: the notch drops down a row to say it.
     func announceAudioRoute() {
-        guard !(expandingView.show && expandingView.type == .airpods) else { return }
+        guard !(expandingView.show && [.airpods, .bluetooth].contains(expandingView.type)) else { return }
         toggleSneakPeek(status: true, type: .audioRoute, duration: 3)
     }
 
