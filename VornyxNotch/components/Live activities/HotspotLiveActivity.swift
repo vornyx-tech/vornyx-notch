@@ -49,11 +49,11 @@ struct HotspotSymbol: View {
                 Circle()
                     .fill(.green)
                     .frame(width: 12, height: 12)
-                    .blur(radius: glowing ? 3.5 : 2)
-                    .opacity(glowing ? 0.8 : 0.18)
+                    .blur(radius: glowing ? 5.5 : 3.5)
+                    .opacity(glowing ? 0.4 : 0.09)
                     .scaleEffect(glowing ? 1.1 : 0.85)
             }
-            .shadow(color: .green.opacity(glowing ? 0.9 : 0.25), radius: glowing ? 2 : 0.5)
+            .shadow(color: .green.opacity(glowing ? 0.45 : 0.12), radius: glowing ? 3 : 1)
             .frame(width: side, height: side)
             .onAppear {
                 withAnimation(.easeInOut(duration: 2.2).repeatForever(autoreverses: true)) {
