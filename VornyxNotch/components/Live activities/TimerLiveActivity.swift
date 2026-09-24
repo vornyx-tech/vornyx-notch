@@ -16,6 +16,10 @@ struct TimerLiveActivity: View {
     var body: some View {
         HStack(spacing: 0) {
             HStack(spacing: 5) {
+                // The hotspot in use as well: its symbol joins on the far left.
+                if showsHotspot {
+                    HotspotSymbol(side: max(0, vm.effectiveClosedNotchHeight - 12))
+                }
                 Image(systemName: countdown.state == .finished ? "bell.fill" : "timer")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(tint)
@@ -65,6 +69,12 @@ struct TimerLiveActivity: View {
     }
 
     @Default(.notchEdgeProgress) private var edgeProgress
+    @ObservedObject private var hotspot = HotspotManager.shared
+    @ObservedObject private var preview = BannerPreview.shared
+
+    private var showsHotspot: Bool {
+        (hotspot.isActive || preview.hotspot) && Defaults[.hotspotLiveActivity]
+    }
 
     /// The edge light's colour while that light is on - accent text under an
     /// orange line clashed - and the accent otherwise.

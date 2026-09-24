@@ -110,6 +110,9 @@ struct ContentView: View {
             chinWidth = 640
         } else if showsMusicActivity || showsHotspotActivity {
             chinWidth += (2 * max(0, vm.effectiveClosedNotchHeight - 12) + 20)
+            if showsHotspotAlongside {
+                chinWidth += 2 * (max(0, vm.effectiveClosedNotchHeight - 12) + 8)
+            }
         } else if !coordinator.expandingView.show && vm.notchState == .closed
             && (!musicManager.isPlaying && musicManager.isPlayerIdle) && Defaults[.showNotHumanFace]
             && !vm.hideOnClosed
@@ -189,20 +192,6 @@ struct ContentView: View {
                 // size, so letting it report that size keeps the hover region
                 // below in step with what is actually drawn.
                 mainLayout
-                    // The second activity, beside the notch rather than in it.
-                    .overlay(alignment: .topTrailing) {
-                        if showsHotspotBubble {
-                            NotchSideBubble {
-                                Image(systemName: "personalhotspot")
-                                    .font(.system(size: 12, weight: .bold))
-                                    .foregroundStyle(.green)
-                            }
-                            .environmentObject(vm)
-                            .offset(x: vm.effectiveClosedNotchHeight + 6 + 6)
-                            .transition(.notchInline)
-                        }
-                    }
-                    .animation(.notchBanner, value: showsHotspotBubble)
                     .conditionalModifier(true) { view in
                         let openAnimation = Animation.spring(response: 0.42, dampingFraction: 0.8, blendDuration: 0)
                         let closeAnimation = Animation.spring(response: 0.45, dampingFraction: 1.0, blendDuration: 0)
@@ -407,9 +396,9 @@ struct ContentView: View {
             && vm.notchState == .closed && !vm.hideOnClosed && !coordinator.expandingView.show
     }
 
-    /// Two things to show at once: the notch keeps the music or the timer,
-    /// and the hotspot splits off into a bubble beside it.
-    private var showsHotspotBubble: Bool {
+    /// Two things to show at once: the music or the timer keeps the notch,
+    /// and the hotspot's symbol joins it on the far left.
+    private var showsHotspotAlongside: Bool {
         showsHotspotActivity && (showsMusicActivity || countdown.isShowingInNotch)
     }
 
@@ -994,6 +983,11 @@ struct ContentView: View {
     @ViewBuilder
     func MusicLiveActivity() -> some View {
         HStack {
+            if showsHotspotAlongside {
+                HotspotSymbol(side: max(0, vm.effectiveClosedNotchHeight - 12))
+                    .transition(.notchInline)
+            }
+
             ClosedNotchArtwork(cornerRadius: AlbumArtStyle.closedCornerRadius)
                 .matchedGeometryEffect(id: "albumArt", in: albumArtNamespace)
                 .frame(
@@ -1083,11 +1077,19 @@ struct ContentView: View {
                 trigger: ObjectIdentifier(musicManager.albumArt),
                 color: Color(nsColor: musicManager.avgColor),
                 radius: 5))
+
+            // The same width again on the right, so the camera stays in the
+            // middle of the black when the hotspot widens the left.
+            if showsHotspotAlongside {
+                Color.clear
+                    .frame(width: max(0, vm.effectiveClosedNotchHeight - 12))
+            }
         }
         .frame(
             height: vm.effectiveClosedNotchHeight,
             alignment: .center
         )
+        .animation(.notchBanner, value: showsHotspotAlongside)
     }
 
     @ViewBuilder

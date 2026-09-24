@@ -20,10 +20,7 @@ struct HotspotLiveActivity: View {
         let side = max(0, vm.effectiveClosedNotchHeight - 12)
 
         HStack {
-            Image(systemName: "personalhotspot")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(.green)
-                .frame(width: side, height: side)
+            HotspotSymbol(side: side)
 
             Rectangle()
                 .fill(.black)
@@ -39,21 +36,14 @@ struct HotspotLiveActivity: View {
     }
 }
 
-/// A second activity beside the notch while the notch itself shows another -
-/// the way the Dynamic Island splits off a bubble for a second app. Shaped
-/// like a small notch of its own, hanging from the top of the screen.
-struct NotchSideBubble<Content: View>: View {
-    @EnvironmentObject var vm: VornyxViewModel
-    @ViewBuilder let content: Content
+/// The hotspot's symbol alone, for joining another activity on its left.
+struct HotspotSymbol: View {
+    let side: CGFloat
 
     var body: some View {
-        let height = vm.effectiveClosedNotchHeight
-
-        content
-            .frame(width: height + 6, height: height)
-            .background(NotchShape(
-                topCornerRadius: cornerRadiusInsets.closed.top,
-                bottomCornerRadius: cornerRadiusInsets.closed.bottom
-            ).fill(.black))
+        Image(systemName: "personalhotspot")
+            .font(.system(size: 12, weight: .bold))
+            .foregroundStyle(.green)
+            .frame(width: side, height: side)
     }
 }
