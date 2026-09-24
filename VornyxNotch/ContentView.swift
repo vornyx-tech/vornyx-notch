@@ -455,6 +455,11 @@ struct ContentView: View {
               BatteryAlertLiveActivity()
                   .environmentObject(vm)
                   .transition(.opacity)
+          } else if coordinator.expandingView.type == .bluetooth && coordinator.expandingView.show
+                      && vm.notchState == .closed && !vm.hideOnClosed {
+              BluetoothLiveActivity()
+                  .environmentObject(vm)
+                  .transition(.opacity)
           // A running countdown outranks the banner's own timeout:
           // it stays for as long as it is counting, rather than
           // showing for three seconds and leaving.

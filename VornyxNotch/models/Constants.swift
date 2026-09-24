@@ -205,6 +205,8 @@ extension Defaults.Keys {
     static let vpnLiveActivity = Key<Bool>("vpnLiveActivity", default: true)
     /// Banners as the battery drops to 20% on battery, and reaches full.
     static let batteryAlerts = Key<Bool>("batteryAlerts", default: true)
+    /// A banner as a keyboard, mouse or other Bluetooth device connects.
+    static let bluetoothLiveActivity = Key<Bool>("bluetoothLiveActivity", default: true)
     static let showCapsLockIndicator = Key<Bool>("showCapsLockIndicator", default: true)
     /// Say it under the closed notch as it happens, as well as lighting the edge.
     static let capsLockSneakPeek = Key<Bool>("capsLockSneakPeek", default: true)

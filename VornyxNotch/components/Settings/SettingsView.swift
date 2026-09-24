@@ -474,6 +474,14 @@ struct Charge: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                Defaults.Toggle(key: .bluetoothLiveActivity) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Bluetooth devices in the notch")
+                        Text("A keyboard, mouse, controller or headphones connecting, with the charge when it reports one. AirPods keep their own banner.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 Defaults.Toggle(key: .vpnLiveActivity) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("VPN in the notch")

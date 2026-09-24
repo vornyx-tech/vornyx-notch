@@ -117,11 +117,13 @@
 		AA0000000000000000000B02 /* NotchContentRegions.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000B01 /* NotchContentRegions.swift */; };
 		AA00000000000000000C02 /* KeyCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000C01 /* KeyCapture.swift */; };
 		AA00000000000000000C12 /* AirPodsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000C11 /* AirPodsManager.swift */; };
+		291720901880133936867123 /* BluetoothDeviceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DCA69992917209018801339 /* BluetoothDeviceManager.swift */; };
 		AA00000000000000000C22 /* AirPodsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000C21 /* AirPodsView.swift */; };
 		AA00000000000000000D02 /* CountdownManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000D01 /* CountdownManager.swift */; };
 		62D4B824E3C0EAE2C0CEEE5A /* VPNManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB41599462D4B824E3C0EAE2 /* VPNManager.swift */; };
 		AA00000000000000000D12 /* StatsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000D11 /* StatsManager.swift */; };
 		AA00000000000000000D22 /* TimerLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000D21 /* TimerLiveActivity.swift */; };
+		89A1E555B5CD552607A405F7 /* BluetoothLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE48249D89A1E555B5CD5526 /* BluetoothLiveActivity.swift */; };
 		01631CACEB941222AE627048 /* BatteryAlertLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71A0A8FA01631CACEB941222 /* BatteryAlertLiveActivity.swift */; };
 		31D308A14C2643BCB2D505DC /* VPNLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2E55FB931D308A14C2643BC /* VPNLiveActivity.swift */; };
 		864CB59197BB6A8A2C33B912 /* FocusLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 333429B2864CB59197BB6A8A /* FocusLiveActivity.swift */; };
@@ -304,11 +306,13 @@
 		AA0000000000000000000B01 /* NotchContentRegions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchContentRegions.swift; sourceTree = "<group>"; };
 		AA00000000000000000C01 /* KeyCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyCapture.swift; sourceTree = "<group>"; };
 		AA00000000000000000C11 /* AirPodsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirPodsManager.swift; sourceTree = "<group>"; };
+		2DCA69992917209018801339 /* BluetoothDeviceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BluetoothDeviceManager.swift; sourceTree = "<group>"; };
 		AA00000000000000000C21 /* AirPodsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirPodsView.swift; sourceTree = "<group>"; };
 		AA00000000000000000D01 /* CountdownManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CountdownManager.swift; sourceTree = "<group>"; };
 		BB41599462D4B824E3C0EAE2 /* VPNManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VPNManager.swift; sourceTree = "<group>"; };
 		AA00000000000000000D11 /* StatsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsManager.swift; sourceTree = "<group>"; };
 		AA00000000000000000D21 /* TimerLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerLiveActivity.swift; sourceTree = "<group>"; };
+		EE48249D89A1E555B5CD5526 /* BluetoothLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BluetoothLiveActivity.swift; sourceTree = "<group>"; };
 		71A0A8FA01631CACEB941222 /* BatteryAlertLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatteryAlertLiveActivity.swift; sourceTree = "<group>"; };
 		E2E55FB931D308A14C2643BC /* VPNLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VPNLiveActivity.swift; sourceTree = "<group>"; };
 		333429B2864CB59197BB6A8A /* FocusLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusLiveActivity.swift; sourceTree = "<group>"; };
@@ -557,6 +561,7 @@
 				AA00000000000000000D01 /* CountdownManager.swift */,
 				BB41599462D4B824E3C0EAE2 /* VPNManager.swift */,
 				AA00000000000000000C11 /* AirPodsManager.swift */,
+				2DCA69992917209018801339 /* BluetoothDeviceManager.swift */,
 				149E0B962C737D00006418B1 /* WebcamManager.swift */,
 				14C08BB52C8DE42D000F8AA0 /* CalendarManager.swift */,
 				B1F0A0012E60000100000001 /* BrightnessManager.swift */,
@@ -786,6 +791,7 @@
 				14D570CC2C5F4BB70011E668 /* VornyxBattery.swift */,
 				AA00000000000000000D41 /* IndicatorLights.swift */,
 				AA00000000000000000D21 /* TimerLiveActivity.swift */,
+				EE48249D89A1E555B5CD5526 /* BluetoothLiveActivity.swift */,
 				71A0A8FA01631CACEB941222 /* BatteryAlertLiveActivity.swift */,
 				E2E55FB931D308A14C2643BC /* VPNLiveActivity.swift */,
 				333429B2864CB59197BB6A8A /* FocusLiveActivity.swift */,
@@ -1063,6 +1069,7 @@
 				AA00000000000000000D42 /* IndicatorLights.swift in Sources */,
 				AA00000000000000000D32 /* IndicatorsManager.swift in Sources */,
 				AA00000000000000000D22 /* TimerLiveActivity.swift in Sources */,
+				89A1E555B5CD552607A405F7 /* BluetoothLiveActivity.swift in Sources */,
 				01631CACEB941222AE627048 /* BatteryAlertLiveActivity.swift in Sources */,
 				31D308A14C2643BCB2D505DC /* VPNLiveActivity.swift in Sources */,
 				864CB59197BB6A8A2C33B912 /* FocusLiveActivity.swift in Sources */,
@@ -1072,6 +1079,7 @@
 				62D4B824E3C0EAE2C0CEEE5A /* VPNManager.swift in Sources */,
 				AA00000000000000000C22 /* AirPodsView.swift in Sources */,
 				AA00000000000000000C12 /* AirPodsManager.swift in Sources */,
+				291720901880133936867123 /* BluetoothDeviceManager.swift in Sources */,
 				AA00000000000000000C02 /* KeyCapture.swift in Sources */,
 				118D1FD12E98FF5F00A2FF63 /* SharingStateManager.swift in Sources */,
 				14D570C22C5EAFBF0011E668 /* EmptyState.swift in Sources */,

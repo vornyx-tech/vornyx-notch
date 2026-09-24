@@ -320,6 +320,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // One path monitor and a thirty-second backstop; the helper runs
         // scutil only when either fires.
         VPNManager.shared.start()
+        BluetoothDeviceManager.shared.start()
         // Two CoreAudio property listeners. Started here rather than by the
         // header's picker, which only appears once the notch has been opened -
         // the route banner has to work before that ever happens.

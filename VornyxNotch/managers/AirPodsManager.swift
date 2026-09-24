@@ -219,6 +219,12 @@ final class AirPodsManager: ObservableObject {
         return nil
     }
 
+    /// Whether this is a device the AirPods banner speaks for. Apple audio
+    /// counts before its levels arrive, which is a moment after it connects.
+    static func isPair(_ device: IOBluetoothDevice) -> Bool {
+        battery(of: device) != nil || (device.deviceClassMajor == 0x04 && appleProductID(device) != nil)
+    }
+
     /// Turn one device into a pair, or reject it. Keyboards and mice report a
     /// single level too, so that counts only for device class 0x04, audio.
     private static func battery(of device: IOBluetoothDevice) -> AirPodsBattery? {
