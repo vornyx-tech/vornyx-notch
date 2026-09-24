@@ -450,6 +450,11 @@ struct ContentView: View {
               VPNLiveActivity()
                   .environmentObject(vm)
                   .transition(.opacity)
+          } else if coordinator.expandingView.type == .batteryAlert && coordinator.expandingView.show
+                      && vm.notchState == .closed && !vm.hideOnClosed {
+              BatteryAlertLiveActivity()
+                  .environmentObject(vm)
+                  .transition(.opacity)
           // A running countdown outranks the banner's own timeout:
           // it stays for as long as it is counting, rather than
           // showing for three seconds and leaving.

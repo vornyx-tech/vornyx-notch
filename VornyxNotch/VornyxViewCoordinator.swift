@@ -24,6 +24,7 @@ enum SneakContentType {
     case capsLock
     case focus
     case vpn
+    case batteryAlert
 }
 
 struct sneakPeek {

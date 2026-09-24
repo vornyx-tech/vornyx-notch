@@ -203,6 +203,8 @@ extension Defaults.Keys {
     static let focusLiveActivity = Key<Bool>("focusLiveActivity", default: true)
     /// A banner in the closed notch as a VPN connects or drops.
     static let vpnLiveActivity = Key<Bool>("vpnLiveActivity", default: true)
+    /// Banners as the battery drops to 20% on battery, and reaches full.
+    static let batteryAlerts = Key<Bool>("batteryAlerts", default: true)
     static let showCapsLockIndicator = Key<Bool>("showCapsLockIndicator", default: true)
     /// Say it under the closed notch as it happens, as well as lighting the edge.
     static let capsLockSneakPeek = Key<Bool>("capsLockSneakPeek", default: true)

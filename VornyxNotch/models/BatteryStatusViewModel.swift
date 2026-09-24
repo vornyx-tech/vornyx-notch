@@ -21,6 +21,16 @@ class BatteryStatusViewModel: ObservableObject {
     @Published private(set) var isInitial: Bool = false
     @Published private(set) var timeToFullCharge: Int = 0
     @Published private(set) var statusText: String = ""
+    /// A threshold just crossed, for the low and full banners.
+    @Published private(set) var alert: BatteryAlert?
+
+    enum BatteryAlert: Equatable {
+        case low
+        case full
+    }
+
+    /// The level the low banner fires at, on the way down on battery.
+    static let lowThreshold: Float = 20
 
     private let managerBattery = BatteryActivityManager.shared
     private var managerBatteryId: Int?
@@ -62,8 +72,16 @@ class BatteryStatusViewModel: ObservableObject {
 
         case .batteryLevelChanged(let level):
             print("🔋 Battery level: \(Int(level))%")
+            let previous = self.levelBattery
             withAnimation {
                 self.levelBattery = level
+            }
+            // On the crossing only, so the banner comes once and not with
+            // every percent below the line.
+            if previous > Self.lowThreshold, level <= Self.lowThreshold, !self.isPluggedIn {
+                raise(.low)
+            } else if previous < 100, level >= 100, self.isPluggedIn {
+                raise(.full)
             }
 
         case .lowPowerModeChanged(let isEnabled):
@@ -116,6 +134,12 @@ class BatteryStatusViewModel: ObservableObject {
             self.maxCapacity = batteryInfo.maxCapacity
             self.statusText = batteryInfo.isPluggedIn ? "Plugged In" : "Unplugged"
         }
+    }
+
+    private func raise(_ alert: BatteryAlert) {
+        guard Defaults[.batteryAlerts] else { return }
+        self.alert = alert
+        coordinator.toggleExpandingView(status: true, type: .batteryAlert)
     }
 
     /// Notifies important changes in the battery status with an optional delay

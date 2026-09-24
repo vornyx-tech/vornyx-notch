@@ -466,6 +466,14 @@ struct Charge: View {
                     }
                 }
                 .disabled(!Defaults[.showFocusIndicator])
+                Defaults.Toggle(key: .batteryAlerts) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Battery low and full")
+                        Text("A banner as the battery drops to 20% on battery, and as it reaches full.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 Defaults.Toggle(key: .vpnLiveActivity) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("VPN in the notch")

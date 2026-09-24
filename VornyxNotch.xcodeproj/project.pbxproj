@@ -122,6 +122,7 @@
 		62D4B824E3C0EAE2C0CEEE5A /* VPNManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB41599462D4B824E3C0EAE2 /* VPNManager.swift */; };
 		AA00000000000000000D12 /* StatsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000D11 /* StatsManager.swift */; };
 		AA00000000000000000D22 /* TimerLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000D21 /* TimerLiveActivity.swift */; };
+		01631CACEB941222AE627048 /* BatteryAlertLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71A0A8FA01631CACEB941222 /* BatteryAlertLiveActivity.swift */; };
 		31D308A14C2643BCB2D505DC /* VPNLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2E55FB931D308A14C2643BC /* VPNLiveActivity.swift */; };
 		864CB59197BB6A8A2C33B912 /* FocusLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 333429B2864CB59197BB6A8A /* FocusLiveActivity.swift */; };
 		AA00000000000000000D32 /* IndicatorsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000D31 /* IndicatorsManager.swift */; };
@@ -308,6 +309,7 @@
 		BB41599462D4B824E3C0EAE2 /* VPNManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VPNManager.swift; sourceTree = "<group>"; };
 		AA00000000000000000D11 /* StatsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsManager.swift; sourceTree = "<group>"; };
 		AA00000000000000000D21 /* TimerLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerLiveActivity.swift; sourceTree = "<group>"; };
+		71A0A8FA01631CACEB941222 /* BatteryAlertLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatteryAlertLiveActivity.swift; sourceTree = "<group>"; };
 		E2E55FB931D308A14C2643BC /* VPNLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VPNLiveActivity.swift; sourceTree = "<group>"; };
 		333429B2864CB59197BB6A8A /* FocusLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusLiveActivity.swift; sourceTree = "<group>"; };
 		AA00000000000000000D31 /* IndicatorsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IndicatorsManager.swift; sourceTree = "<group>"; };
@@ -784,6 +786,7 @@
 				14D570CC2C5F4BB70011E668 /* VornyxBattery.swift */,
 				AA00000000000000000D41 /* IndicatorLights.swift */,
 				AA00000000000000000D21 /* TimerLiveActivity.swift */,
+				71A0A8FA01631CACEB941222 /* BatteryAlertLiveActivity.swift */,
 				E2E55FB931D308A14C2643BC /* VPNLiveActivity.swift */,
 				333429B2864CB59197BB6A8A /* FocusLiveActivity.swift */,
 				AA00000000000000000E41 /* AudioRouteLiveActivity.swift */,
@@ -1060,6 +1063,7 @@
 				AA00000000000000000D42 /* IndicatorLights.swift in Sources */,
 				AA00000000000000000D32 /* IndicatorsManager.swift in Sources */,
 				AA00000000000000000D22 /* TimerLiveActivity.swift in Sources */,
+				01631CACEB941222AE627048 /* BatteryAlertLiveActivity.swift in Sources */,
 				31D308A14C2643BCB2D505DC /* VPNLiveActivity.swift in Sources */,
 				864CB59197BB6A8A2C33B912 /* FocusLiveActivity.swift in Sources */,
 				AA00000000000000000E42 /* AudioRouteLiveActivity.swift in Sources */,
