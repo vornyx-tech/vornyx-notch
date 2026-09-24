@@ -175,10 +175,11 @@ final class CountdownManager: ObservableObject {
         }
         announce(force: true)
 
-        // Nothing else ends the `finished` state. The notch shows "Time's up"
-        // for all of it - see `isShowingInNotch` - then lets go once.
+        // Stop ends the `finished` state; this is only the backstop for a
+        // countdown nobody came back to. The notch shows it for all of it -
+        // see `isShowingInNotch` - then lets go once.
         Task { [weak self] in
-            try? await Task.sleep(for: .seconds(8))
+            try? await Task.sleep(for: .seconds(60))
             guard let self, self.state == .finished else { return }
             self.reset()
         }

@@ -414,9 +414,14 @@ struct ContentView: View {
     }
 
     private var showsDropDownBanner: Bool {
-        vm.notchState == .closed && !vm.hideOnClosed
-            && coordinator.expandingView.show && coordinator.expandingView.type.hasDropDownBanner
-            && Defaults[.bannerStyle] == .dropDown
+        guard vm.notchState == .closed, !vm.hideOnClosed, Defaults[.bannerStyle] == .dropDown else { return false }
+        return (coordinator.expandingView.show && coordinator.expandingView.type.hasDropDownBanner)
+            || showsTimerDone
+    }
+
+    /// A countdown just finished, with its Stop waiting under the camera.
+    private var showsTimerDone: Bool {
+        countdown.state == .finished && Defaults[.timerLiveActivity]
     }
 
     /// A sneak peek pins the layout to its own size: a standard-style music
@@ -1153,8 +1158,10 @@ struct ContentView: View {
                   !coordinator.sneakPeek.show,
                   // A LocalSend banner has buttons to reach: moving the pointer
                   // onto Accept or Decline must not open the notch over them.
-                  // Hover opens again once the banner has gone.
+                  // Hover opens again once the banner has gone. The same for
+                  // a finished timer's Stop.
                   !showsLocalSendBanner,
+                  !(showsTimerDone && showsDropDownBanner),
                   Defaults[.openNotchOnHover] else { return }
             
             hoverTask = Task {
@@ -1167,7 +1174,8 @@ struct ContentView: View {
                           !self.coordinator.sneakPeek.show,
                           // Checked again after the hover delay: the banner may
                           // have appeared while the pointer was already resting.
-                          !self.showsLocalSendBanner else { return }
+                          !self.showsLocalSendBanner,
+                          !(self.showsTimerDone && self.showsDropDownBanner) else { return }
 
                     // A button held down means something is being dragged in,
                     // and a dragged file belongs on the shelf. Hover can get

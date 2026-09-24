@@ -33,6 +33,7 @@ struct DropDownBanner: View {
     @ObservedObject private var battery = BatteryStatusViewModel.shared
     @ObservedObject private var bluetooth = BluetoothDeviceManager.shared
     @ObservedObject private var hotspot = HotspotManager.shared
+    @ObservedObject private var countdown = CountdownManager.shared
 
     @State private var pulse = false
 
@@ -50,6 +51,16 @@ struct DropDownBanner: View {
 
     @ViewBuilder
     private var content: some View {
+        // A finished countdown outranks the rest: it waits on a click.
+        if countdown.state == .finished {
+            timerDone
+        } else {
+            banner
+        }
+    }
+
+    @ViewBuilder
+    private var banner: some View {
         switch coordinator.expandingView.type {
         case .focus: focus
         case .vpn: vpnRow
@@ -161,6 +172,42 @@ struct DropDownBanner: View {
                 LowBatteryIndicator(tint: tint, pulses: !lowPower)
             } else {
                 MagSafeIndicator()
+            }
+        }
+    }
+
+    // MARK: - Timer
+
+    /// Stop on the left, the zeroed time on the right, in the timer's orange.
+    ///
+    /// After DynamicNotch's TimerExpandedNotchView by Evgeniy Petrukovich
+    /// (GPL-3.0): the same pieces, one Stop in place of pause and close.
+    private var timerDone: some View {
+        Group {
+            Button {
+                countdown.reset()
+            } label: {
+                Text("Stop")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(CountdownManager.color)
+                    .frame(width: 84, height: 40)
+                    .background(CountdownManager.color.opacity(0.3), in: Capsule())
+                    .contentShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .springyTile(hoverScale: 1.05, pressScale: 0.94, hoverBrightness: 0.1)
+
+            Spacer(minLength: 0)
+
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text("Timer")
+                    .font(.system(size: 14))
+                    .foregroundStyle(CountdownManager.color.opacity(0.8))
+                Text("00:00")
+                    .font(.system(size: 34, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(CountdownManager.color)
+                    .opacity(pulse ? 1 : 0.55)
             }
         }
     }
