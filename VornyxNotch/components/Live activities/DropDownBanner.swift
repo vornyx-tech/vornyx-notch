@@ -192,10 +192,20 @@ struct DropDownBanner: View {
                     .foregroundStyle(CountdownManager.color)
                     .frame(width: 84, height: 40)
                     .background(CountdownManager.color.opacity(0.3), in: Capsule())
+                    // Breathes with the ringing, so the way out is the
+                    // brightest thing in the notch.
+                    .background {
+                        Capsule()
+                            .fill(CountdownManager.color)
+                            .blur(radius: pulse ? 10 : 4)
+                            .opacity(pulse ? 0.45 : 0.12)
+                    }
+                    .shadow(color: CountdownManager.color.opacity(pulse ? 0.6 : 0.15), radius: pulse ? 8 : 2)
                     .contentShape(Capsule())
             }
-            .buttonStyle(.plain)
-            .springyTile(hoverScale: 1.05, pressScale: 0.94, hoverBrightness: 0.1)
+            // springyTile is the button style; a .plain before it would win,
+            // being closer to the button, and the hover would never show.
+            .springyTile(hoverScale: 1.1, pressScale: 0.92, hoverBrightness: 0.14)
 
             Spacer(minLength: 0)
 
