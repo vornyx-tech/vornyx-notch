@@ -42,12 +42,22 @@ final class BluetoothDeviceManager: ObservableObject {
     /// Registering also reports the devices already connected.
     private var quietUntil = Date.distantPast
     private var settleTask: Task<Void, Never>?
+    private var wakeObserver: NSObjectProtocol?
 
     private init() {}
 
     func start() {
         guard connectNotification == nil else { return }
         quietUntil = Date().addingTimeInterval(3)
+        // Waking reconnects every device the Mac had before it slept; none of
+        // that is news.
+        wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
+        ) { _ in
+            Task { @MainActor in
+                BluetoothDeviceManager.shared.quietUntil = Date().addingTimeInterval(10)
+            }
+        }
         observer.onConnect = { device in
             Task { @MainActor in BluetoothDeviceManager.shared.connected(device) }
         }
@@ -59,8 +69,10 @@ final class BluetoothDeviceManager: ObservableObject {
     private func connected(_ device: IOBluetoothDevice) {
         guard Date() >= quietUntil, Defaults[.bluetoothLiveActivity],
               !AirPodsManager.isPair(device) else { return }
+        // No name is no one the user would recognise - a device macOS keeps
+        // to itself, or one still identifying - so no banner for it.
+        guard let name = device.name?.trimmingCharacters(in: .whitespaces), !name.isEmpty else { return }
         let address = device.addressString
-        let name = device.name ?? "Bluetooth device"
         let symbol = Self.symbol(for: device)
 
         // The level shows up a moment after the connection, if at all.

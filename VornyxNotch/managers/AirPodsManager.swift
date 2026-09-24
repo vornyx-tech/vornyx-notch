@@ -142,6 +142,7 @@ final class AirPodsManager: ObservableObject {
     private var announcedDevice: String?
     /// Registering for connections also reports the existing ones.
     private var quietUntil = Date.distantPast
+    private var wakeObserver: NSObjectProtocol?
 
     private init() {}
 
@@ -150,6 +151,12 @@ final class AirPodsManager: ObservableObject {
     func start() {
         guard connectNotification == nil else { return }
         quietUntil = Date().addingTimeInterval(3)
+        // A pair reconnecting as the Mac wakes is not a new connection.
+        wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.quietUntil = Date().addingTimeInterval(10) }
+        }
 
         observer.onChange = { [weak self] in
             Task { @MainActor in self?.deviceSetChanged() }

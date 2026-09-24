@@ -40,9 +40,18 @@ class BatteryStatusViewModel: ObservableObject {
     /// Initializes the view model with a given VornyxViewModel instance
     /// - Parameter vm: The VornyxViewModel instance
     private init() {
+        quietUntil = Date().addingTimeInterval(3)
         setupPowerStatus()
         setupMonitor()
+        wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.quietUntil = Date().addingTimeInterval(10) }
+        }
     }
+
+    private var quietUntil = Date.distantPast
+    private var wakeObserver: NSObjectProtocol?
 
     /// Sets up the initial power status by fetching battery information
     private func setupPowerStatus() {
@@ -145,6 +154,9 @@ class BatteryStatusViewModel: ObservableObject {
     /// Notifies important changes in the battery status with an optional delay
     /// - Parameter delay: The delay before notifying the change, default is 0.0
     private func notifyImportanChangeStatus(delay: Double = 0.0) {
+        // The battery reports its whole state as the app starts and as the
+        // Mac wakes; none of that is a change worth a banner.
+        guard Date() >= quietUntil else { return }
         Task {
             try? await Task.sleep(for: .seconds(delay))
             self.coordinator.toggleExpandingView(status: true, type: .battery)
