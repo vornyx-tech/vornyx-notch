@@ -225,6 +225,10 @@ extension Defaults.Keys {
     /// The screen being recorded or shared: a banner as it starts, and a red
     /// light and running time for as long as it lasts.
     static let screenRecordingLiveActivity = Key<Bool>("screenRecordingLiveActivity", default: true)
+    /// A word in the notch as the keyboard layout changes.
+    static let inputSourceLiveActivity = Key<Bool>("inputSourceLiveActivity", default: true)
+    /// The eyedropper in the open notch's header.
+    static let colorPickerInHeader = Key<Bool>("colorPickerInHeader", default: true)
     static let bannerStyle = Key<BannerStyle>("bannerStyle", default: .dropDown)
     static let showCapsLockIndicator = Key<Bool>("showCapsLockIndicator", default: true)
     /// Say it under the closed notch as it happens, as well as lighting the edge.

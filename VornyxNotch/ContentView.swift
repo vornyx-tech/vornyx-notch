@@ -553,6 +553,16 @@ struct ContentView: View {
               BluetoothLiveActivity()
                   .environmentObject(vm)
                   .transition(.notchInline)
+          } else if coordinator.expandingView.type == .colorPicked && coordinator.expandingView.show
+                      && vm.notchState == .closed && !vm.hideOnClosed && Defaults[.bannerStyle] == .inline {
+              ColorPickedLiveActivity()
+                  .environmentObject(vm)
+                  .transition(.notchInline)
+          } else if coordinator.expandingView.type == .inputSource && coordinator.expandingView.show
+                      && vm.notchState == .closed && !vm.hideOnClosed && Defaults[.bannerStyle] == .inline {
+              InputSourceLiveActivity()
+                  .environmentObject(vm)
+                  .transition(.notchInline)
           } else if coordinator.expandingView.type == .hotspot && coordinator.expandingView.show
                       && vm.notchState == .closed && !vm.hideOnClosed && Defaults[.bannerStyle] == .inline {
               HotspotLiveActivity()

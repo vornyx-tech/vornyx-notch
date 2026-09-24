@@ -23,4 +23,6 @@ extension KeyboardShortcuts.Name {
     /// Control-Option-S: S for shelf, and unlike Command-Shift-S it is not
     /// every app's Save As.
     static let openShelf = Self("openShelf", default: .init(.s, modifiers: [.control, .option]))
+    /// Control-Option-C: C for colour, next to the shelf's S.
+    static let pickColor = Self("pickColor", default: .init(.c, modifiers: [.control, .option]))
 }

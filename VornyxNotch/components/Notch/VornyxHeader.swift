@@ -65,6 +65,12 @@ struct VornyxHeader: View {
                         if Defaults[.showAudioPicker] {
                             audioOutputMenu
                         }
+                        if Defaults[.colorPickerInHeader] {
+                            headerIconButton(icon: "eyedropper", isActive: false) {
+                                ColorPickerManager.shared.pick(closingNotch: { vm.close() })
+                            }
+                            .help("Pick a colour from the screen - copied as hex")
+                        }
                         tabIconButton(icon: "rectangle.3.group.fill", target: .dashboard)
                         if Defaults[.showMirror] {
                             headerIconButton(

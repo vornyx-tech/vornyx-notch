@@ -474,6 +474,22 @@ struct Charge: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                Defaults.Toggle(key: .inputSourceLiveActivity) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Keyboard layout in the notch")
+                        Text("The language's flag and name for a moment as the layout changes.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Defaults.Toggle(key: .colorPickerInHeader) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Colour picker in the header")
+                        Text("An eyedropper in the open notch: pick any colour on screen and it is copied as hex.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 Defaults.Toggle(key: .screenRecordingLiveActivity) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Screen recording in the notch")
@@ -1930,6 +1946,7 @@ struct Shortcuts: View {
             Section {
                 KeyboardShortcuts.Recorder("Toggle Notch Open:", name: .toggleNotchOpen)
                 KeyboardShortcuts.Recorder("Open Shelf:", name: .openShelf)
+                KeyboardShortcuts.Recorder("Pick a Colour:", name: .pickColor)
                 KeyboardShortcuts.Recorder("Show Clipboard:", name: .showClipboard)
             } header: {
                 SettingsSectionHeader("Notch", icon: "macbook", tint: .blue)

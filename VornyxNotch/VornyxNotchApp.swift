@@ -327,6 +327,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         VPNManager.shared.start()
         HotspotManager.shared.start()
         ScreenRecordingManager.shared.start()
+        InputSourceManager.shared.start()
         BannerPreview.shared.listen()
         // Two CoreAudio property listeners. Started here rather than by the
         // header's picker, which only appears once the notch has been opened -
@@ -470,6 +471,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     self.coordinator.currentView = .shelf
                     viewModel.open()
                 }
+            }
+        }
+
+        KeyboardShortcuts.onKeyDown(for: .pickColor) { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self, !self.coordinator.firstLaunch else { return }
+                let viewModel = self.viewModelUnderMouse()
+                ColorPickerManager.shared.pick(closingNotch: { viewModel.close() })
             }
         }
 

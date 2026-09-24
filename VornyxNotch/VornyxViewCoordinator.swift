@@ -28,6 +28,8 @@ enum SneakContentType {
     case bluetooth
     case hotspot
     case screenRecording
+    case colorPicked
+    case inputSource
 }
 
 struct sneakPeek {
@@ -386,7 +388,12 @@ class VornyxViewCoordinator: ObservableObject {
         didSet {
             if expandingView.show {
                 expandingViewTask?.cancel()
-                let duration: TimeInterval = (expandingView.type == .download ? 2 : 3)
+                let duration: TimeInterval = switch expandingView.type {
+                case .download: 2
+                // A glance to confirm what you just pressed.
+                case .inputSource: 1.6
+                default: 3
+                }
                 let currentType = expandingView.type
                 expandingViewTask = Task { [weak self] in
                     try? await Task.sleep(for: .seconds(duration))
@@ -426,6 +433,16 @@ class VornyxViewCoordinator: ObservableObject {
     /// Say in the closed notch that a Focus went on or off.
     func announceFocus() {
         toggleExpandingView(status: true, type: .focus)
+    }
+
+    /// Show the colour just picked, and that it was copied.
+    func announceColorPicked() {
+        toggleExpandingView(status: true, type: .colorPicked)
+    }
+
+    /// Say in the closed notch which keyboard layout is now on.
+    func announceInputSource() {
+        toggleExpandingView(status: true, type: .inputSource)
     }
 
     /// Say in the closed notch that the screen is being recorded.

@@ -27,7 +27,7 @@ final class BannerPreview: ObservableObject {
         case focusOn, focusOff, vpnConnected, vpnDisconnected
         case batteryLow, batteryFull, bluetooth, hotspot, timer, timerEnd, lockScreen
         case airPodsPro, airPods3, airPods2, airPodsMax, speaker
-        case screenRecording, charging, unplugged
+        case screenRecording, charging, unplugged, colorPicked, inputSource
 
         var id: String { rawValue }
 
@@ -52,6 +52,8 @@ final class BannerPreview: ObservableObject {
             case .screenRecording: return "Screen recording"
             case .charging: return "Charging"
             case .unplugged: return "Unplugged"
+            case .colorPicked: return "Colour picked"
+            case .inputSource: return "Keyboard layout"
             }
         }
     }
@@ -135,6 +137,10 @@ final class BannerPreview: ObservableObject {
             }
             bluetooth = BluetoothDeviceManager.device(for: pair)
             coordinator.announceBluetooth()
+        case .colorPicked:
+            ColorPickerManager.shared.picked(NSColor(red: 0.95, green: 0.33, blue: 0.47, alpha: 1))
+        case .inputSource:
+            coordinator.announceInputSource()
         case .screenRecording:
             recording = Date().addingTimeInterval(-42)
             coordinator.announceScreenRecording()

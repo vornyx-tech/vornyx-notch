@@ -16,7 +16,8 @@ import SwiftUI
 extension SneakContentType {
     var hasDropDownBanner: Bool {
         switch self {
-        case .focus, .vpn, .batteryAlert, .bluetooth, .hotspot, .screenRecording, .battery: return true
+        case .focus, .vpn, .batteryAlert, .bluetooth, .hotspot, .screenRecording, .battery,
+             .colorPicked, .inputSource: return true
         default: return false
         }
     }
@@ -35,6 +36,8 @@ struct DropDownBanner: View {
     @ObservedObject private var hotspot = HotspotManager.shared
     @ObservedObject private var countdown = CountdownManager.shared
     @ObservedObject private var recorder = ScreenRecordingManager.shared
+    @ObservedObject private var colors = ColorPickerManager.shared
+    @ObservedObject private var input = InputSourceManager.shared
 
     @State private var pulse = false
 
@@ -70,6 +73,8 @@ struct DropDownBanner: View {
         case .hotspot: hotspotRow
         case .screenRecording: recordingRow
         case .battery: powerRow
+        case .colorPicked: colorRow
+        case .inputSource: inputRow
         default: EmptyView()
         }
     }
@@ -222,6 +227,60 @@ struct DropDownBanner: View {
                     .foregroundStyle(CountdownManager.color)
                     .opacity(pulse ? 1 : 0.55)
             }
+        }
+    }
+
+    // MARK: - Colour
+
+    /// The colour picked, its hex, and the ones before it - click one to copy
+    /// it again.
+    private var colorRow: some View {
+        let picked = colors.recent.first ?? .white
+
+        return Group {
+            Circle()
+                .fill(Color(nsColor: picked))
+                .overlay(Circle().stroke(.white.opacity(0.25), lineWidth: 1))
+                .frame(width: 30, height: 30)
+                .shadow(color: Color(nsColor: picked).opacity(0.6), radius: 8)
+            titles(ColorPickerManager.hex(picked), "Copied")
+            Spacer(minLength: 0)
+            HStack(spacing: 6) {
+                ForEach(Array(colors.recent.dropFirst().prefix(4).enumerated()), id: \.offset) { _, color in
+                    Button { colors.copy(color) } label: {
+                        Circle()
+                            .fill(Color(nsColor: color))
+                            .overlay(Circle().stroke(.white.opacity(0.2), lineWidth: 1))
+                            .frame(width: 16, height: 16)
+                    }
+                    .springyTile(hoverScale: 1.2, pressScale: 0.9, hoverBrightness: 0.1)
+                    .help("Copy \(ColorPickerManager.hex(color))")
+                }
+            }
+        }
+    }
+
+    // MARK: - Keyboard layout
+
+    private var inputRow: some View {
+        let source = input.current
+
+        return Group {
+            Group {
+                if let flag = source?.flag {
+                    Text(flag).font(.system(size: 26))
+                } else {
+                    Image(systemName: "keyboard")
+                        .font(.system(size: 20, weight: .medium))
+                        .foregroundStyle(.white)
+                }
+            }
+            .frame(width: 30)
+            titles(source?.name ?? "Keyboard", "Keyboard layout")
+            Spacer(minLength: 0)
+            Text(source?.code ?? "")
+                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .foregroundStyle(.white.opacity(0.85))
         }
     }
 
