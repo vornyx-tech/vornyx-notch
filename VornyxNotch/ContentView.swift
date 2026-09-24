@@ -375,9 +375,9 @@ struct ContentView: View {
         }
     }
 
-    /// Bigger than the closed notch's own: the card hangs well below the
-    /// camera, and small corners on something that size read as a box.
-    private let dropDownBannerRadii = (top: CGFloat(12), bottom: CGFloat(26))
+    /// The open notch's own corners: the card is the notch grown, and should
+    /// look like it. NotchShape caps them against the card's smaller box.
+    private var dropDownBannerRadii: (top: CGFloat, bottom: CGFloat) { cornerRadiusInsets.opened }
 
     private var showsDropDownBanner: Bool {
         vm.notchState == .closed && !vm.hideOnClosed
