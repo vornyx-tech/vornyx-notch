@@ -218,9 +218,6 @@ extension Defaults.Keys {
     /// A banner as a keyboard, mouse or other Bluetooth device connects.
     static let bluetoothLiveActivity = Key<Bool>("bluetoothLiveActivity", default: true)
     static let bannerStyle = Key<BannerStyle>("bannerStyle", default: .dropDown)
-    /// The drop-down banner's bottom corners, in points. Its top flare is the
-    /// open notch's own.
-    static let bannerBottomRadius = Key<Double>("bannerBottomRadius", default: 26)
     static let showCapsLockIndicator = Key<Bool>("showCapsLockIndicator", default: true)
     /// Say it under the closed notch as it happens, as well as lighting the edge.
     static let capsLockSneakPeek = Key<Bool>("capsLockSneakPeek", default: true)

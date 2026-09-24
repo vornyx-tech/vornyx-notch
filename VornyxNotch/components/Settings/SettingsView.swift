@@ -2378,7 +2378,6 @@ private struct BannerPreviewButtons: View {
 
 private struct BannerStylePicker: View {
     @Default(.bannerStyle) private var style
-    @Default(.bannerBottomRadius) private var bottomRadius
 
     var body: some View {
         Picker("Banner style", selection: $style) {
@@ -2387,23 +2386,5 @@ private struct BannerStylePicker: View {
             }
         }
         .pickerStyle(.segmented)
-
-        if style == .dropDown {
-            HStack {
-                Text("Bottom corners")
-                Slider(value: $bottomRadius, in: 6...40, step: 1)
-                Text("\(Int(bottomRadius)) pt")
-                    .monospacedDigit()
-                    .foregroundStyle(.secondary)
-                    .frame(width: 44, alignment: .trailing)
-            }
-            // A preview on every change, so the corner can be judged on the
-            // notch itself rather than guessed at from the number.
-            .onChange(of: bottomRadius) { _, _ in
-                if !VornyxViewCoordinator.shared.expandingView.show {
-                    BannerPreview.shared.show(.focusOn)
-                }
-            }
-        }
     }
 }

@@ -66,10 +66,6 @@ struct ContentView: View {
 
     @Default(.useMusicVisualizer) var useMusicVisualizer
 
-    /// Watched so a change redraws the banner showing, not only the next one.
-
-    @Default(.bannerBottomRadius) private var bannerBottomRadius
-
     @Default(.showNotHumanFace) var showNotHumanFace
 
     @Default(.clipboardEnabled) var clipboardEnabled
@@ -161,8 +157,11 @@ struct ContentView: View {
                     // Black, or Liquid Glass under a black band that hides in
                     // the hardware notch - see `NotchBackground`.
                     .background {
+                        // A drop-down banner is the notch grown, so it takes
+                        // the open notch's glass too.
                         NotchBackground(
-                            isOpen: vm.notchState == .open,
+                            isOpen: vm.notchState == .open || showsDropDownBanner,
+                            fadeHeight: showsDropDownBanner && vm.notchState != .open ? 24 : 90,
                             blackBandHeight: max(vm.effectiveClosedNotchHeight, 24),
                             topRadius: topCornerRadius,
                             bottomRadius: currentNotchBottomRadius)
@@ -380,10 +379,10 @@ struct ContentView: View {
     }
 
     /// The open notch's flare where it meets the screen, so the card reads as
-    /// the notch grown; the bottom corners are the user's, since the open
-    /// notch's are far too round on something this short.
+    /// the notch grown; its own bottom corners, since the open notch's are far
+    /// too round on something this short.
     private var dropDownBannerRadii: (top: CGFloat, bottom: CGFloat) {
-        (cornerRadiusInsets.opened.top, CGFloat(bannerBottomRadius))
+        (cornerRadiusInsets.opened.top, 36)
     }
 
     private var showsDropDownBanner: Bool {
@@ -1280,6 +1279,9 @@ struct GeneralDropTargetDelegate: DropDelegate {
 /// text and lets go towards the bottom edge.
 private struct NotchBackground: View, Animatable {
     let isOpen: Bool
+    /// How far the black takes to fade down to the middle dimming. Shorter on
+    /// a banner, which is barely taller than the black band itself.
+    var fadeHeight: CGFloat = 90
     let blackBandHeight: CGFloat
     var topRadius: CGFloat
     var bottomRadius: CGFloat
@@ -1294,8 +1296,6 @@ private struct NotchBackground: View, Animatable {
 
     @Default(.liquidGlassNotch) private var liquidGlass
 
-    /// How far the black takes to fade down to the middle dimming.
-    private let fadeHeight: CGFloat = 90
     /// Dimming through the middle, where most of the white text sits.
     private let middleDim: Double = 0.60
     /// Dimming at the bottom edge. Held close to the middle value: letting it
