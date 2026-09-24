@@ -39,6 +39,8 @@ struct ClipboardItem: Identifiable, Codable, Equatable {
         case link(String)
         case code
         case number
+        /// A colour in any notation, for a swatch on the card.
+        case color(ClipboardColor)
         case text
     }
 
@@ -100,8 +102,11 @@ struct ClipboardItem: Identifiable, Codable, Equatable {
     }
 
     private static func kind(of trimmed: String, isWholeCopy: Bool) -> Kind {
-        // A link or a number is the entire copy.
+        // A link, a colour or a number is the entire copy.
         if isWholeCopy {
+            if let color = ClipboardColor.parse(trimmed) {
+                return .color(color)
+            }
             if trimmed.lowercased().hasPrefix("http"),
                let url = URL(string: trimmed), let host = url.host() {
                 return .link(host)

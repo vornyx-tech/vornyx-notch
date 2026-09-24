@@ -297,6 +297,8 @@ struct ClipboardView: View {
 
                 if item.isImage {
                     thumbnail(item, radius: max(4, radius - padding), size: content)
+                } else if case .color(let color) = item.kind {
+                    colorBody(item, color: color, size: content)
                 } else {
                     Text(item.preview)
                         .font(bodyFont(for: item))
@@ -479,6 +481,36 @@ struct ClipboardView: View {
         .frame(height: footerHeight)
     }
 
+    // MARK: - Colour
+
+    /// A swatch of the colour beside what was copied, and its hex below when
+    /// the copy was written some other way.
+    private func colorBody(_ item: ClipboardItem, color: ClipboardColor, size: CGSize) -> some View {
+        let swatch = Color(red: color.red, green: color.green, blue: color.blue, opacity: color.alpha)
+        let side = min(size.height, 34)
+
+        return HStack(spacing: 10) {
+            Circle()
+                .fill(swatch)
+                .overlay(Circle().stroke(.white.opacity(0.25), lineWidth: 1))
+                .frame(width: side, height: side)
+                .shadow(color: swatch.opacity(0.6), radius: 8)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.preview)
+                    .font(bodyFont(for: item))
+                    .foregroundStyle(.white.opacity(0.96))
+                    .lineLimit(2)
+                    .truncationMode(.tail)
+                if item.preview.uppercased() != color.hex {
+                    Text(color.hex)
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.5))
+                }
+            }
+        }
+        .frame(width: size.width, height: size.height, alignment: .leading)
+    }
+
     // MARK: - Per-kind styling
 
     private func icon(for item: ClipboardItem) -> String {
@@ -487,6 +519,7 @@ struct ClipboardView: View {
         case .link: return "link"
         case .code: return "chevron.left.forwardslash.chevron.right"
         case .number: return "number"
+        case .color: return "paintpalette.fill"
         case .text: return "text.alignleft"
         }
     }
@@ -497,6 +530,10 @@ struct ClipboardView: View {
         case .link: return .blue
         case .code: return .purple
         case .number: return .orange
+        // The colour itself, lifted so a black one still reads on the card.
+        case .color(let color):
+            return Color(red: color.red, green: color.green, blue: color.blue)
+                .ensureMinimumBrightness(factor: 0.45)
         case .text: return .teal
         }
     }
@@ -507,6 +544,7 @@ struct ClipboardView: View {
         case .link(let host): return host
         case .code: return "Code"
         case .number: return "Number"
+        case .color: return "Colour"
         case .text: return item.lineCount > 1 ? "\(item.lineCount) lines" : "Text"
         }
     }
