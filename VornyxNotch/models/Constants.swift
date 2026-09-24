@@ -201,6 +201,8 @@ extension Defaults.Keys {
     static let showFocusIndicator = Key<Bool>("showFocusIndicator", default: false)
     /// A banner in the closed notch as a Focus goes on or off.
     static let focusLiveActivity = Key<Bool>("focusLiveActivity", default: true)
+    /// A banner in the closed notch as a VPN connects or drops.
+    static let vpnLiveActivity = Key<Bool>("vpnLiveActivity", default: true)
     static let showCapsLockIndicator = Key<Bool>("showCapsLockIndicator", default: true)
     /// Say it under the closed notch as it happens, as well as lighting the edge.
     static let capsLockSneakPeek = Key<Bool>("capsLockSneakPeek", default: true)

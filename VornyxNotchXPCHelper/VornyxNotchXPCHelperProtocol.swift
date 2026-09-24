@@ -25,6 +25,9 @@ import Foundation
     // Focus, read from the file macOS writes it to; needs Full Disk Access.
     // "unreadable", "off", or the active mode's identifier.
     func focusAssertionState(with reply: @escaping (NSString?) -> Void)
+    // The connected VPN, from scutil: name, bundleID, connectedAt (seconds
+    // since 1970). Nil when none is connected.
+    func connectedVPN(with reply: @escaping (NSDictionary?) -> Void)
 }
 
 /*

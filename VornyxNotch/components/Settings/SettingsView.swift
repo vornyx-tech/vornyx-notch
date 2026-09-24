@@ -466,6 +466,14 @@ struct Charge: View {
                     }
                 }
                 .disabled(!Defaults[.showFocusIndicator])
+                Defaults.Toggle(key: .vpnLiveActivity) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("VPN in the notch")
+                        Text("The VPN's name and how long it has been up, as it connects or drops.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 Defaults.Toggle(key: .showAudioPicker) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Sound output menu")

@@ -317,6 +317,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // backstop, no polling and no permission prompt.
         AirPodsManager.shared.start()
         IndicatorsManager.shared.start()
+        // One path monitor and a thirty-second backstop; the helper runs
+        // scutil only when either fires.
+        VPNManager.shared.start()
         // Two CoreAudio property listeners. Started here rather than by the
         // header's picker, which only appears once the notch has been opened -
         // the route banner has to work before that ever happens.

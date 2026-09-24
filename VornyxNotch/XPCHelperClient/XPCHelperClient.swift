@@ -284,6 +284,36 @@ extension XPCHelperClient {
     }
 }
 
+extension XPCHelperClient {
+    /// The connected VPN, or nil when there is none or the helper could not
+    /// be reached.
+    nonisolated func connectedVPN() async -> ConnectedVPN? {
+        do {
+            let service = await MainActor.run { ensureRemoteService() }
+            let result: NSDictionary? = try await service.withContinuation { service, continuation in
+                service.connectedVPN { value in
+                    continuation.resume(returning: value)
+                }
+            }
+            guard let info = result as? [String: Any], let id = info["id"] as? String else { return nil }
+            return ConnectedVPN(
+                id: id,
+                name: info["name"] as? String ?? "VPN",
+                bundleID: info["bundleID"] as? String,
+                connectedAt: (info["connectedAt"] as? Double).map(Date.init(timeIntervalSince1970:)))
+        } catch {
+            return nil
+        }
+    }
+}
+
+struct ConnectedVPN: Equatable {
+    let id: String
+    let name: String
+    let bundleID: String?
+    let connectedAt: Date?
+}
+
 enum FocusAssertion: Equatable {
     /// No Full Disk Access.
     case unreadable

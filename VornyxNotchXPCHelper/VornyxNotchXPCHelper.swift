@@ -184,6 +184,63 @@ class VornyxNotchXPCHelper: NSObject, VornyxNotchXPCHelperProtocol {
         reply((mode ?? "off") as NSString)
     }
 
+    // MARK: - VPN
+
+    /// The first connected VPN service `scutil --nc list` knows - every VPN
+    /// macOS manages, WireGuard and other Network Extension ones included -
+    /// and when it connected, from `scutil --nc status`.
+    ///
+    /// Approach from DynamicNotch by Evgeniy Petrukovich (GPL-3.0).
+    @objc func connectedVPN(with reply: @escaping (NSDictionary?) -> Void) {
+        guard let list = Self.run("/usr/sbin/scutil", ["--nc", "list"]) else { return reply(nil) }
+
+        // * (Connected)   0411615F-... VPN (com.wireguard.macos) "vania-tunnel"   [VPN:com.wireguard.macos]
+        guard let line = list.split(separator: "\n").first(where: { $0.contains("(Connected)") }),
+              let uuidRange = line.range(
+                of: "[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}",
+                options: .regularExpression)
+        else { return reply(nil) }
+
+        let uuid = String(line[uuidRange])
+        let rest = line[uuidRange.upperBound...]
+        var info: [String: Any] = ["id": uuid]
+
+        if let open = rest.firstIndex(of: "\""),
+           let close = rest[rest.index(after: open)...].firstIndex(of: "\"") {
+            info["name"] = String(rest[rest.index(after: open)..<close])
+        }
+        if let open = rest.firstIndex(of: "("), let close = rest.firstIndex(of: ")"), open < close {
+            let inside = rest[rest.index(after: open)..<close]
+            if inside.contains(".") { info["bundleID"] = String(inside) }
+        }
+
+        if let status = Self.run("/usr/sbin/scutil", ["--nc", "status", uuid]),
+           let line = status.split(separator: "\n").first(where: { $0.contains("LastStatusChangeTime") }),
+           let value = line.split(separator: ":", maxSplits: 1).last {
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "en_US_POSIX")
+            formatter.dateFormat = "MM/dd/yyyy HH:mm:ss"
+            if let date = formatter.date(from: value.trimmingCharacters(in: .whitespaces)) {
+                info["connectedAt"] = date.timeIntervalSince1970
+            }
+        }
+        reply(info as NSDictionary)
+    }
+
+    /// A command's standard output, or nil if it could not run.
+    private static func run(_ path: String, _ arguments: [String]) -> String? {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: path)
+        process.arguments = arguments
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = FileHandle.nullDevice
+        do { try process.run() } catch { return nil }
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        return String(data: data, encoding: .utf8)
+    }
+
     private enum FocusProbe: Int {
         case off = 0
         case on = 1
