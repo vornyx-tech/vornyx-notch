@@ -485,7 +485,7 @@ struct ContentView: View {
           // A running countdown outranks the banner's own timeout:
           // it stays for as long as it is counting, rather than
           // showing for three seconds and leaving.
-          } else if countdown.isActive && vm.notchState == .closed && !vm.hideOnClosed
+          } else if countdown.isShowingInNotch && vm.notchState == .closed && !vm.hideOnClosed
                       && Defaults[.timerLiveActivity] {
               TimerLiveActivity()
                   .environmentObject(vm)

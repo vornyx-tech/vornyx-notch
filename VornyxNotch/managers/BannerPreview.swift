@@ -25,7 +25,7 @@ final class BannerPreview: ObservableObject {
 
     enum Kind: String, CaseIterable, Identifiable {
         case focusOn, focusOff, vpnConnected, vpnDisconnected
-        case batteryLow, batteryFull, bluetooth, timer
+        case batteryLow, batteryFull, bluetooth, timer, timerEnd
 
         var id: String { rawValue }
 
@@ -39,6 +39,7 @@ final class BannerPreview: ObservableObject {
             case .batteryFull: return "Battery full"
             case .bluetooth: return "Bluetooth device"
             case .timer: return "Timer"
+            case .timerEnd: return "Timer ending"
             }
         }
     }
@@ -98,6 +99,8 @@ final class BannerPreview: ObservableObject {
             coordinator.announceBluetooth()
         case .timer:
             CountdownManager.shared.start(90)
+        case .timerEnd:
+            CountdownManager.shared.start(3)
         }
 
         log.notice("preview \(kind.rawValue, privacy: .public)")

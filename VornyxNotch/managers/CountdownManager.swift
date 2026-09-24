@@ -49,6 +49,11 @@ final class CountdownManager: ObservableObject {
 
     var isActive: Bool { state == .running || state == .paused }
 
+    /// Running, paused, or just finished: everything the closed notch keeps
+    /// the countdown up for. Finished counts, or the banner went after its
+    /// three seconds and the notch shrank, then sat idle until the reset.
+    var isShowingInNotch: Bool { isActive || state == .finished }
+
     /// 0 at the start, 1 at the end.
     var progress: Double {
         guard total > 0 else { return 0 }
@@ -163,14 +168,17 @@ final class CountdownManager: ObservableObject {
     }
 
     private func finish() {
+        // A system sound of its own: notification.m4a is the greeting played
+        // on first launch, so the timer ending sounded like the app starting.
         if Defaults[.timerSound] {
-            AudioPlayer().play(fileName: "notification", fileExtension: "m4a")
+            (NSSound(named: "Glass") ?? NSSound(named: "Ping"))?.play()
         }
         announce(force: true)
 
-        // Nothing else ends the `finished` state.
+        // Nothing else ends the `finished` state. The notch shows "Time's up"
+        // for all of it - see `isShowingInNotch` - then lets go once.
         Task { [weak self] in
-            try? await Task.sleep(for: .seconds(12))
+            try? await Task.sleep(for: .seconds(8))
             guard let self, self.state == .finished else { return }
             self.reset()
         }
