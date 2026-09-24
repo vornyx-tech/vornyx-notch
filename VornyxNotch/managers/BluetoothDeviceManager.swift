@@ -72,6 +72,9 @@ final class BluetoothDeviceManager: ObservableObject {
         // No name is no one the user would recognise - a device macOS keeps
         // to itself, or one still identifying - so no banner for it.
         guard let name = device.name?.trimmingCharacters(in: .whitespaces), !name.isEmpty else { return }
+        // Phones and computers join over Bluetooth for the hotspot, Handoff
+        // and the like, silently and often; that is not something connected.
+        guard ![0x01, 0x02].contains(device.deviceClassMajor) else { return }
         let address = device.addressString
         let symbol = Self.symbol(for: device)
 

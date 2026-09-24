@@ -15,6 +15,7 @@
 //
 
 import AppKit
+import CoreImage
 import Defaults
 import SwiftUI
 
@@ -402,31 +403,40 @@ private struct LockScreenArtworkBackground: View {
 
     @State private var turn: Double = 0
     @State private var breathe: CGFloat = 1
+    @State private var blurred: NSImage?
 
     var body: some View {
         GeometryReader { proxy in
             let diagonal = hypot(proxy.size.width, proxy.size.height)
             ZStack {
                 Color.black
-                // A tiny copy scaled up is blurry already, so a smaller blur
-                // on top is enough, for less work.
-                Image(nsImage: Self.thumbnail(of: artwork))
-                    .resizable()
-                    .interpolation(.medium)
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: diagonal, height: diagonal)
-                    .blur(radius: 70)
-                    .saturation(1.45)
-                    .opacity(0.6)
-                    .scaleEffect(breathe)
-                    .rotationEffect(.degrees(turn))
-                    .position(x: proxy.size.width / 2, y: proxy.size.height / 2)
+                // Blurred once, up front: blurring a screen-sized layer every
+                // frame while it turns and breathes dropped the whole lock
+                // screen - lyrics included - to a handful of frames a second.
+                // A finished bitmap turning is next to free.
+                if let blurred {
+                    Image(nsImage: blurred)
+                        .resizable()
+                        .interpolation(.high)
+                        .frame(width: diagonal, height: diagonal)
+                        .opacity(0.6)
+                        .scaleEffect(breathe)
+                        .rotationEffect(.degrees(turn))
+                        .position(x: proxy.size.width / 2, y: proxy.size.height / 2)
+                        .transition(.opacity)
+                }
                 RadialGradient(
                     colors: [tint.opacity(0.35), .clear],
                     center: .bottom, startRadius: 0, endRadius: proxy.size.height * 0.8)
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
             .clipped()
+            .drawingGroup()
+        }
+        .task(id: ObjectIdentifier(artwork)) {
+            let image = artwork
+            let baked = await Task.detached(priority: .userInitiated) { Self.bake(image) }.value
+            withAnimation(.easeInOut(duration: 0.6)) { blurred = baked }
         }
         .onAppear {
             withAnimation(.linear(duration: 60).repeatForever(autoreverses: false)) { turn = 360 }
@@ -434,13 +444,20 @@ private struct LockScreenArtworkBackground: View {
         }
     }
 
-    private static func thumbnail(of image: NSImage) -> NSImage {
-        let side: CGFloat = 48
-        let small = NSImage(size: NSSize(width: side, height: side))
-        small.lockFocus()
-        image.draw(in: NSRect(x: 0, y: 0, width: side, height: side))
-        small.unlockFocus()
-        return small
+    /// The cover made small, blurred to its colours and saturated, once.
+    nonisolated private static func bake(_ image: NSImage) -> NSImage? {
+        guard let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return nil }
+        let side: CGFloat = 96
+        let input = CIImage(cgImage: cg)
+        let scale = side / max(input.extent.width, input.extent.height)
+        let small = input.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+        let blurred = small
+            .clampedToExtent()
+            .applyingGaussianBlur(sigma: 10)
+            .applyingFilter("CIColorControls", parameters: [kCIInputSaturationKey: 1.45])
+            .cropped(to: small.extent)
+        guard let output = CIContext().createCGImage(blurred, from: small.extent) else { return nil }
+        return NSImage(cgImage: output, size: NSSize(width: side, height: side))
     }
 }
 
