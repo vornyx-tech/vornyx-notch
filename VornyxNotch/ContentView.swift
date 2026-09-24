@@ -27,6 +27,9 @@ struct ContentView: View {
     @ObservedObject var localSend = LocalSendManager.shared
     @ObservedObject var pods = AirPodsManager.shared
     @ObservedObject var hotspot = HotspotManager.shared
+    // Watched for the companion riding along with the music.
+    @ObservedObject var vpnManager = VPNManager.shared
+    @ObservedObject var indicatorsManager = IndicatorsManager.shared
     @ObservedObject var bannerPreview = BannerPreview.shared
     @State private var hoverTask: Task<Void, Never>?
     @State private var isHovering: Bool = false
@@ -110,7 +113,7 @@ struct ContentView: View {
             chinWidth = 640
         } else if showsMusicActivity || showsHotspotActivity {
             chinWidth += (2 * max(0, vm.effectiveClosedNotchHeight - 12) + 20)
-            if showsHotspotAlongside {
+            if musicCompanion != nil {
                 chinWidth += 2 * (hotspotSlotWidth + 8)
             }
         } else if !coordinator.expandingView.show && vm.notchState == .closed
@@ -400,10 +403,17 @@ struct ContentView: View {
     /// and the same on the left so the camera stays centred.
     private var hotspotSlotWidth: CGFloat { max(26, vm.effectiveClosedNotchHeight - 6) }
 
-    /// Two things to show at once: the music or the timer keeps the notch,
-    /// and the hotspot's symbol joins it on the far left.
+    /// Two things to show at once: the timer keeps the notch with the
+    /// hotspot's symbol on its left, when there is no music.
     private var showsHotspotAlongside: Bool {
-        showsHotspotActivity && (showsMusicActivity || countdown.isShowingInNotch)
+        showsHotspotActivity && countdown.isShowingInNotch
+    }
+
+    /// What rides along with the music: a transfer, a countdown, the hotspot,
+    /// a VPN or a Focus - see `LiveCompanion`.
+    private var musicCompanion: LiveCompanion? {
+        guard showsMusicActivity, !coordinator.expandingView.show else { return nil }
+        return LiveCompanion.current
     }
 
     /// The open notch's flare where it meets the screen, so the card reads as
@@ -523,8 +533,11 @@ struct ContentView: View {
           // A running countdown outranks the banner's own timeout:
           // it stays for as long as it is counting, rather than
           // showing for three seconds and leaving.
+          // With music playing, a running countdown rides along with it
+          // instead (see `musicCompanion`); only "Time's up" takes over.
           } else if countdown.isShowingInNotch && vm.notchState == .closed && !vm.hideOnClosed
-                      && Defaults[.timerLiveActivity] {
+                      && Defaults[.timerLiveActivity]
+                      && !(showsMusicActivity && countdown.state != .finished) {
               TimerLiveActivity()
                   .environmentObject(vm)
                   .transition(.opacity)
@@ -938,6 +951,8 @@ struct ContentView: View {
     /// checker will solve in one expression.
     private var showsLocalSendBanner: Bool {
         localSendEnabled && vm.notchState == .closed && !vm.hideOnClosed && hasLocalSendActivity
+            // A transfer moving rides along with the music instead.
+            && !(showsMusicActivity && LiveCompanion.takesLocalSend)
     }
 
     @ViewBuilder
@@ -992,8 +1007,8 @@ struct ContentView: View {
     @ViewBuilder
     func MusicLiveActivity() -> some View {
         HStack {
-            if showsHotspotAlongside {
-                HotspotSymbol(side: hotspotSlotWidth)
+            if let companion = musicCompanion {
+                LiveCompanionSymbol(companion: companion, side: hotspotSlotWidth)
                     .transition(.notchInline)
             }
 
@@ -1088,9 +1103,9 @@ struct ContentView: View {
                 radius: 5))
 
             // The same width again on the right, so the camera stays in the
-            // middle of the black: the data the hotspot has used goes there.
-            if showsHotspotAlongside {
-                HotspotUsage()
+            // middle of the black: the companion's one number goes there.
+            if let companion = musicCompanion {
+                LiveCompanionValue(companion: companion)
                     .frame(width: hotspotSlotWidth)
                     .transition(.notchInline)
             }
@@ -1099,7 +1114,7 @@ struct ContentView: View {
             height: vm.effectiveClosedNotchHeight,
             alignment: .center
         )
-        .animation(.notchBanner, value: showsHotspotAlongside)
+        .animation(.notchBanner, value: musicCompanion)
     }
 
     @ViewBuilder

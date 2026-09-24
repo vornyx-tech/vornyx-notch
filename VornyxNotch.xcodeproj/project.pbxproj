@@ -125,6 +125,7 @@
 		883060E0C6E7571EB32292D9 /* BannerPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D7C6233883060E0C6E7571E /* BannerPreview.swift */; };
 		AA00000000000000000D12 /* StatsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000D11 /* StatsManager.swift */; };
 		AA00000000000000000D22 /* TimerLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000D21 /* TimerLiveActivity.swift */; };
+		15826A9760E22569D0C7A426 /* LiveCompanion.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE1F2F2315826A9760E22569 /* LiveCompanion.swift */; };
 		C725BCA59981ABD5BC9AB721 /* HotspotLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 446FE063C725BCA59981ABD5 /* HotspotLiveActivity.swift */; };
 		AEF9DF0BBC6E2FFDF03A1315 /* DropDownBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0281034EAEF9DF0BBC6E2FFD /* DropDownBanner.swift */; };
 		89A1E555B5CD552607A405F7 /* BluetoothLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE48249D89A1E555B5CD5526 /* BluetoothLiveActivity.swift */; };
@@ -320,6 +321,7 @@
 		8D7C6233883060E0C6E7571E /* BannerPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BannerPreview.swift; sourceTree = "<group>"; };
 		AA00000000000000000D11 /* StatsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsManager.swift; sourceTree = "<group>"; };
 		AA00000000000000000D21 /* TimerLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerLiveActivity.swift; sourceTree = "<group>"; };
+		AE1F2F2315826A9760E22569 /* LiveCompanion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveCompanion.swift; sourceTree = "<group>"; };
 		446FE063C725BCA59981ABD5 /* HotspotLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotspotLiveActivity.swift; sourceTree = "<group>"; };
 		0281034EAEF9DF0BBC6E2FFD /* DropDownBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DropDownBanner.swift; sourceTree = "<group>"; };
 		EE48249D89A1E555B5CD5526 /* BluetoothLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BluetoothLiveActivity.swift; sourceTree = "<group>"; };
@@ -807,6 +809,7 @@
 				14D570CC2C5F4BB70011E668 /* VornyxBattery.swift */,
 				AA00000000000000000D41 /* IndicatorLights.swift */,
 				AA00000000000000000D21 /* TimerLiveActivity.swift */,
+				AE1F2F2315826A9760E22569 /* LiveCompanion.swift */,
 				446FE063C725BCA59981ABD5 /* HotspotLiveActivity.swift */,
 				0281034EAEF9DF0BBC6E2FFD /* DropDownBanner.swift */,
 				EE48249D89A1E555B5CD5526 /* BluetoothLiveActivity.swift */,
@@ -1089,6 +1092,7 @@
 				AA00000000000000000D42 /* IndicatorLights.swift in Sources */,
 				AA00000000000000000D32 /* IndicatorsManager.swift in Sources */,
 				AA00000000000000000D22 /* TimerLiveActivity.swift in Sources */,
+				15826A9760E22569D0C7A426 /* LiveCompanion.swift in Sources */,
 				C725BCA59981ABD5BC9AB721 /* HotspotLiveActivity.swift in Sources */,
 				AEF9DF0BBC6E2FFDF03A1315 /* DropDownBanner.swift in Sources */,
 				89A1E555B5CD552607A405F7 /* BluetoothLiveActivity.swift in Sources */,
