@@ -482,10 +482,10 @@ struct Charge: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                Defaults.Toggle(key: .colorPickerInHeader) {
+                Defaults.Toggle(key: .colorPickerInDashboard) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Colour picker in the header")
-                        Text("An eyedropper in the open notch: pick any colour on screen and it is copied as hex.")
+                        Text("Colour picker on the dashboard")
+                        Text("An eyedropper beside the shortcuts: pick any colour on screen and it is copied as hex.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }

@@ -28,6 +28,8 @@ final class InputSourceManager: ObservableObject {
     @Published private(set) var current: InputSource?
 
     private var observer: NSObjectProtocol?
+    private var backstop: Timer?
+    private var settle: Task<Void, Never>?
 
     private init() {}
 
@@ -38,16 +40,38 @@ final class InputSourceManager: ObservableObject {
             forName: .init("com.apple.Carbon.TISNotifySelectedKeyboardInputSourceChanged"),
             object: nil, queue: .main
         ) { _ in
+            Task { @MainActor in InputSourceManager.shared.notified() }
+        }
+        // For switches the notification never announces. Reading the current
+        // source costs next to nothing.
+        backstop = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
             Task { @MainActor in InputSourceManager.shared.changed() }
         }
     }
 
-    private func changed() {
-        guard let source = Self.read(), source != current else { return }
+    /// The notification can come a moment before the switch has landed, and
+    /// a read then finds the old layout and sees no change - which is why it
+    /// only worked some of the time. Read again over the next half second.
+    private func notified() {
+        settle?.cancel()
+        settle = Task { @MainActor [weak self] in
+            for delay in [0, 100, 300, 600] {
+                if delay > 0 { try? await Task.sleep(for: .milliseconds(delay)) }
+                guard !Task.isCancelled else { return }
+                if self?.changed() == true { return }
+            }
+        }
+    }
+
+    /// True when the layout had changed.
+    @discardableResult
+    private func changed() -> Bool {
+        guard let source = Self.read(), source != current else { return false }
         current = source
         if Defaults[.inputSourceLiveActivity] {
             VornyxViewCoordinator.shared.announceInputSource()
         }
+        return true
     }
 
     static func read() -> InputSource? {

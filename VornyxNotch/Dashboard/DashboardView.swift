@@ -10,6 +10,7 @@ import SwiftUI
 struct DashboardView: View {
     @EnvironmentObject var vm: VornyxViewModel
     @Default(.aiEnabled) private var aiEnabled
+    @Default(.colorPickerInDashboard) private var colorPicker
 
     @Default(.dashboardLeftPage) private var storedPage
 
@@ -35,7 +36,25 @@ struct DashboardView: View {
             divider
 
             VStack(alignment: .leading, spacing: 6) {
-                sectionLabel("Shortcuts")
+                HStack(spacing: 0) {
+                    sectionLabel("Shortcuts")
+                    Spacer(minLength: 0)
+                    // Beside the label rather than in the header, where the
+                    // notch has no room to spare.
+                    if colorPicker {
+                        Button {
+                            ColorPickerManager.shared.pick(closingNotch: { vm.close() })
+                        } label: {
+                            Image(systemName: "eyedropper")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(.white.opacity(0.6))
+                                .frame(width: 20, height: 16)
+                                .contentShape(Rectangle())
+                        }
+                        .springyTile(hoverScale: 1.2, pressScale: 0.9, hoverBrightness: 0.2)
+                        .help("Pick a colour from the screen - copied as hex")
+                    }
+                }
                 ShortcutsGridView()
                 Spacer(minLength: 0)
             }
