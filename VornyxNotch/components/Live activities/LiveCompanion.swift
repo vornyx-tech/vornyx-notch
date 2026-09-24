@@ -41,8 +41,12 @@ enum LiveCompanion: Equatable {
         }
         if let vpn = VPNManager.shared.connected, Defaults[.vpnLiveActivity] { return .vpn(vpn) }
         let indicators = IndicatorsManager.shared
-        if indicators.indicators.focus, Defaults[.focusLiveActivity] {
-            return .focus(indicators.focusMode ?? indicators.lastFocusMode ?? .doNotDisturb)
+        // Only for a while after it comes on: a Focus lasts hours, and the
+        // notch is not the place to say so all that time.
+        let preview = BannerPreview.shared.focus
+        if (indicators.focusJustOn && indicators.indicators.focus) || preview?.on == true,
+           Defaults[.focusLiveActivity] {
+            return .focus(preview?.mode ?? indicators.focusMode ?? indicators.lastFocusMode ?? .doNotDisturb)
         }
         return nil
     }

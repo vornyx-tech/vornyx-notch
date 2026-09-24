@@ -83,6 +83,7 @@ final class BannerPreview: ObservableObject {
         case .focusOn:
             focus = (true, .work)
             coordinator.announceFocus()
+            IndicatorsManager.shared.holdFocusInline()
         case .focusOff:
             focus = (false, .work)
             coordinator.announceFocus()
@@ -122,7 +123,11 @@ final class BannerPreview: ObservableObject {
         // real data while still on screen.
         // The hotspot stays on for a while after its banner, so what the notch
         // shows while one is in use - alone, or beside the music - can be seen.
-        let hold: Duration = kind == .hotspot ? .seconds(15) : .seconds(4)
+        let hold: Duration = switch kind {
+        case .hotspot: .seconds(15)
+        case .focusOn: .seconds(IndicatorsManager.focusInlineSeconds)
+        default: .seconds(4)
+        }
         clear = Task { [weak self] in
             try? await Task.sleep(for: hold)
             guard let self, !Task.isCancelled else { return }

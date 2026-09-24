@@ -41,6 +41,12 @@ final class IndicatorsManager: ObservableObject {
     @Published private(set) var focusMode: FocusMode?
     /// The last mode seen on, so "Off" can say which one ended.
     @Published private(set) var lastFocusMode: FocusMode?
+    /// A Focus came on a moment ago: the closed notch keeps it up for a
+    /// while after its banner, then lets it go.
+    @Published private(set) var focusJustOn = false
+    private var focusJustOnTask: Task<Void, Never>?
+    /// The banner's three seconds, then ten more inline.
+    static let focusInlineSeconds: Double = 13
     /// Whether the Focus file is readable - the source that needs nothing
     /// else set up.
     @Published private(set) var readsFocusFile = false
@@ -172,8 +178,24 @@ final class IndicatorsManager: ObservableObject {
 
         if focusKnown, changed || modeChanged, Defaults[.showFocusIndicator], Defaults[.focusLiveActivity] {
             VornyxViewCoordinator.shared.announceFocus()
+            if focused { holdFocusInline() }
+        }
+        if !focused, focusJustOn {
+            focusJustOnTask?.cancel()
+            focusJustOn = false
         }
         focusKnown = true
+    }
+
+    /// Keeps the Focus in the closed notch for a while after it comes on.
+    func holdFocusInline() {
+        focusJustOnTask?.cancel()
+        focusJustOn = true
+        focusJustOnTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(Self.focusInlineSeconds))
+            guard !Task.isCancelled else { return }
+            self?.focusJustOn = false
+        }
     }
 
     /// `_NSDoNotDisturbEnabledNotification` and its opposite: posted by the

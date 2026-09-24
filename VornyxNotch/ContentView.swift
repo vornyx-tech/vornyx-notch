@@ -223,6 +223,7 @@ struct ContentView: View {
                             // spring with the content inside.
                             .animation(.notchBanner, value: showsDropDownBanner)
                             .animation(.notchBanner, value: showsHotspotActivity)
+                            .animation(.notchBanner, value: showsFocusInline)
                             .animation(.notchBanner, value: coordinator.expandingView.show)
                             .animation(.notchBanner, value: coordinator.expandingView.type)
                             // The first-launch greeting opening and collapsing.
@@ -403,6 +404,13 @@ struct ContentView: View {
     /// and the same on the left so the camera stays centred.
     private var hotspotSlotWidth: CGFloat { max(26, vm.effectiveClosedNotchHeight - 6) }
 
+    private var showsFocusInline: Bool {
+        let preview = bannerPreview.focus?.on == true
+        return (preview || (indicatorsManager.focusJustOn && indicatorsManager.indicators.focus))
+            && Defaults[.focusLiveActivity]
+            && vm.notchState == .closed && !vm.hideOnClosed && !coordinator.expandingView.show
+    }
+
     /// Two things to show at once: the timer keeps the notch with the
     /// hotspot's symbol on its left, when there is no music.
     private var showsHotspotAlongside: Bool {
@@ -549,6 +557,12 @@ struct ContentView: View {
           } else if coordinator.sneakPeek.show && Defaults[.inlineHUD] && (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && (coordinator.sneakPeek.type != .audioRoute) && (coordinator.sneakPeek.type != .capsLock) && vm.notchState == .closed {
               InlineHUD(type: $coordinator.sneakPeek.type, value: $coordinator.sneakPeek.value, icon: $coordinator.sneakPeek.icon, hoverAnimation: $isHovering, gestureProgress: $gestureProgress)
                   .transition(.opacity)
+          // A Focus that just came on, for a while after its banner; with
+          // music playing it rides along instead.
+          } else if showsFocusInline && !showsMusicActivity && !countdown.isShowingInNotch {
+              FocusLiveActivity()
+                  .environmentObject(vm)
+                  .transition(.notchInline)
           // The hotspot in use, when the music is not holding the notch; with
           // music it goes in the bubble beside the notch instead.
           } else if showsHotspotActivity && !showsMusicActivity && !countdown.isShowingInNotch {
