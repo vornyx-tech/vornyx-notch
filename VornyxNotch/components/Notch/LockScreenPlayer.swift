@@ -2,8 +2,8 @@
 //  LockScreenPlayer.swift
 //  VornyxNotch
 //
-//  The window the lock screen's music is shown in, while the Mac is locked.
-//  What is drawn in it is LockScreenRootView, in LockScreenExpanded.swift.
+//  The windows the lock screen's music is shown in, while the Mac is locked:
+//  LockScreenCardView and LockScreenBackdropView, in LockScreenExpanded.swift.
 //
 
 import AppKit
@@ -18,24 +18,48 @@ import SwiftUI
 final class LockScreenPlayerController {
     static let shared = LockScreenPlayerController()
 
-    private var window: NSWindow?
+    /// The large layout, drawn only: it ignores the mouse, so clicks and
+    /// Touch ID go to the lock screen as if it were not there.
+    private var backdrop: NSWindow?
+    /// The card with its controls, in a window only its size.
+    private var card: NSWindow?
     private var playbackWatcher: AnyCancellable?
+    private var expandedWatcher: AnyCancellable?
     private var previewTask: Task<Void, Never>?
+    private var showTask: Task<Void, Never>?
+    private var isShowing = false
+
+    /// The card and its shadow's room, around the 340 x 180 card.
+    private static let cardWindowSize = CGSize(width: 340 + 80, height: 180 + 80)
 
     private init() {}
 
     func screenLocked() {
         guard Defaults[.lockScreenPlayer] else { return }
-        // Follow the player while locked: nothing to show before the first
-        // track starts, and nothing to leave up after the last one stops.
+        // Follow the player while locked: nothing before the first track
+        // starts, nothing left up after the last one stops. Only real changes
+        // count - the player republishes the same state often, and every show
+        // handed the window to the lock screen again, which made the screen
+        // blink off and on.
         playbackWatcher = MusicManager.shared.$isPlayerIdle
             .combineLatest(MusicManager.shared.$isPlaying)
+            .map { idle, playing in playing || !idle }
+            .removeDuplicates()
             .receive(on: RunLoop.main)
-            .sink { [weak self] idle, playing in
-                if playing || !idle {
-                    self?.show()
+            .sink { [weak self] playing in
+                guard let self else { return }
+                if playing {
+                    // A second after locking, once macOS has its own lock
+                    // screen up, rather than in the middle of putting it up.
+                    self.showTask?.cancel()
+                    self.showTask = Task { @MainActor [weak self] in
+                        try? await Task.sleep(for: .seconds(1))
+                        guard !Task.isCancelled else { return }
+                        self?.show()
+                    }
                 } else {
-                    self?.hide()
+                    self.showTask?.cancel()
+                    self.hide()
                 }
             }
     }
@@ -55,54 +79,94 @@ final class LockScreenPlayerController {
     func screenUnlocked() {
         playbackWatcher?.cancel()
         playbackWatcher = nil
+        showTask?.cancel()
         hide()
     }
 
-    // MARK: - Window
+    // MARK: - Windows
 
     private func show() {
-        if window == nil {
-            window = makeWindow()
-        }
-        guard let window else { return }
-        window.orderFrontRegardless()
-        if let sky = window as? VornyxNotchSkyLightWindow {
-            sky.enableSkyLight()
-        }
+        guard !isShowing else { return }
+        isShowing = true
+        if card == nil { card = makeWindow(LockScreenCardView(), interactive: true) }
+        if backdrop == nil { backdrop = makeWindow(LockScreenBackdropView(), interactive: false) }
+
+        layout(animated: false)
+        if Defaults[.lockScreenExpanded] { present(backdrop) }
+        present(card)
+
+        // Opening out or folding back: the backdrop comes and goes, the card
+        // moves to its place for either.
+        expandedWatcher = Defaults.publisher(.lockScreenExpanded, options: [])
+            .receive(on: RunLoop.main)
+            .sink { [weak self] change in
+                guard let self, self.isShowing else { return }
+                change.newValue ? self.present(self.backdrop) : self.dismiss(self.backdrop)
+                self.layout(animated: true)
+            }
     }
 
     private func hide() {
+        guard isShowing else { return }
+        isShowing = false
+        expandedWatcher?.cancel()
+        expandedWatcher = nil
+        dismiss(card)
+        dismiss(backdrop)
+    }
+
+    private func present(_ window: NSWindow?) {
         guard let window else { return }
-        if let sky = window as? VornyxNotchSkyLightWindow {
-            sky.disableSkyLight()
-        }
+        window.orderFrontRegardless()
+        (window as? VornyxNotchSkyLightWindow)?.enableSkyLight()
+    }
+
+    private func dismiss(_ window: NSWindow?) {
+        guard let window else { return }
+        (window as? VornyxNotchSkyLightWindow)?.disableSkyLight()
         window.orderOut(nil)
     }
 
-    /// The whole screen: the large layout needs it, and with it off the rest
-    /// is clear, which lets clicks through to the login screen underneath.
-    private func makeWindow() -> NSWindow {
-        let size = (NSScreen.notched ?? NSScreen.main)?.frame.size ?? CGSize(width: 1512, height: 982)
+    private func makeWindow<Content: View>(_ content: Content, interactive: Bool) -> NSWindow {
         let window = VornyxNotchSkyLightWindow(
-            contentRect: NSRect(origin: .zero, size: size),
+            contentRect: NSRect(origin: .zero, size: Self.cardWindowSize),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
         window.isOpaque = false
         window.backgroundColor = .clear
-        window.contentView = NSHostingView(rootView: LockScreenRootView())
-        window.level = .screenSaver
+        window.ignoresMouseEvents = !interactive
+        window.contentView = NSHostingView(rootView: content)
+        // The card over its backdrop.
+        window.level = interactive ? NSWindow.Level(NSWindow.Level.screenSaver.rawValue + 1) : .screenSaver
         window.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
         window.hasShadow = false
-        position(window)
         return window
     }
 
-    /// Over the whole screen; the card places itself inside, resting just
-    /// above the user's picture about a fifth of the way up.
-    private func position(_ window: NSWindow) {
+    /// The backdrop over the whole screen; the card centred, compact above the
+    /// user's picture or low with the layout open.
+    private func layout(animated: Bool) {
         guard let screen = NSScreen.notched ?? NSScreen.main else { return }
-        window.setFrame(screen.frame, display: true)
+        let frame = screen.frame
+        backdrop?.setFrame(frame, display: true)
+
+        let offset = LockScreenBackdropView.cardOffset(
+            expanded: Defaults[.lockScreenExpanded], screenHeight: frame.height)
+        let size = Self.cardWindowSize
+        let cardFrame = NSRect(
+            x: frame.midX - size.width / 2,
+            y: frame.midY - offset - size.height / 2,
+            width: size.width, height: size.height)
+        if animated {
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.45
+                context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                card?.animator().setFrame(cardFrame, display: true)
+            }
+        } else {
+            card?.setFrame(cardFrame, display: true)
+        }
     }
 }

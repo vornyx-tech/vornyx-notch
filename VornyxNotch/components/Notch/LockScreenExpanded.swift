@@ -19,79 +19,87 @@ import CoreImage
 import Defaults
 import SwiftUI
 
-/// Everything on the lock screen, laid out from the screen's centre the way
-/// DynamicNotch lays it out.
-struct LockScreenRootView: View {
+/// The large layout behind the card: background, clock, cover and lyrics,
+/// placed from the screen's centre the way DynamicNotch places them. Only
+/// drawn - its window lets every click through to the lock screen.
+struct LockScreenBackdropView: View {
     @ObservedObject private var music = MusicManager.shared
-    @Default(.lockScreenExpanded) private var expanded
 
     static let panelSize = CGSize(width: 340, height: 180)
-    private static let expandedPanelHeight: CGFloat = panelSize.height - 20
+    static let expandedPanelHeight: CGFloat = panelSize.height - 20
     private static let artworkSize: CGFloat = 500
     private static let artworkSpacing: CGFloat = 90
     private static let lyricsWidth: CGFloat = 520
     private static let lyricsSpacing: CGFloat = 90
-    private static let panelCenterYOffset: CGFloat = (panelSize.height / 2) + 80
+    static let panelCenterYOffset: CGFloat = (panelSize.height / 2) + 80
 
-    /// The cover's own colour, lifted so a dark cover still lights something.
-    private var coverColor: Color {
-        Color(nsColor: music.avgColor).ensureMinimumBrightness(factor: 0.55)
+    /// Where the card's centre sits below the screen's, compact or expanded.
+    static func cardOffset(expanded: Bool, screenHeight: CGFloat) -> CGFloat {
+        expanded ? screenHeight / 2 - 180 : panelCenterYOffset
     }
 
     var body: some View {
         GeometryReader { proxy in
             let height = proxy.size.height
-            let showsLyrics = expanded && Defaults[.enableLyrics]
+            let showsLyrics = Defaults[.enableLyrics]
+            let cover = LockScreenPalette.cover(music.avgColor)
 
             ZStack {
-                if expanded {
-                    LockScreenArtworkBackground(artwork: music.albumArt, tint: coverColor)
-                        .ignoresSafeArea()
-                        .transition(.opacity)
+                LockScreenArtworkBackground(artwork: music.albumArt, tint: cover)
+                    .ignoresSafeArea()
 
-                    TimelineView(.periodic(from: .now, by: 1)) { context in
-                        LockScreenClock(date: context.date)
-                    }
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                    .offset(y: -height / 2 + 120)
-
-                    Button { withAnimation(.spring(response: 0.65)) { expanded = false } } label: {
-                        Image(nsImage: music.albumArt)
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(width: Self.artworkSize, height: Self.artworkSize)
-                            .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
-                            // Lit by its own colour, not a black drop shadow.
-                            .shadow(color: coverColor.opacity(0.55), radius: 40, x: 0, y: 18)
-                            .shadow(color: .black.opacity(0.3), radius: 12, x: 0, y: 8)
-                    }
-                    .buttonStyle(PressFadeButtonStyle())
-                    .transition(.scale(scale: 0.82).combined(with: .opacity))
-                    .offset(x: showsLyrics ? -((Self.lyricsWidth + Self.lyricsSpacing) / 2) : 0, y: -42)
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    LockScreenClock(date: context.date)
                 }
+                .offset(y: -height / 2 + 120)
+
+                Image(nsImage: music.albumArt)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: Self.artworkSize, height: Self.artworkSize)
+                    .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
+                    // Lit by its own colour, not a black drop shadow.
+                    .shadow(color: cover.opacity(0.55), radius: 40, x: 0, y: 18)
+                    .shadow(color: .black.opacity(0.3), radius: 12, x: 0, y: 8)
+                    .offset(x: showsLyrics ? -((Self.lyricsWidth + Self.lyricsSpacing) / 2) : 0, y: -42)
 
                 if showsLyrics {
-                    LockScreenLyrics(width: Self.lyricsWidth, glow: coverColor)
-                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                    LockScreenLyrics(width: Self.lyricsWidth, glow: cover)
                         .offset(x: (Self.artworkSize + Self.artworkSpacing) / 2, y: -42)
                 }
-
-                LockScreenMusicCard(expanded: $expanded, tint: coverColor)
-                    .frame(
-                        width: Self.panelSize.width,
-                        height: expanded ? Self.expandedPanelHeight : Self.panelSize.height,
-                        alignment: .topLeading)
-                    .background { LockScreenCardSurface(cornerRadius: 28) }
-                    .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-                    .shadow(color: .black.opacity(0.24), radius: 26, x: 0, y: 14)
-                    .offset(y: expanded ? height / 2 - 180 : Self.panelCenterYOffset)
             }
             .frame(width: proxy.size.width, height: height)
         }
-        .animation(.spring(response: 0.58, dampingFraction: 0.86), value: expanded)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         .environment(\.colorScheme, .dark)
-        .environment(\.controlActiveState, .active)
+    }
+}
+
+/// The card on its own, in a window just its size, so nothing but the card
+/// stands between the user and the lock screen.
+struct LockScreenCardView: View {
+    @ObservedObject private var music = MusicManager.shared
+    @Default(.lockScreenExpanded) private var expanded
+
+    var body: some View {
+        LockScreenMusicCard(expanded: $expanded, tint: LockScreenPalette.cover(music.avgColor))
+            .frame(
+                width: LockScreenBackdropView.panelSize.width,
+                height: expanded ? LockScreenBackdropView.expandedPanelHeight : LockScreenBackdropView.panelSize.height,
+                alignment: .topLeading)
+            .background { LockScreenCardSurface(cornerRadius: 28) }
+            .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .shadow(color: .black.opacity(0.24), radius: 26, x: 0, y: 14)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .animation(.spring(response: 0.58, dampingFraction: 0.86), value: expanded)
+            .environment(\.colorScheme, .dark)
+            .environment(\.controlActiveState, .active)
+    }
+}
+
+enum LockScreenPalette {
+    /// The cover's own colour, lifted so a dark cover still lights something.
+    static func cover(_ color: NSColor) -> Color {
+        Color(nsColor: color).ensureMinimumBrightness(factor: 0.55)
     }
 }
 
