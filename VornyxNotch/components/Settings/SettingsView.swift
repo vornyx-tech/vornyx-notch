@@ -502,11 +502,12 @@ struct Charge: View {
                 SettingsSectionHeader("Indicators", icon: "dot.radiowaves.left.and.right", tint: .purple)
             }
             Section {
+                BannerStylePicker()
                 BannerPreviewButtons()
             } header: {
                 SettingsSectionHeader("Try the banners", icon: "play.rectangle", tint: .purple)
             } footer: {
-                Text("Shows each banner in the closed notch with made-up data, whatever the real state is.")
+                Text("Drop-down hangs the Focus, VPN, battery and Bluetooth banners under the camera, with room for two lines. Inline puts them either side of it, at the menu bar's height. The buttons show each banner with made-up data, whatever the real state is.")
                     .foregroundStyle(.secondary)
                     .font(.caption)
             }
@@ -2372,5 +2373,18 @@ private struct BannerPreviewButtons: View {
                     .frame(maxWidth: .infinity)
             }
         }
+    }
+}
+
+private struct BannerStylePicker: View {
+    @Default(.bannerStyle) private var style
+
+    var body: some View {
+        Picker("Banner style", selection: $style) {
+            ForEach(BannerStyle.allCases) { style in
+                Text(style.rawValue).tag(style)
+            }
+        }
+        .pickerStyle(.segmented)
     }
 }

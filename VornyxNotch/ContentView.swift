@@ -374,6 +374,12 @@ struct ContentView: View {
         }
     }
 
+    private var showsDropDownBanner: Bool {
+        vm.notchState == .closed && !vm.hideOnClosed
+            && coordinator.expandingView.show && coordinator.expandingView.type.hasDropDownBanner
+            && Defaults[.bannerStyle] == .dropDown
+    }
+
     /// A sneak peek pins the layout to its own size: a standard-style music
     /// peek, or any non-music peek, while the notch is closed.
     private var sneakPeekUsesFixedSize: Bool {
@@ -441,22 +447,22 @@ struct ContentView: View {
           // Before the countdown: three seconds for the Focus, and the
           // countdown comes back after.
           } else if coordinator.expandingView.type == .focus && coordinator.expandingView.show
-                      && vm.notchState == .closed && !vm.hideOnClosed {
+                      && vm.notchState == .closed && !vm.hideOnClosed && Defaults[.bannerStyle] == .inline {
               FocusLiveActivity()
                   .environmentObject(vm)
                   .transition(.opacity)
           } else if coordinator.expandingView.type == .vpn && coordinator.expandingView.show
-                      && vm.notchState == .closed && !vm.hideOnClosed {
+                      && vm.notchState == .closed && !vm.hideOnClosed && Defaults[.bannerStyle] == .inline {
               VPNLiveActivity()
                   .environmentObject(vm)
                   .transition(.opacity)
           } else if coordinator.expandingView.type == .batteryAlert && coordinator.expandingView.show
-                      && vm.notchState == .closed && !vm.hideOnClosed {
+                      && vm.notchState == .closed && !vm.hideOnClosed && Defaults[.bannerStyle] == .inline {
               BatteryAlertLiveActivity()
                   .environmentObject(vm)
                   .transition(.opacity)
           } else if coordinator.expandingView.type == .bluetooth && coordinator.expandingView.show
-                      && vm.notchState == .closed && !vm.hideOnClosed {
+                      && vm.notchState == .closed && !vm.hideOnClosed && Defaults[.bannerStyle] == .inline {
               BluetoothLiveActivity()
                   .environmentObject(vm)
                   .transition(.opacity)
@@ -592,6 +598,14 @@ struct ContentView: View {
                     )
                 } else {
                     closedNotchContent()
+
+                    // Drop-down style: the row above stays a plain notch, and
+                    // the banner hangs under the camera in a row of its own.
+                    if showsDropDownBanner {
+                        DropDownBanner()
+                            .environmentObject(vm)
+                            .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .top)))
+                    }
 
                       if coordinator.sneakPeek.show {
                           if (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && (coordinator.sneakPeek.type != .audioRoute) && (coordinator.sneakPeek.type != .capsLock) && !Defaults[.inlineHUD] && vm.notchState == .closed {

@@ -123,6 +123,16 @@ enum TrackChangeAnimation: String, CaseIterable, Identifiable, Defaults.Serializ
 }
 
 // Sneak peek styles for selection in settings
+/// How the Focus, VPN, battery and Bluetooth banners sit in the closed notch.
+enum BannerStyle: String, CaseIterable, Identifiable, Defaults.Serializable {
+    /// Under the camera: the notch drops down into a small card.
+    case dropDown = "Drop-down"
+    /// Either side of the camera, at the menu bar's height.
+    case inline = "Inline"
+
+    var id: String { rawValue }
+}
+
 enum SneakPeekStyle: String, CaseIterable, Identifiable, Defaults.Serializable {
     case standard = "Default"
     case inline = "Inline"
@@ -207,6 +217,7 @@ extension Defaults.Keys {
     static let batteryAlerts = Key<Bool>("batteryAlerts", default: true)
     /// A banner as a keyboard, mouse or other Bluetooth device connects.
     static let bluetoothLiveActivity = Key<Bool>("bluetoothLiveActivity", default: true)
+    static let bannerStyle = Key<BannerStyle>("bannerStyle", default: .dropDown)
     static let showCapsLockIndicator = Key<Bool>("showCapsLockIndicator", default: true)
     /// Say it under the closed notch as it happens, as well as lighting the edge.
     static let capsLockSneakPeek = Key<Bool>("capsLockSneakPeek", default: true)
