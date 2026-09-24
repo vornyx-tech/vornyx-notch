@@ -121,6 +121,7 @@
 		AA00000000000000000C22 /* AirPodsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000C21 /* AirPodsView.swift */; };
 		AA00000000000000000D02 /* CountdownManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000D01 /* CountdownManager.swift */; };
 		62D4B824E3C0EAE2C0CEEE5A /* VPNManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB41599462D4B824E3C0EAE2 /* VPNManager.swift */; };
+		883060E0C6E7571EB32292D9 /* BannerPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D7C6233883060E0C6E7571E /* BannerPreview.swift */; };
 		AA00000000000000000D12 /* StatsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000D11 /* StatsManager.swift */; };
 		AA00000000000000000D22 /* TimerLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000D21 /* TimerLiveActivity.swift */; };
 		89A1E555B5CD552607A405F7 /* BluetoothLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE48249D89A1E555B5CD5526 /* BluetoothLiveActivity.swift */; };
@@ -310,6 +311,7 @@
 		AA00000000000000000C21 /* AirPodsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirPodsView.swift; sourceTree = "<group>"; };
 		AA00000000000000000D01 /* CountdownManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CountdownManager.swift; sourceTree = "<group>"; };
 		BB41599462D4B824E3C0EAE2 /* VPNManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VPNManager.swift; sourceTree = "<group>"; };
+		8D7C6233883060E0C6E7571E /* BannerPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BannerPreview.swift; sourceTree = "<group>"; };
 		AA00000000000000000D11 /* StatsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsManager.swift; sourceTree = "<group>"; };
 		AA00000000000000000D21 /* TimerLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerLiveActivity.swift; sourceTree = "<group>"; };
 		EE48249D89A1E555B5CD5526 /* BluetoothLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BluetoothLiveActivity.swift; sourceTree = "<group>"; };
@@ -560,6 +562,7 @@
 				AA00000000000000000D11 /* StatsManager.swift */,
 				AA00000000000000000D01 /* CountdownManager.swift */,
 				BB41599462D4B824E3C0EAE2 /* VPNManager.swift */,
+				8D7C6233883060E0C6E7571E /* BannerPreview.swift */,
 				AA00000000000000000C11 /* AirPodsManager.swift */,
 				2DCA69992917209018801339 /* BluetoothDeviceManager.swift */,
 				149E0B962C737D00006418B1 /* WebcamManager.swift */,
@@ -1077,6 +1080,7 @@
 				AA00000000000000000D12 /* StatsManager.swift in Sources */,
 				AA00000000000000000D02 /* CountdownManager.swift in Sources */,
 				62D4B824E3C0EAE2C0CEEE5A /* VPNManager.swift in Sources */,
+				883060E0C6E7571EB32292D9 /* BannerPreview.swift in Sources */,
 				AA00000000000000000C22 /* AirPodsView.swift in Sources */,
 				AA00000000000000000C12 /* AirPodsManager.swift in Sources */,
 				291720901880133936867123 /* BluetoothDeviceManager.swift in Sources */,

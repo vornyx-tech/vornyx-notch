@@ -321,6 +321,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // scutil only when either fires.
         VPNManager.shared.start()
         BluetoothDeviceManager.shared.start()
+        BannerPreview.shared.listen()
         // Two CoreAudio property listeners. Started here rather than by the
         // header's picker, which only appears once the notch has been opened -
         // the route banner has to work before that ever happens.

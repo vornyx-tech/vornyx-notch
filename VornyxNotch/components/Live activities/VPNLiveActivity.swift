@@ -15,12 +15,13 @@ import SwiftUI
 struct VPNLiveActivity: View {
     @EnvironmentObject var vm: VornyxViewModel
     @ObservedObject private var vpn = VPNManager.shared
+    @ObservedObject private var preview = BannerPreview.shared
 
     private static let tint = Color(red: 1.0, green: 0.62, blue: 0.2)
 
     var body: some View {
-        let shown = vpn.connected ?? vpn.last
-        let isUp = vpn.connected != nil
+        let shown = preview.vpn?.vpn ?? vpn.connected ?? vpn.last
+        let isUp = preview.vpn?.up ?? (vpn.connected != nil)
 
         HStack(spacing: 0) {
             HStack(spacing: 6) {

@@ -15,10 +15,16 @@ import SwiftUI
 struct FocusLiveActivity: View {
     @EnvironmentObject var vm: VornyxViewModel
     @ObservedObject private var indicators = IndicatorsManager.shared
+    @ObservedObject private var preview = BannerPreview.shared
 
-    private var isOn: Bool { indicators.indicators.focus }
+    private var isOn: Bool { preview.focus?.on ?? indicators.indicators.focus }
     /// Which mode, when the source says; Do Not Disturb's look otherwise.
-    private var mode: FocusMode { indicators.focusMode ?? indicators.lastFocusMode ?? .doNotDisturb }
+    private var mode: FocusMode {
+        preview.focus?.mode ?? indicators.focusMode ?? indicators.lastFocusMode ?? .doNotDisturb
+    }
+    private var knowsMode: Bool {
+        preview.focus != nil || indicators.focusMode != nil || indicators.lastFocusMode != nil
+    }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -30,7 +36,7 @@ struct FocusLiveActivity: View {
                     .symbolEffect(.bounce, value: isOn)
                 // Only a named mode is worth the words; "Focus" says nothing
                 // the moon does not.
-                if indicators.focusMode != nil || indicators.lastFocusMode != nil {
+                if knowsMode {
                     Text(mode.name)
                         .font(.subheadline)
                         .foregroundStyle(.white)

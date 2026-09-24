@@ -15,9 +15,10 @@ import SwiftUI
 struct BluetoothLiveActivity: View {
     @EnvironmentObject var vm: VornyxViewModel
     @ObservedObject private var bluetooth = BluetoothDeviceManager.shared
+    @ObservedObject private var preview = BannerPreview.shared
 
     var body: some View {
-        let device = bluetooth.latest
+        let device = preview.bluetooth ?? bluetooth.latest
 
         HStack(spacing: 0) {
             HStack(spacing: 7) {

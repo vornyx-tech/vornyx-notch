@@ -502,6 +502,15 @@ struct Charge: View {
                 SettingsSectionHeader("Indicators", icon: "dot.radiowaves.left.and.right", tint: .purple)
             }
             Section {
+                BannerPreviewButtons()
+            } header: {
+                SettingsSectionHeader("Try the banners", icon: "play.rectangle", tint: .purple)
+            } footer: {
+                Text("Shows each banner in the closed notch with made-up data, whatever the real state is.")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+            }
+            Section {
                 Defaults.Toggle(key: .timerLiveActivity) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Show the countdown in the closed notch")
@@ -2348,5 +2357,20 @@ private struct FocusLightStatus: View {
 
     private func open(_ url: String) {
         if let url = URL(string: url) { NSWorkspace.shared.open(url) }
+    }
+}
+
+/// One button per closed-notch banner, for seeing them without waiting for
+/// the real event.
+private struct BannerPreviewButtons: View {
+    private let columns = [GridItem(.adaptive(minimum: 130), spacing: 8)]
+
+    var body: some View {
+        LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
+            ForEach(BannerPreview.Kind.allCases) { kind in
+                Button(kind.title) { BannerPreview.shared.show(kind) }
+                    .frame(maxWidth: .infinity)
+            }
+        }
     }
 }

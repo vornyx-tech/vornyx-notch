@@ -15,10 +15,12 @@ import SwiftUI
 struct BatteryAlertLiveActivity: View {
     @EnvironmentObject var vm: VornyxViewModel
     @ObservedObject private var battery = BatteryStatusViewModel.shared
+    @ObservedObject private var preview = BannerPreview.shared
 
     @State private var pulse = false
 
-    private var isLow: Bool { battery.alert != .full }
+    private var isLow: Bool { (preview.battery?.alert ?? battery.alert) != .full }
+    private var level: Int { preview.battery?.level ?? Int(battery.levelBattery) }
     private var tint: Color { isLow ? .red : .green }
 
     var body: some View {
@@ -28,7 +30,7 @@ struct BatteryAlertLiveActivity: View {
                     Text(isLow ? "Battery Low" : "Full Battery")
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(.white)
-                    Text("\(Int(battery.levelBattery))%")
+                    Text("\(level)%")
                         .font(.system(size: 11, weight: .bold, design: .rounded))
                         .monospacedDigit()
                         .foregroundStyle(tint)
