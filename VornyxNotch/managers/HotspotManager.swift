@@ -13,8 +13,8 @@ import Foundation
 import Darwin
 import Network
 
-/// A hotspot is a Wi-Fi path macOS marks expensive but not constrained - what
-/// it does for a phone sharing its connection. No permission needed.
+/// A hotspot is a Wi-Fi path macOS marks expensive, or one on the iPhone's own
+/// 172.20.10.0/28 subnet. No permission needed.
 @MainActor
 final class HotspotManager: ObservableObject {
     static let shared = HotspotManager()
@@ -34,8 +34,13 @@ final class HotspotManager: ObservableObject {
 
     func start() {
         monitor.pathUpdateHandler = { path in
+            // Expensive, whether or not constrained: an iPhone's hotspot puts
+            // the Mac in Low Data Mode by default, so it is both - and a test
+            // for "not constrained" missed exactly the usual case. The
+            // subnet is the iPhone's own, 172.20.10.0/28, and holds when the
+            // flags do not.
             let hotspot = path.status == .satisfied && path.usesInterfaceType(.wifi)
-                && path.isExpensive && !path.isConstrained
+                && (path.isExpensive || Self.onIPhoneSubnet())
             Task { @MainActor in HotspotManager.shared.apply(hotspot) }
         }
         monitor.start(queue: .global(qos: .utility))
@@ -75,6 +80,26 @@ final class HotspotManager: ObservableObject {
         usageTimer = nil
         baseline = nil
         sessionBytes = 0
+    }
+
+    /// Whether en0 has an address an iPhone's Personal Hotspot hands out:
+    /// 172.20.10.1 is always the phone, the Mac somewhere in .2 to .14.
+    nonisolated private static func onIPhoneSubnet() -> Bool {
+        var list: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&list) == 0, let first = list else { return false }
+        defer { freeifaddrs(list) }
+        for pointer in sequence(first: first, next: { $0.pointee.ifa_next }) {
+            let entry = pointer.pointee
+            guard String(cString: entry.ifa_name) == "en0",
+                  let address = entry.ifa_addr, address.pointee.sa_family == UInt8(AF_INET)
+            else { continue }
+            let ip = address.withMemoryRebound(to: sockaddr_in.self, capacity: 1) {
+                UInt32(bigEndian: $0.pointee.sin_addr.s_addr)
+            }
+            // 172.20.10.0/28
+            if ip & 0xFFFF_FFF0 == 0xAC14_0A00 { return true }
+        }
+        return false
     }
 
     /// In and out on the Wi-Fi interfaces, from the link-level counters every
