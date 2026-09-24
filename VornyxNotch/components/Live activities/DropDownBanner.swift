@@ -258,7 +258,7 @@ struct DropDownBanner: View {
 
         return Group {
             Image(systemName: device?.symbol ?? "dot.radiowaves.left.and.right")
-                .font(.system(size: 20, weight: .medium))
+                .font(.system(size: 24, weight: .medium))
                 .foregroundStyle(.white)
                 .frame(width: 30)
             titles(device?.name ?? "Bluetooth", "Connected")

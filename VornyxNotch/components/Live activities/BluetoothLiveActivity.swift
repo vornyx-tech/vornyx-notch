@@ -23,9 +23,9 @@ struct BluetoothLiveActivity: View {
         HStack(spacing: 0) {
             HStack(spacing: 7) {
                 Image(systemName: device?.symbol ?? "dot.radiowaves.left.and.right")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(.white)
-                    .frame(width: 18)
+                    .frame(width: 22)
                 VStack(alignment: .leading, spacing: 0) {
                     Text("Connected")
                         .font(.system(size: 8, weight: .medium))
