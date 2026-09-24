@@ -174,6 +174,7 @@ class VornyxViewCoordinator: ObservableObject {
     @Published var optionKeyPressed: Bool = true
     private var accessibilityObserver: Any?
     private var hudReplacementCancellable: AnyCancellable?
+    private var wakeObserver: Any?
 
     private init() {
         // Perform migration from name-based to UUID-based storage
@@ -199,6 +200,22 @@ class VornyxViewCoordinator: ObservableObject {
         // Observe changes to accessibility authorization and react accordingly
         accessibilityObserver = NotificationCenter.default.addObserver(
             forName: Notification.Name.accessibilityAuthorizationChanged,
+            object: nil,
+            queue: .main
+        ) { _ in
+            Task { @MainActor in
+                if Defaults[.hudReplacement] {
+                    await MediaKeyInterceptor.shared.start(promptIfNeeded: false)
+                }
+            }
+        }
+
+        // Sleep sometimes tears down the event tap's mach port before the
+        // system ever gets to tell it so via tapDisabledByTimeout, and a
+        // restart here is a no-op if the tap is still alive - `start` checks
+        // for that itself.
+        wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification,
             object: nil,
             queue: .main
         ) { _ in

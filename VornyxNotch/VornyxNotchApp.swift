@@ -79,7 +79,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @MainActor
-    func onScreenLocked(_ notification: Notification) {
+    func onScreenLocked() {
         isScreenLocked = true
         LockScreenPlayerController.shared.screenLocked()
         if !Defaults[.showOnLockScreen] {
@@ -90,7 +90,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @MainActor
-    func onScreenUnlocked(_ notification: Notification) {
+    func onScreenUnlocked() {
         isScreenLocked = false
         LockScreenPlayerController.shared.screenUnlocked()
         if !Defaults[.showOnLockScreen] {
@@ -384,19 +384,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         // Use closure-based observers for DistributedNotificationCenter and keep tokens for removal
+        // Only the identifier crosses over in principle here, but neither
+        // handler reads anything off the notification at all - so nothing
+        // does. A Notification is not Sendable, and handing one into another
+        // isolation domain traps at runtime; this is exactly what put the
+        // YouTube Music observer into the same trap.
         screenLockedObserver = DistributedNotificationCenter.default().addObserver(
             forName: NSNotification.Name(rawValue: "com.apple.screenIsLocked"),
-            object: nil, queue: .main) { [weak self] notification in
+            object: nil, queue: .main) { [weak self] _ in
                 Task { @MainActor in
-                    self?.onScreenLocked(notification)
+                    self?.onScreenLocked()
                 }
         }
 
         screenUnlockedObserver = DistributedNotificationCenter.default().addObserver(
             forName: NSNotification.Name(rawValue: "com.apple.screenIsUnlocked"),
-            object: nil, queue: .main) { [weak self] notification in
+            object: nil, queue: .main) { [weak self] _ in
                 Task { @MainActor in
-                    self?.onScreenUnlocked(notification)
+                    self?.onScreenUnlocked()
                 }
         }
 

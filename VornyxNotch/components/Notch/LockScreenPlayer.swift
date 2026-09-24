@@ -34,8 +34,9 @@ struct LockScreenPlayerView: View {
         .padding(.vertical, 18)
         .frame(width: Self.cardWidth)
         .background { cardSurface }
+        .shadow(color: .black.opacity(0.3), radius: 22, y: 8)
         // Room for the shadow to fade out in. Without it the window's own edge
-        // cuts the glow off square, and the card reads as a box with corners.
+        // cuts it off square, and the card reads as a box with corners.
         .padding(34)
         .onReceive(tick) { date in
             guard music.isPlaying else { return }
@@ -43,26 +44,24 @@ struct LockScreenPlayerView: View {
         }
     }
 
-    /// Liquid Glass where the system draws it, a material before that, tinted
-    /// by the cover either way.
+    /// No tint, anywhere. `notchSurface` darkens its clear glass by default so
+    /// white text holds up over a bright window behind the notch, but that is
+    /// exactly the tint that was showing up here - so this card gets its own,
+    /// completely untinted `.clear` glass instead of going through it.
     @ViewBuilder
     private var cardSurface: some View {
         let shape = RoundedRectangle(cornerRadius: 26, style: .continuous)
 
-        ZStack {
-            if #available(macOS 26.0, *) {
-                Rectangle()
-                    .fill(.clear)
-                    .glassEffect(.regular, in: shape)
-            } else {
-                shape.fill(.ultraThinMaterial)
-            }
-
-            shape.fill(Color(nsColor: music.avgColor).opacity(0.18))
-            shape.strokeBorder(.white.opacity(0.14), lineWidth: 1)
+        if #available(macOS 26.0, *) {
+            Rectangle()
+                .fill(.clear)
+                .glassEffect(.clear.interactive(), in: shape)
+                .overlay { shape.strokeBorder(.white.opacity(0.16), lineWidth: 1) }
+        } else {
+            shape
+                .fill(.ultraThinMaterial.opacity(0.4))
+                .overlay { shape.strokeBorder(.white.opacity(0.16), lineWidth: 1) }
         }
-        .compositingGroup()
-        .shadow(color: .black.opacity(0.3), radius: 22, y: 8)
     }
 
     // MARK: - Rows
@@ -157,9 +156,21 @@ struct LockScreenPlayerView: View {
                 .font(.system(size: size, weight: .medium))
                 .foregroundStyle(tinted ? Color.effectiveAccent : .white)
                 .frame(width: 44, height: 34)
-                .contentShape(Rectangle())
+                .background { controlSurface }
         }
         .buttonStyle(.plain)
+    }
+
+    /// The same untinted `.clear` glass as the card, not `notchSurface`.
+    @ViewBuilder
+    private var controlSurface: some View {
+        if #available(macOS 26.0, *) {
+            Rectangle()
+                .fill(.clear)
+                .glassEffect(.clear.interactive(), in: Capsule())
+        } else {
+            Capsule().fill(.white.opacity(0.06))
+        }
     }
 
     private var outputSymbol: String {

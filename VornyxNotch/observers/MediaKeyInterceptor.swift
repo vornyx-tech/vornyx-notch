@@ -101,6 +101,20 @@ final class MediaKeyInterceptor {
     // MARK: - Event Handling
     
     private func handleEvent(_ cgEvent: CGEvent) -> Unmanaged<CGEvent>? {
+        // macOS disables a tap that takes too long to answer, or after user
+        // input while the console is switching, and tells the callback with
+        // one of these instead of a real key event. Left alone, this is
+        // permanent: the tap never re-enables itself, and every key after
+        // this point falls through to the system's own HUD, with nothing in
+        // the log to say why. Re-enabling here is what the tap-disabled
+        // notification exists for.
+        if cgEvent.type == .tapDisabledByTimeout || cgEvent.type == .tapDisabledByUserInput {
+            if let eventTap {
+                CGEvent.tapEnable(tap: eventTap, enable: true)
+            }
+            return Unmanaged.passRetained(cgEvent)
+        }
+
         // Ensure the CGEvent has a valid type before converting to NSEvent
         guard cgEvent.type != .null else {
             return Unmanaged.passRetained(cgEvent)
