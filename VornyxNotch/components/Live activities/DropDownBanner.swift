@@ -16,7 +16,7 @@ import SwiftUI
 extension SneakContentType {
     var hasDropDownBanner: Bool {
         switch self {
-        case .focus, .vpn, .batteryAlert, .bluetooth: return true
+        case .focus, .vpn, .batteryAlert, .bluetooth, .hotspot: return true
         default: return false
         }
     }
@@ -32,6 +32,7 @@ struct DropDownBanner: View {
     @ObservedObject private var vpn = VPNManager.shared
     @ObservedObject private var battery = BatteryStatusViewModel.shared
     @ObservedObject private var bluetooth = BluetoothDeviceManager.shared
+    @ObservedObject private var hotspot = HotspotManager.shared
 
     @State private var pulse = false
 
@@ -54,6 +55,7 @@ struct DropDownBanner: View {
         case .vpn: vpnRow
         case .batteryAlert: batteryRow
         case .bluetooth: bluetoothRow
+        case .hotspot: hotspotRow
         default: EmptyView()
         }
     }
@@ -159,6 +161,32 @@ struct DropDownBanner: View {
                 LowBatteryIndicator(tint: tint, pulses: !lowPower)
             } else {
                 MagSafeIndicator()
+            }
+        }
+    }
+
+    // MARK: - Hotspot
+
+    private var hotspotRow: some View {
+        let name = preview.hotspot?.name ?? hotspot.phoneName
+        let level = preview.hotspot?.battery ?? hotspot.phoneBattery
+
+        return Group {
+            Image(systemName: "personalhotspot")
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(.green)
+                .symbolEffect(.pulse)
+                .frame(width: 30)
+            titles("Personal Hotspot", name.map { "Connected to \($0)" } ?? "Connected")
+            Spacer(minLength: 0)
+            if let level {
+                BatteryRing(level: level)
+                    .scaleEffect(1.35)
+                    .padding(.trailing, 4)
+            } else {
+                Text("On")
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.green)
             }
         }
     }

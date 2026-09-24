@@ -474,6 +474,14 @@ struct Charge: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                Defaults.Toggle(key: .hotspotLiveActivity) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Personal Hotspot in the notch")
+                        Text("A banner as the Mac joins a phone's hotspot, with the phone's charge when it shares it.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 Defaults.Toggle(key: .bluetoothLiveActivity) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Bluetooth devices in the notch")

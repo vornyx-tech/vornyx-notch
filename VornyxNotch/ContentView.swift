@@ -482,6 +482,11 @@ struct ContentView: View {
               BluetoothLiveActivity()
                   .environmentObject(vm)
                   .transition(.notchInline)
+          } else if coordinator.expandingView.type == .hotspot && coordinator.expandingView.show
+                      && vm.notchState == .closed && !vm.hideOnClosed && Defaults[.bannerStyle] == .inline {
+              HotspotLiveActivity()
+                  .environmentObject(vm)
+                  .transition(.notchInline)
           // A running countdown outranks the banner's own timeout:
           // it stays for as long as it is counting, rather than
           // showing for three seconds and leaving.

@@ -25,7 +25,7 @@ final class BannerPreview: ObservableObject {
 
     enum Kind: String, CaseIterable, Identifiable {
         case focusOn, focusOff, vpnConnected, vpnDisconnected
-        case batteryLow, batteryFull, bluetooth, timer, timerEnd
+        case batteryLow, batteryFull, bluetooth, hotspot, timer, timerEnd
 
         var id: String { rawValue }
 
@@ -38,6 +38,7 @@ final class BannerPreview: ObservableObject {
             case .batteryLow: return "Battery low"
             case .batteryFull: return "Battery full"
             case .bluetooth: return "Bluetooth device"
+            case .hotspot: return "Hotspot"
             case .timer: return "Timer"
             case .timerEnd: return "Timer ending"
             }
@@ -48,6 +49,7 @@ final class BannerPreview: ObservableObject {
     @Published private(set) var vpn: (vpn: ConnectedVPN, up: Bool)?
     @Published private(set) var battery: (alert: BatteryStatusViewModel.BatteryAlert, level: Int)?
     @Published private(set) var bluetooth: ConnectedBluetoothDevice?
+    @Published private(set) var hotspot: (name: String, battery: Int)?
 
     private let log = Logger(subsystem: "tech.vornyx.notch", category: "Preview")
     private var clear: Task<Void, Never>?
@@ -73,7 +75,7 @@ final class BannerPreview: ObservableObject {
     /// Settings closes it first.
     func show(_ kind: Kind) {
         clear?.cancel()
-        focus = nil; vpn = nil; battery = nil; bluetooth = nil
+        focus = nil; vpn = nil; battery = nil; bluetooth = nil; hotspot = nil
         let coordinator = VornyxViewCoordinator.shared
 
         switch kind {
@@ -97,6 +99,9 @@ final class BannerPreview: ObservableObject {
         case .bluetooth:
             bluetooth = ConnectedBluetoothDevice(name: "Magic Keyboard", symbol: "keyboard", battery: 76)
             coordinator.announceBluetooth()
+        case .hotspot:
+            hotspot = ("iPhone", 64)
+            coordinator.announceHotspot()
         case .timer:
             CountdownManager.shared.start(90)
         case .timerEnd:
@@ -115,7 +120,7 @@ final class BannerPreview: ObservableObject {
         clear = Task { [weak self] in
             try? await Task.sleep(for: .seconds(4))
             guard let self, !Task.isCancelled else { return }
-            self.focus = nil; self.vpn = nil; self.battery = nil; self.bluetooth = nil
+            self.focus = nil; self.vpn = nil; self.battery = nil; self.bluetooth = nil; self.hotspot = nil
         }
     }
 }

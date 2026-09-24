@@ -217,6 +217,8 @@ extension Defaults.Keys {
     static let batteryAlerts = Key<Bool>("batteryAlerts", default: true)
     /// A banner as a keyboard, mouse or other Bluetooth device connects.
     static let bluetoothLiveActivity = Key<Bool>("bluetoothLiveActivity", default: true)
+    /// A banner as the Mac joins a phone's Personal Hotspot.
+    static let hotspotLiveActivity = Key<Bool>("hotspotLiveActivity", default: true)
     static let bannerStyle = Key<BannerStyle>("bannerStyle", default: .dropDown)
     static let showCapsLockIndicator = Key<Bool>("showCapsLockIndicator", default: true)
     /// Say it under the closed notch as it happens, as well as lighting the edge.
