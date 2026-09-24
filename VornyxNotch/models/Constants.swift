@@ -179,6 +179,9 @@ extension Defaults.Keys {
     static let showOnLockScreen = Key<Bool>("showOnLockScreen", default: false)
     /// A player card over the login screen while something is playing.
     static let lockScreenPlayer = Key<Bool>("lockScreenPlayer", default: true)
+    /// The lock screen given over to the music - cover and lyrics large - or
+    /// only the card. Toggled by tapping the cover.
+    static let lockScreenExpanded = Key<Bool>("lockScreenExpanded", default: true)
     static let hideFromScreenRecording = Key<Bool>("hideFromScreenRecording", default: false)
     
     // MARK: Appearance

@@ -475,6 +475,9 @@ class MusicManager: ObservableObject {
                         self.currentLyrics = lyricsString.trimmingCharacters(in: .whitespacesAndNewlines)
                         self.isFetchingLyrics = false
                         self.syncedLyrics = []
+                        // Apple Music's own lyrics carry no timings; LRCLIB's
+                        // may, and the lock screen scrolls with them.
+                        await self.fetchSyncedLyricsFromWeb(title: title, artist: artist)
                         return
                     }
                 } catch {
@@ -495,6 +498,26 @@ class MusicManager: ObservableObject {
         string
             .folding(options: .diacriticInsensitive, locale: .current)
             .replacingOccurrences(of: "\u{FFFD}", with: "")
+    }
+
+    /// Only the timed lines, for a track whose text came from somewhere else.
+    /// Dropped if the track has changed by the time they arrive.
+    @MainActor
+    private func fetchSyncedLyricsFromWeb(title: String, artist: String) async {
+        let cleanTitle = normalizedQuery(title)
+        let cleanArtist = normalizedQuery(artist)
+        guard let encodedTitle = cleanTitle.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let encodedArtist = cleanArtist.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let url = URL(string: "https://lrclib.net/api/search?track_name=\(encodedTitle)&artist_name=\(encodedArtist)"),
+              let (data, response) = try? await URLSession.shared.data(from: url),
+              (response as? HTTPURLResponse)?.statusCode == 200,
+              let results = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+        else { return }
+        let synced = results.lazy
+            .compactMap { ($0["syncedLyrics"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { !$0.isEmpty }
+        guard let synced, self.songTitle == title else { return }
+        self.syncedLyrics = self.parseLRC(synced)
     }
 
     @MainActor

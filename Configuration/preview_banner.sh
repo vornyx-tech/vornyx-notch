@@ -6,13 +6,13 @@
 #         ./Configuration/preview_banner.sh all
 #
 # Banners: focusOn focusOff vpnConnected vpnDisconnected batteryLow
-#          batteryFull bluetooth hotspot timer timerEnd
+#          batteryFull bluetooth hotspot timer timerEnd lockScreen
 #
 # The same list is under Settings > Indicators > Try the banners.
 
 set -euo pipefail
 
-ALL=(focusOn focusOff vpnConnected vpnDisconnected batteryLow batteryFull bluetooth hotspot timer timerEnd)
+ALL=(focusOn focusOff vpnConnected vpnDisconnected batteryLow batteryFull bluetooth hotspot timer timerEnd lockScreen)
 
 post() {
   /usr/bin/swift - "$1" <<'SWIFT'

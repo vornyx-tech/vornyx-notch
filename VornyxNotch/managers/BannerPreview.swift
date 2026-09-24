@@ -25,7 +25,7 @@ final class BannerPreview: ObservableObject {
 
     enum Kind: String, CaseIterable, Identifiable {
         case focusOn, focusOff, vpnConnected, vpnDisconnected
-        case batteryLow, batteryFull, bluetooth, hotspot, timer, timerEnd
+        case batteryLow, batteryFull, bluetooth, hotspot, timer, timerEnd, lockScreen
 
         var id: String { rawValue }
 
@@ -41,6 +41,7 @@ final class BannerPreview: ObservableObject {
             case .hotspot: return "Hotspot"
             case .timer: return "Timer"
             case .timerEnd: return "Timer ending"
+            case .lockScreen: return "Lock screen"
             }
         }
     }
@@ -106,6 +107,8 @@ final class BannerPreview: ObservableObject {
             CountdownManager.shared.start(90)
         case .timerEnd:
             CountdownManager.shared.start(3)
+        case .lockScreen:
+            LockScreenPlayerController.shared.preview()
         }
 
         log.notice("preview \(kind.rawValue, privacy: .public)")

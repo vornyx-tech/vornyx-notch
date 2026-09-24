@@ -15,6 +15,9 @@ import SwiftUI
 /// in a card above the password field.
 struct LockScreenPlayerView: View {
     @ObservedObject private var music = MusicManager.shared
+    /// Tapping the cover opens the lock screen out to the large layout, and
+    /// back.
+    var onArtworkTap: () -> Void = {}
 
     /// Ticks while a track plays, so the elapsed time moves without the
     /// player reporting every second.
@@ -77,6 +80,9 @@ struct LockScreenPlayerView: View {
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .strokeBorder(.white.opacity(0.12), lineWidth: 1)
                 }
+                .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .onTapGesture(perform: onArtworkTap)
+                .help("Show the cover and lyrics large")
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(music.songTitle)
@@ -206,6 +212,7 @@ final class LockScreenPlayerController {
 
     private var window: NSWindow?
     private var playbackWatcher: AnyCancellable?
+    private var previewTask: Task<Void, Never>?
 
     private init() {}
 
@@ -223,6 +230,18 @@ final class LockScreenPlayerController {
                     self?.hide()
                 }
             }
+    }
+
+    /// The lock screen's layout over the desktop for a while, without locking
+    /// anything - for seeing it from Settings.
+    func preview(for seconds: Double = 20) {
+        previewTask?.cancel()
+        show()
+        previewTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(seconds))
+            guard let self, !Task.isCancelled, self.playbackWatcher == nil else { return }
+            self.hide()
+        }
     }
 
     func screenUnlocked() {
@@ -252,15 +271,19 @@ final class LockScreenPlayerController {
         window.orderOut(nil)
     }
 
+    /// The whole screen: the large layout needs it, and with it off the rest
+    /// is clear, which lets clicks through to the login screen underneath.
     private func makeWindow() -> NSWindow {
-        let size = CGSize(width: 440 + 68, height: 190 + 68)
+        let size = (NSScreen.notched ?? NSScreen.main)?.frame.size ?? CGSize(width: 1512, height: 982)
         let window = VornyxNotchSkyLightWindow(
             contentRect: NSRect(origin: .zero, size: size),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
-        window.contentView = NSHostingView(rootView: LockScreenPlayerView())
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.contentView = NSHostingView(rootView: LockScreenRootView())
         window.level = .screenSaver
         window.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
         window.hasShadow = false
@@ -268,17 +291,10 @@ final class LockScreenPlayerController {
         return window
     }
 
-    /// Centred, resting just above the user's picture rather than over the
-    /// clock: the login field sits about a fifth of the way up the screen.
+    /// Over the whole screen; the card places itself inside, resting just
+    /// above the user's picture about a fifth of the way up.
     private func position(_ window: NSWindow) {
         guard let screen = NSScreen.notched ?? NSScreen.main else { return }
-        let frame = screen.frame
-        let size = window.frame.size
-        window.setFrameOrigin(
-            NSPoint(
-                x: frame.midX - size.width / 2,
-                y: frame.minY + frame.height * 0.22
-            )
-        )
+        window.setFrame(screen.frame, display: true)
     }
 }
