@@ -21,8 +21,12 @@ struct FocusLiveActivity: View {
     private var isOn: Bool { preview.focus?.on ?? indicators.indicators.focus }
     /// Which mode, when the source says; a plain Focus's look otherwise, not
     /// Do Not Disturb's, which would be a guess.
+    /// The last mode seen stands in only for Off - the one that just ended.
+    /// For On it would be stale: a mode from hours ago, shown as current.
     private var mode: FocusMode {
-        preview.focus?.mode ?? indicators.focusMode ?? indicators.lastFocusMode ?? .other
+        if let mode = preview.focus?.mode { return mode }
+        if isOn { return indicators.focusMode ?? .other }
+        return indicators.lastFocusMode ?? .other
     }
 
     var body: some View {

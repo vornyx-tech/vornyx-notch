@@ -53,9 +53,11 @@ enum LiveCompanion: Equatable {
         // notch is not the place to say so all that time.
         let preview = BannerPreview.shared.focus
         if indicators.focusJustOn || preview != nil, Defaults[.focusLiveActivity] {
-            return .focus(
-                preview?.mode ?? indicators.focusMode ?? indicators.lastFocusMode ?? .other,
-                on: preview?.on ?? indicators.indicators.focus)
+            let on = preview?.on ?? indicators.indicators.focus
+            // The last mode seen is right only for Off; for On it could be
+            // hours old.
+            let mode = preview?.mode ?? (on ? indicators.focusMode : indicators.lastFocusMode) ?? .other
+            return .focus(mode, on: on)
         }
         return nil
     }
