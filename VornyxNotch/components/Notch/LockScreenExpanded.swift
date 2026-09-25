@@ -73,16 +73,36 @@ struct LockScreenBackdropView: View {
             // picture and the password field: they show through, and since
             // this window takes no clicks, stay usable. The edge is a
             // shoreline, not a ruler - reaching further down in places, the
-            // way water runs up a beach - and blurred soft. Still, not moving:
-            // a full-screen mask redrawn every frame is what made this screen
-            // stutter before.
-            .mask {
-                ShorelineShape()
-                    .fill(.black)
-                    .blur(radius: 36)
-            }
+            // way water runs up a beach - blurred soft, and breathing.
+            .mask { BreathingShoreline() }
         }
         .environment(\.colorScheme, .dark)
+    }
+}
+
+/// The shoreline rising and falling like a breath, and drifting a little
+/// sideways as waves would.
+///
+/// Only its position moves - the shape and its blur are never redrawn, so
+/// it costs a translation per frame. It is made larger than the screen with
+/// negative padding, so neither movement ever brings its edge into view; no
+/// GeometryReader or drawingGroup, which clipped it to the window and cut
+/// the right of the screen away.
+private struct BreathingShoreline: View {
+    @State private var inhale = false
+    @State private var drift = false
+
+    var body: some View {
+        ShorelineShape()
+            .fill(.black)
+            .blur(radius: 36)
+            .padding(.horizontal, -120)
+            .padding(.vertical, -60)
+            .offset(x: drift ? 30 : -30, y: inhale ? 18 : -18)
+            .onAppear {
+                withAnimation(.easeInOut(duration: 5).repeatForever(autoreverses: true)) { inhale = true }
+                withAnimation(.easeInOut(duration: 9).repeatForever(autoreverses: true)) { drift = true }
+            }
     }
 }
 
