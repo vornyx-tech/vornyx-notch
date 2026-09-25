@@ -76,6 +76,10 @@ final class BannerPreview: ObservableObject {
 
     /// Listens for previews asked for from outside the app.
     func listen() {
+        // A development hook: a published build takes no orders from outside.
+        #if !DEBUG
+        return
+        #endif
         guard observer == nil else { return }
         observer = DistributedNotificationCenter.default().addObserver(
             forName: .init("tech.vornyx.notch.preview"), object: nil, queue: .main

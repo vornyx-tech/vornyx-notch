@@ -482,8 +482,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
+        // Only when the custom shortcut is the chosen way; with the double-tap
+        // chosen, a shortcut recorded earlier stays saved but does nothing.
         KeyboardShortcuts.onKeyDown(for: .showClipboard) { [weak self] in
             Task { @MainActor [weak self] in
+                guard !Defaults[.clipboardDoubleTapRightOption] else { return }
                 self?.toggleClipboard()
             }
         }

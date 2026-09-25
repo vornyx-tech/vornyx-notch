@@ -38,6 +38,9 @@ struct SettingsView: View {
 //                NavigationLink(value: "Downloads") {
 //                    Label("Downloads", systemImage: "square.and.arrow.down")
 //                }
+                NavigationLink(value: "Indicators") {
+                    Label("Indicators", systemImage: "dot.radiowaves.left.and.right")
+                }
                 NavigationLink(value: "Shelf") {
                     Label("Shelf", systemImage: "books.vertical")
                 }
@@ -83,6 +86,8 @@ struct SettingsView: View {
                     HUD()
                 case "Battery":
                     Charge()
+                case "Indicators":
+                    IndicatorsSettings()
                 case "Shelf":
                     Shelf()
                 case "LocalSend":
@@ -371,30 +376,11 @@ struct GeneralSettings: View {
     }
 }
 
-struct Charge: View {
-
+/// Everything the notch says on its own: lights on its edge and in its
+/// header, and the banners it drops down or shows beside the camera.
+struct IndicatorsSettings: View {
     var body: some View {
         Form {
-            Section {
-                Defaults.Toggle(key: .showBatteryIndicator) {
-                    Text("Show battery indicator")
-                }
-                Defaults.Toggle(key: .showPowerStatusNotifications) {
-                    Text("Show power status notifications")
-                }
-            } header: {
-                SettingsSectionHeader("General", icon: "gearshape.fill", tint: .blue)
-            }
-            Section {
-                Defaults.Toggle(key: .showBatteryPercentage) {
-                    Text("Show battery percentage")
-                }
-                Defaults.Toggle(key: .showPowerStatusIcons) {
-                    Text("Show power status icons")
-                }
-            } header: {
-                SettingsSectionHeader("Battery Information", icon: "battery.100.bolt", tint: .green)
-            }
             Section {
                 Defaults.Toggle(key: .showPrivacyIndicators) {
                     VStack(alignment: .leading, spacing: 2) {
@@ -457,6 +443,11 @@ struct Charge: View {
                         FocusLightStatus()
                     }
                 }
+            } header: {
+                SettingsSectionHeader("Lights", icon: "light.max", tint: .purple)
+            }
+            Section {
+                BannerStylePicker()
                 Defaults.Toggle(key: .focusLiveActivity) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Say it in the notch")
@@ -466,34 +457,18 @@ struct Charge: View {
                     }
                 }
                 .disabled(!Defaults[.showFocusIndicator])
+                Defaults.Toggle(key: .vpnLiveActivity) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("VPN in the notch")
+                        Text("The VPN's name and how long it has been up, as it connects or drops.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 Defaults.Toggle(key: .batteryAlerts) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Battery low and full")
                         Text("A banner as the battery drops to 20% on battery, and as it reaches full.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                Defaults.Toggle(key: .colorPickerInDashboard) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Colour picker on the dashboard")
-                        Text("An eyedropper beside the shortcuts: pick any colour on screen and it is copied as hex.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                Defaults.Toggle(key: .screenRecordingLiveActivity) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Screen recording in the notch")
-                        Text("A red light and the running time while the screen is recorded or shared, with Stop for the screenshot toolbar's recordings.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                Defaults.Toggle(key: .hotspotLiveActivity) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Personal Hotspot in the notch")
-                        Text("A banner as the Mac joins a phone's hotspot, with the phone's charge when it shares it.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -506,24 +481,28 @@ struct Charge: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                Defaults.Toggle(key: .vpnLiveActivity) {
+                Defaults.Toggle(key: .hotspotLiveActivity) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("VPN in the notch")
-                        Text("The VPN's name and how long it has been up, as it connects or drops.")
+                        Text("Personal Hotspot in the notch")
+                        Text("A banner as the Mac joins a phone's hotspot, with the phone's charge when it shares it.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                 }
-                Defaults.Toggle(key: .showAudioPicker) {
+                Defaults.Toggle(key: .screenRecordingLiveActivity) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Sound output menu")
-                        Text("Switch where audio goes from the notch's header.")
+                        Text("Screen recording in the notch")
+                        Text("A red light and the running time while the screen is recorded or shared, with Stop for the screenshot toolbar's recordings.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                 }
             } header: {
-                SettingsSectionHeader("Indicators", icon: "dot.radiowaves.left.and.right", tint: .purple)
+                SettingsSectionHeader("Banners", icon: "rectangle.topthird.inset.filled", tint: .purple)
+            } footer: {
+                Text("Drop-down hangs a banner under the camera, with room for two lines. Inline puts it either side of the camera, at the menu bar's height.")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
             }
             Section {
                 KeyboardLayoutBannerSettings()
@@ -531,16 +510,6 @@ struct Charge: View {
                 SettingsSectionHeader("Keyboard layout", icon: "globe", tint: .purple)
             } footer: {
                 Text("The flag and the layout's code for a moment when you switch languages. Its style is its own, apart from the other banners'.")
-                    .foregroundStyle(.secondary)
-                    .font(.caption)
-            }
-            Section {
-                BannerStylePicker()
-                BannerPreviewButtons()
-            } header: {
-                SettingsSectionHeader("Try the banners", icon: "play.rectangle", tint: .purple)
-            } footer: {
-                Text("Drop-down hangs the VPN, battery, Bluetooth and other banners under the camera, with room for two lines. Inline puts them either side of it, at the menu bar's height. The buttons show each banner with made-up data, whatever the real state is.")
                     .foregroundStyle(.secondary)
                     .font(.caption)
             }
@@ -598,6 +567,61 @@ struct Charge: View {
                     .multilineTextAlignment(.trailing)
                     .foregroundStyle(.secondary)
                     .font(.caption)
+            }
+            Section {
+                Defaults.Toggle(key: .showAudioPicker) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Sound output menu")
+                        Text("Switch where audio goes from the notch's header.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Defaults.Toggle(key: .colorPickerInDashboard) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Colour picker on the dashboard")
+                        Text("An eyedropper beside the shortcuts: pick any colour on screen and it is copied as hex.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            } header: {
+                SettingsSectionHeader("Notch controls", icon: "slider.horizontal.3", tint: .blue)
+            }
+        }
+        .onAppear {
+            Task { @MainActor in
+                await XPCHelperClient.shared.isAccessibilityAuthorized()
+            }
+        }
+        .accentColor(.effectiveAccent)
+        .navigationTitle("Indicators")
+    }
+}
+
+struct Charge: View {
+
+    var body: some View {
+        Form {
+            Section {
+                Defaults.Toggle(key: .showBatteryIndicator) {
+                    Text("Show battery indicator")
+                }
+                Defaults.Toggle(key: .showPowerStatusNotifications) {
+                    Text("Show power status notifications")
+                }
+            } header: {
+                SettingsSectionHeader("General", icon: "gearshape.fill", tint: .blue)
+            }
+            Section {
+                Defaults.Toggle(key: .showBatteryPercentage) {
+                    Text("Show battery percentage")
+                }
+                Defaults.Toggle(key: .showPowerStatusIcons) {
+                    Text("Show power status icons")
+                }
+            } header: {
+                SettingsSectionHeader("Battery Information", icon: "battery.100.bolt", tint: .green)
             }
         }
         .onAppear {
@@ -1880,12 +1904,12 @@ struct Shortcuts: View {
                 KeyboardShortcuts.Recorder("Toggle Notch Open:", name: .toggleNotchOpen)
                 KeyboardShortcuts.Recorder("Open Shelf:", name: .openShelf)
                 KeyboardShortcuts.Recorder("Pick a Colour:", name: .pickColor)
-                KeyboardShortcuts.Recorder("Show Clipboard:", name: .showClipboard)
+                ClipboardShortcutSetting()
             } header: {
                 SettingsSectionHeader("Notch", icon: "macbook", tint: .blue)
             } footer: {
                 Text(
-                    "Open Shelf opens the notch on the shelf, and closes it if the shelf is already showing. Show Clipboard opens the notch on the clipboard tab. Unset by default - record a shortcut to use it, and turn the clipboard on under Clipboard first."
+                    "Open Shelf opens the notch on the shelf, and closes it if the shelf is already showing. Show Clipboard opens the notch on the clipboard tab: by double-tapping the right Option key, which needs Accessibility, or by a shortcut of your own. Turn the clipboard on under Clipboard first."
                 )
                 .multilineTextAlignment(.trailing)
                 .foregroundStyle(.secondary)
@@ -1993,19 +2017,6 @@ struct ClipboardSettings: View {
                 .disabled(!clipboardEnabled)
                 Defaults.Toggle(key: .clipboardPersistHistory) {
                     Text("Remember history between launches")
-                }
-                .disabled(!clipboardEnabled)
-                Defaults.Toggle(key: .clipboardDoubleTapRightOption) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Double-tap right Option to show")
-                        Text("Opens the clipboard tab from anywhere. Needs Accessibility access, like the media keys.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .onChange { isOn in
-                    guard isOn else { return }
-                    Task { _ = await XPCHelperClient.shared.ensureAccessibilityAuthorization(promptIfNeeded: true) }
                 }
                 .disabled(!clipboardEnabled)
             } header: {
@@ -2327,21 +2338,6 @@ private struct FocusLightStatus: View {
     }
 }
 
-/// One button per closed-notch banner, for seeing them without waiting for
-/// the real event.
-private struct BannerPreviewButtons: View {
-    private let columns = [GridItem(.adaptive(minimum: 130), spacing: 8)]
-
-    var body: some View {
-        LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
-            ForEach(BannerPreview.Kind.allCases) { kind in
-                Button(kind.title) { BannerPreview.shared.show(kind) }
-                    .frame(maxWidth: .infinity)
-            }
-        }
-    }
-}
-
 private struct BannerStylePicker: View {
     @Default(.bannerStyle) private var style
 
@@ -2368,5 +2364,26 @@ private struct KeyboardLayoutBannerSettings: View {
         }
         .pickerStyle(.segmented)
         .disabled(!enabled)
+    }
+}
+
+/// How the clipboard is summoned: the right Option key tapped twice, the
+/// default, or a shortcut of the user's own.
+private struct ClipboardShortcutSetting: View {
+    @Default(.clipboardDoubleTapRightOption) private var doubleTap
+
+    var body: some View {
+        Picker("Show Clipboard:", selection: $doubleTap) {
+            Text("Double-tap Option").tag(true)
+            Text("Custom").tag(false)
+        }
+        .pickerStyle(.segmented)
+        .onChange(of: doubleTap) { _, isOn in
+            guard isOn else { return }
+            Task { _ = await XPCHelperClient.shared.ensureAccessibilityAuthorization(promptIfNeeded: true) }
+        }
+        if !doubleTap {
+            KeyboardShortcuts.Recorder("Clipboard shortcut:", name: .showClipboard)
+        }
     }
 }
