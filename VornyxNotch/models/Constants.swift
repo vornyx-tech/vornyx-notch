@@ -370,7 +370,7 @@ extension Defaults.Keys {
     static let inlineHUD = Key<Bool>("inlineHUD", default: false)
     static let enableGradient = Key<Bool>("enableGradient", default: false)
     static let systemEventIndicatorShadow = Key<Bool>("systemEventIndicatorShadow", default: true)
-    static let systemEventIndicatorUseAccent = Key<Bool>("systemEventIndicatorUseAccent", default: false)
+    static let systemEventIndicatorUseAccent = Key<Bool>("systemEventIndicatorUseAccent", default: true)
     static let showOpenNotchHUD = Key<Bool>("showOpenNotchHUD", default: true)
     static let showOpenNotchHUDPercentage = Key<Bool>("showOpenNotchHUDPercentage", default: true)
     static let showClosedNotchHUDPercentage = Key<Bool>("showClosedNotchHUDPercentage", default: false)

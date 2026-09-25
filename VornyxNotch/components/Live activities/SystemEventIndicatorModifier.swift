@@ -44,29 +44,31 @@ struct SystemEventIndicatorModifier: View {
                             .contentTransition(.interpolate)
                             .symbolVariant(value > 0 ? .none : .slash)
                             .frame(width: 20, height: 15, alignment: .leading)
+                            .foregroundStyle(HUDTint.bar)
                     } else {
                         Image(systemName: icon)
                             .contentTransition(.interpolate)
                             .opacity(value.isZero ? 0.6 : 1)
                             .scaleEffect(value.isZero ? 0.85 : 1)
                             .frame(width: 20, height: 15, alignment: .leading)
+                            .foregroundStyle(HUDTint.bar)
                     }
                 case .brightness:
                     Image(systemName: "sun.max.fill")
                         .contentTransition(.symbolEffect)
                         .frame(width: 20, height: 15)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(HUDTint.bar)
                 case .backlight:
                     Image(systemName: value > 0.5 ? "light.max" : "light.min")
                         .contentTransition(.interpolate)
                         .frame(width: 20, height: 15)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(HUDTint.bar)
                 case .mic:
                     Image(systemName: "mic")
                         .symbolVariant(value > 0 ? .none : .slash)
                         .contentTransition(.interpolate)
                         .frame(width: 20, height: 15)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(HUDTint.bar)
                 default:
                     EmptyView()
             }
@@ -169,5 +171,16 @@ struct DraggableProgressBar: View {
         
         value = max(0, min(newValue, 1))
         onChange?(value)
+    }
+}
+
+/// The one colour a HUD's bar and its icon share: the album's when that is
+/// on, the accent when the tint setting is, white otherwise - so the output
+/// or speaker symbol never sits white beside a coloured bar.
+enum HUDTint {
+    @MainActor
+    static var bar: Color {
+        HUDAccentColor.current
+            ?? (Defaults[.systemEventIndicatorUseAccent] ? Color.effectiveAccent : .white)
     }
 }
