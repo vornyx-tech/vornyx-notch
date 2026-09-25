@@ -18,9 +18,10 @@ struct FocusLiveActivity: View {
     @ObservedObject private var preview = BannerPreview.shared
 
     private var isOn: Bool { preview.focus?.on ?? indicators.indicators.focus }
-    /// Which mode, when the source says; Do Not Disturb's look otherwise.
+    /// Which mode, when the source says; a plain Focus's look otherwise, not
+    /// Do Not Disturb's, which would be a guess.
     private var mode: FocusMode {
-        preview.focus?.mode ?? indicators.focusMode ?? indicators.lastFocusMode ?? .doNotDisturb
+        preview.focus?.mode ?? indicators.focusMode ?? indicators.lastFocusMode ?? .other
     }
     private var knowsMode: Bool {
         preview.focus != nil || indicators.focusMode != nil || indicators.lastFocusMode != nil

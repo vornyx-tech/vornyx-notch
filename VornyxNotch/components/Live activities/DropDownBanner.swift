@@ -107,7 +107,7 @@ struct DropDownBanner: View {
 
     private var focus: some View {
         let isOn = preview.focus?.on ?? indicators.indicators.focus
-        let mode = preview.focus?.mode ?? indicators.focusMode ?? indicators.lastFocusMode ?? .doNotDisturb
+        let mode = preview.focus?.mode ?? indicators.focusMode ?? indicators.lastFocusMode ?? .other
 
         return Group {
             Image(systemName: mode.symbol)

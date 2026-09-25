@@ -1774,49 +1774,6 @@ struct Advanced: View {
                 SettingsSectionHeader("Window Appearance", icon: "macwindow", tint: .teal)
             }
             
-            Section {
-                HStack {
-                    ForEach(icons, id: \.self) { icon in
-                        Spacer()
-                        VStack {
-                            Image(icon)
-                                .resizable()
-                                .frame(width: 80, height: 80)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 20, style: .circular)
-                                        .strokeBorder(
-                                            icon == selectedIcon ? Color.effectiveAccent : .clear,
-                                            lineWidth: 2.5
-                                        )
-                                )
-
-                            Text("Default")
-                                .fontWeight(.medium)
-                                .font(.caption)
-                                .foregroundStyle(icon == selectedIcon ? .white : .secondary)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 3)
-                                .background(
-                                    Capsule()
-                                        .fill(icon == selectedIcon ? Color.effectiveAccent : .clear)
-                                )
-                        }
-                        .onTapGesture {
-                            withAnimation {
-                                selectedIcon = icon
-                            }
-                            NSApp.applicationIconImage = NSImage(named: icon)
-                        }
-                        Spacer()
-                    }
-                }
-                .disabled(true)
-            } header: {
-                HStack {
-                    Text("App icon")
-                    customBadge(text: "Coming soon")
-                }
-            }
             
             Section {
                 Defaults.Toggle(key: .extendHoverArea) {
@@ -2357,9 +2314,9 @@ private struct FocusLightStatus: View {
             return indicators.indicators.focus ? "Working - a Focus is on." : "Working - no Focus is on."
         }
         switch indicators.focusStatus {
-        case .on: return "Working through the menu bar - a Focus is on."
-        case .off: return "Working through the menu bar - no Focus is on."
-        case .noAccessibility: return "This build has no Accessibility access. Each new build needs it granted again."
+        case .on: return "Working through the menu bar - a Focus is on. Full Disk Access tells exactly which."
+        case .off: return "Working through the menu bar - no Focus is on. Full Disk Access tells exactly which."
+        case .noAccessibility: return "Only on and off are known, not which Focus: give this copy of the app Full Disk Access. A build run from Xcode is a separate app to macOS and needs its own."
         case .noMenuBar: return "Control Center's menu bar can't be read."
         case nil: return "Checking..."
         }

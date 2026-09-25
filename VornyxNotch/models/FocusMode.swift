@@ -34,6 +34,20 @@ enum FocusMode: Equatable {
         }
     }
 
+    /// From what the menu bar item says - "Focus, Work", or a localised
+    /// equivalent carrying the English mode name - when there is no
+    /// identifier to go by. Nil when it names no mode this list knows.
+    init?(menuTitle: String) {
+        let lowered = menuTitle.lowercased()
+        let byName: [(String, FocusMode)] = [
+            ("do not disturb", .doNotDisturb), ("work", .work), ("personal", .personal),
+            ("sleep", .sleep), ("driving", .driving), ("fitness", .fitness), ("gaming", .gaming),
+            ("mindfulness", .mindfulness), ("reading", .reading), ("reduce interruptions", .reduceInterruptions),
+        ]
+        guard let match = byName.first(where: { lowered.contains($0.0) }) else { return nil }
+        self = match.1
+    }
+
     var name: String {
         switch self {
         case .doNotDisturb: return "Do Not Disturb"

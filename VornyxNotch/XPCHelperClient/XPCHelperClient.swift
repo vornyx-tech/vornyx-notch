@@ -325,6 +325,20 @@ struct ConnectedVPN: Equatable {
     let connectedAt: Date?
 }
 
+extension XPCHelperClient {
+    nonisolated func focusMenuExtraTitle() async -> String? {
+        do {
+            let service = await MainActor.run { ensureRemoteService() }
+            let result: NSString? = try await service.withContinuation { service, continuation in
+                service.focusMenuExtraTitle { value in continuation.resume(returning: value) }
+            }
+            return result as String?
+        } catch {
+            return nil
+        }
+    }
+}
+
 enum FocusAssertion: Equatable {
     /// No Full Disk Access.
     case unreadable

@@ -66,9 +66,17 @@ final class BluetoothDeviceManager: ObservableObject {
             selector: #selector(DeviceObserver.connected(_:device:)))
     }
 
+    /// Apple and Beats audio, by name, for the moment before a pair reports
+    /// its class and levels - which is when it first connects.
+    private static func soundsLikePair(_ name: String) -> Bool {
+        let lowered = name.lowercased()
+        return lowered.contains("airpods") || lowered.contains("beats")
+    }
+
     private func connected(_ device: IOBluetoothDevice) {
         guard Date() >= quietUntil, Defaults[.bluetoothLiveActivity],
-              !AirPodsManager.isPair(device) else { return }
+              !AirPodsManager.isPair(device),
+              !Self.soundsLikePair(device.name ?? "") else { return }
         // No name is no one the user would recognise - a device macOS keeps
         // to itself, or one still identifying - so no banner for it.
         guard let name = device.name?.trimmingCharacters(in: .whitespaces), !name.isEmpty else { return }
@@ -78,7 +86,9 @@ final class BluetoothDeviceManager: ObservableObject {
         let address = device.addressString
         let symbol = Self.symbol(for: device)
 
-        // The level shows up a moment after the connection, if at all.
+        // The level shows up a moment after the connection, if at all - and
+        // so does a pair's class. AirPods caught before it did went out here
+        // with an antenna and no levels, ahead of their own banner.
         settleTask?.cancel()
         settleTask = Task { @MainActor [weak self] in
             var battery: Int?
@@ -88,8 +98,13 @@ final class BluetoothDeviceManager: ObservableObject {
                 battery = Self.battery(address: address, name: name, device: device)
                 if battery != nil { break }
             }
-            guard let self, !Task.isCancelled else { return }
-            self.latest = ConnectedBluetoothDevice(name: name, symbol: symbol, battery: battery)
+            guard let self, !Task.isCancelled,
+                  !AirPodsManager.isPair(device),
+                  AirPodsManager.shared.device?.name != name
+            else { return }
+            self.latest = ConnectedBluetoothDevice(
+                name: name, symbol: symbol == "dot.radiowaves.left.and.right" ? Self.symbol(for: device) : symbol,
+                battery: battery)
             VornyxViewCoordinator.shared.announceBluetooth()
         }
     }

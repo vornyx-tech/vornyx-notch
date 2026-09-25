@@ -621,9 +621,13 @@ struct MusicSliderView: View {
             CustomSlider(
                 value: $sliderValue,
                 range: 0...duration,
-                color: Defaults[.sliderColor] == SliderColorEnum.albumArt
+                // Grey and glowless while paused, so the bar reads as idle.
+                color: !isPlaying
+                    ? Color(white: 0.55)
+                    : Defaults[.sliderColor] == SliderColorEnum.albumArt
                     ? Color(nsColor: color).ensureMinimumBrightness(factor: 0.8)
                     : Defaults[.sliderColor] == SliderColorEnum.accent ? .effectiveAccent : .white,
+                glows: isPlaying,
                 dragging: $dragging,
                 lastDragged: $lastDragged,
                 onValueChange: onValueChange
@@ -666,6 +670,8 @@ struct CustomSlider: View {
     @Binding var value: Double
     var range: ClosedRange<Double>
     var color: Color = .white
+    /// Off while paused: a lit bar says something is playing.
+    var glows: Bool = true
     @Binding var dragging: Bool
     @Binding var lastDragged: Date
     var onValueChange: ((Double) -> Void)?
@@ -674,7 +680,7 @@ struct CustomSlider: View {
     /// Clear unless the user asked for the glow, so the shadow costs nothing
     /// when it is off.
     private var glowColor: Color {
-        Defaults[.sliderGlow] ? color.ensureMinimumBrightness(factor: 0.7) : .clear
+        Defaults[.sliderGlow] && glows ? color.ensureMinimumBrightness(factor: 0.7) : .clear
     }
 
     var body: some View {

@@ -50,7 +50,7 @@ struct IndicatorLights: View {
         if state.focus || preview.focus?.on == true {
             // The mode's own symbol and colour when it is known - a briefcase
             // for Work - so the light says which Focus, not only that one is on.
-            let mode = preview.focus?.mode ?? monitor.focusMode ?? .doNotDisturb
+            let mode = preview.focus?.mode ?? monitor.focusMode ?? .other
             lights.append(.init(symbol: mode.symbol, tint: mode.tint, help: "\(mode.name) is on"))
         }
         if state.capsLock {

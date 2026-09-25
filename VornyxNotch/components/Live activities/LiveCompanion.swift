@@ -54,7 +54,7 @@ enum LiveCompanion: Equatable {
         let preview = BannerPreview.shared.focus
         if (indicators.focusJustOn && indicators.indicators.focus) || preview?.on == true,
            Defaults[.focusLiveActivity] {
-            return .focus(preview?.mode ?? indicators.focusMode ?? indicators.lastFocusMode ?? .doNotDisturb)
+            return .focus(preview?.mode ?? indicators.focusMode ?? indicators.lastFocusMode ?? .other)
         }
         return nil
     }

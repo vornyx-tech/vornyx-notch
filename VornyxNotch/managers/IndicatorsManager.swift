@@ -145,7 +145,13 @@ final class IndicatorsManager: ObservableObject {
             case .unreadable?, nil:
                 menuBarStatus = await client.focusStatus()
                 switch menuBarStatus {
-                case .on?: focused = true
+                case .on?:
+                    focused = true
+                    // The item's own words name the mode, when the file
+                    // that would say it exactly is out of reach.
+                    if let title = await client.focusMenuExtraTitle() {
+                        mode = FocusMode(menuTitle: title)
+                    }
                 case .off?: focused = false
                 default: focused = false
                 }

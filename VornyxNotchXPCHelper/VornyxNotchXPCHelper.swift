@@ -247,6 +247,30 @@ class VornyxNotchXPCHelper: NSObject, VornyxNotchXPCHelperProtocol {
         return String(data: data, encoding: .utf8)
     }
 
+    @objc func focusMenuExtraTitle(with reply: @escaping (NSString?) -> Void) {
+        guard AXIsProcessTrusted(),
+              let controlCenter = NSRunningApplication
+                .runningApplications(withBundleIdentifier: "com.apple.controlcenter").first
+        else { return reply(nil) }
+        let app = AXUIElementCreateApplication(controlCenter.processIdentifier)
+        var extras: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(app, "AXExtrasMenuBar" as CFString, &extras) == .success,
+              let bar = extras, CFGetTypeID(bar) == AXUIElementGetTypeID()
+        else { return reply(nil) }
+        var children: CFTypeRef?
+        AXUIElementCopyAttributeValue(bar as! AXUIElement, "AXChildren" as CFString, &children)
+        for item in children as? [AXUIElement] ?? [] {
+            let texts = ["AXIdentifier", "AXDescription", "AXTitle", "AXValue", "AXHelp"].compactMap { attribute -> String? in
+                var value: CFTypeRef?
+                AXUIElementCopyAttributeValue(item, attribute as CFString, &value)
+                return value as? String
+            }
+            guard texts.contains(where: { $0.localizedCaseInsensitiveContains("focus") }) else { continue }
+            return reply(texts.joined(separator: " ") as NSString)
+        }
+        reply(nil)
+    }
+
     private enum FocusProbe: Int {
         case off = 0
         case on = 1
