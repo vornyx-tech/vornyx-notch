@@ -227,6 +227,9 @@ extension Defaults.Keys {
     static let screenRecordingLiveActivity = Key<Bool>("screenRecordingLiveActivity", default: true)
     /// A word in the notch as the keyboard layout changes.
     static let inputSourceLiveActivity = Key<Bool>("inputSourceLiveActivity", default: true)
+    /// The layout banner's own style, apart from the other banners': a
+    /// short peak by default, since it says two characters.
+    static let inputSourceBannerStyle = Key<BannerStyle>("inputSourceBannerStyle", default: .inline)
     /// The eyedropper on the dashboard, beside the shortcuts.
     static let colorPickerInDashboard = Key<Bool>("colorPickerInDashboard", default: true)
     static let bannerStyle = Key<BannerStyle>("bannerStyle", default: .dropDown)

@@ -474,14 +474,6 @@ struct Charge: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                Defaults.Toggle(key: .inputSourceLiveActivity) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Keyboard layout in the notch")
-                        Text("The language's flag and name for a moment as the layout changes.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
                 Defaults.Toggle(key: .colorPickerInDashboard) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Colour picker on the dashboard")
@@ -534,12 +526,21 @@ struct Charge: View {
                 SettingsSectionHeader("Indicators", icon: "dot.radiowaves.left.and.right", tint: .purple)
             }
             Section {
+                KeyboardLayoutBannerSettings()
+            } header: {
+                SettingsSectionHeader("Keyboard layout", icon: "globe", tint: .purple)
+            } footer: {
+                Text("The flag and the layout's code for a moment when you switch languages. Its style is its own, apart from the other banners'.")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+            }
+            Section {
                 BannerStylePicker()
                 BannerPreviewButtons()
             } header: {
                 SettingsSectionHeader("Try the banners", icon: "play.rectangle", tint: .purple)
             } footer: {
-                Text("Drop-down hangs the Focus, VPN, battery and Bluetooth banners under the camera, with room for two lines. Inline puts them either side of it, at the menu bar's height. The buttons show each banner with made-up data, whatever the real state is.")
+                Text("Drop-down hangs the VPN, battery, Bluetooth and other banners under the camera, with room for two lines. Inline puts them either side of it, at the menu bar's height. The buttons show each banner with made-up data, whatever the real state is.")
                     .foregroundStyle(.secondary)
                     .font(.caption)
             }
@@ -2343,7 +2344,6 @@ private struct BannerPreviewButtons: View {
 
 private struct BannerStylePicker: View {
     @Default(.bannerStyle) private var style
-    @Default(.inputSourceLiveActivity) private var keyboardLayout
 
     var body: some View {
         Picker("Banner style", selection: $style) {
@@ -2352,7 +2352,21 @@ private struct BannerStylePicker: View {
             }
         }
         .pickerStyle(.segmented)
-        // Also under Indicators; here too, where the banners are tried.
-        Toggle("Keyboard layout banner", isOn: $keyboardLayout)
+    }
+}
+
+private struct KeyboardLayoutBannerSettings: View {
+    @Default(.inputSourceLiveActivity) private var enabled
+    @Default(.inputSourceBannerStyle) private var style
+
+    var body: some View {
+        Toggle("Show when the layout changes", isOn: $enabled)
+        Picker("Style", selection: $style) {
+            ForEach(BannerStyle.allCases) { style in
+                Text(style.rawValue).tag(style)
+            }
+        }
+        .pickerStyle(.segmented)
+        .disabled(!enabled)
     }
 }

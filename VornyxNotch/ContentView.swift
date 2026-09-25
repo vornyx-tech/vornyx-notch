@@ -434,12 +434,16 @@ struct ContentView: View {
     }
 
     private var showsDropDownBanner: Bool {
-        guard vm.notchState == .closed, !vm.hideOnClosed, Defaults[.bannerStyle] == .dropDown else { return false }
+        guard vm.notchState == .closed, !vm.hideOnClosed else { return false }
         let banner = coordinator.expandingView
+        // The layout banner keeps a style of its own; the rest share one.
+        let style = banner.type == .inputSource ? Defaults[.inputSourceBannerStyle] : Defaults[.bannerStyle]
         // Plugging in or out keeps to the setting it always had.
         let powerAllowed = banner.type != .battery
             || Defaults[.showPowerStatusNotifications] || bannerPreview.power != nil
-        return (banner.show && banner.type.hasDropDownBanner && powerAllowed) || showsTimerDone
+        let bannerDrops = banner.show && banner.type.hasDropDownBanner && powerAllowed && style == .dropDown
+        let timerDrops = showsTimerDone && Defaults[.bannerStyle] == .dropDown
+        return bannerDrops || timerDrops
     }
 
     /// A drop-down with a button in it - a finished timer's Stop, a
@@ -559,7 +563,7 @@ struct ContentView: View {
                   .environmentObject(vm)
                   .transition(.notchInline)
           } else if coordinator.expandingView.type == .inputSource && coordinator.expandingView.show
-                      && vm.notchState == .closed && !vm.hideOnClosed && Defaults[.bannerStyle] == .inline {
+                      && vm.notchState == .closed && !vm.hideOnClosed && Defaults[.inputSourceBannerStyle] == .inline {
               InputSourceLiveActivity()
                   .environmentObject(vm)
                   .transition(.notchInline)
