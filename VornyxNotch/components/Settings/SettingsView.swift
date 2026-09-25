@@ -2343,19 +2343,33 @@ private struct BannerStylePicker: View {
     }
 }
 
+/// One choice for the layout banner - off, or which style - rather than a
+/// toggle and a style that only means something while the toggle is on.
 private struct KeyboardLayoutBannerSettings: View {
     @Default(.inputSourceLiveActivity) private var enabled
     @Default(.inputSourceBannerStyle) private var style
 
+    private enum Choice: Hashable { case off, inline, dropDown }
+
+    private var choice: Binding<Choice> {
+        Binding(
+            get: { !enabled ? .off : (style == .inline ? .inline : .dropDown) },
+            set: { choice in
+                switch choice {
+                case .off: enabled = false
+                case .inline: enabled = true; style = .inline
+                case .dropDown: enabled = true; style = .dropDown
+                }
+            })
+    }
+
     var body: some View {
-        Toggle("Show when the layout changes", isOn: $enabled)
-        Picker("Style", selection: $style) {
-            ForEach(BannerStyle.allCases) { style in
-                Text(style.rawValue).tag(style)
-            }
+        Picker("When the layout changes", selection: choice) {
+            Text("Off").tag(Choice.off)
+            Text("Inline").tag(Choice.inline)
+            Text("Drop-down").tag(Choice.dropDown)
         }
         .pickerStyle(.segmented)
-        .disabled(!enabled)
     }
 }
 
