@@ -1033,12 +1033,6 @@ struct About: View {
             Form {
                 Section {
                     HStack {
-                        Text("Release name")
-                        Spacer()
-                        Text(Defaults[.releaseName])
-                            .foregroundStyle(.secondary)
-                    }
-                    HStack {
                         Text("Version")
                         Spacer()
                         if showBuildNumber {
@@ -1057,25 +1051,6 @@ struct About: View {
                     SettingsSectionHeader("Version info", icon: "info.circle.fill", tint: .gray)
                 }
 
-                HStack(spacing: 30) {
-                    Spacer(minLength: 0)
-                    Button {
-                        if let url = URL(string: "https://github.com/vornyx-tech/vornyx-notch") {
-                            NSWorkspace.shared.open(url)
-                        }
-                    } label: {
-                        VStack(spacing: 5) {
-                            Image("Github")
-                                .resizable()
-                                .aspectRatio(contentMode: .fit)
-                                .frame(width: 18)
-                            Text("GitHub")
-                        }
-                        .contentShape(Rectangle())
-                    }
-                    Spacer(minLength: 0)
-                }
-                .buttonStyle(PlainButtonStyle())
             }
             VStack(spacing: 0) {
                 Divider()
