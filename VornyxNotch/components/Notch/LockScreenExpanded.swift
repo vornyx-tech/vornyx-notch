@@ -71,18 +71,42 @@ struct LockScreenBackdropView: View {
             .frame(width: proxy.size.width, height: height)
             // Fading out towards the bottom, where macOS draws the user's
             // picture and the password field: they show through, and since
-            // this window takes no clicks, stay usable.
+            // this window takes no clicks, stay usable. The edge is a
+            // shoreline, not a ruler - reaching further down in places, the
+            // way water runs up a beach - and blurred soft. Still, not moving:
+            // a full-screen mask redrawn every frame is what made this screen
+            // stutter before.
             .mask {
-                LinearGradient(
-                    stops: [
-                        .init(color: .black, location: 0),
-                        .init(color: .black, location: 0.6),
-                        .init(color: .clear, location: 0.86),
-                    ],
-                    startPoint: .top, endPoint: .bottom)
+                ShorelineShape()
+                    .fill(.black)
+                    .blur(radius: 36)
             }
         }
         .environment(\.colorScheme, .dark)
+    }
+}
+
+/// Everything above an uneven line across the lower screen: a few gentle
+/// swells of different lengths laid over each other, so it never repeats
+/// across the width, and dips lowest off-centre rather than in the middle.
+private struct ShorelineShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        let base = rect.height * 0.72
+        let swell = rect.height * 0.07
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX - 60, y: rect.minY - 60))
+        path.addLine(to: CGPoint(x: rect.maxX + 60, y: rect.minY - 60))
+        let steps = 96
+        for step in stride(from: steps, through: 0, by: -1) {
+            let t = Double(step) / Double(steps)
+            let x = rect.minX - 60 + (rect.width + 120) * t
+            let wave = sin(t * .pi * 2.3 + 0.8) * 0.55
+                + sin(t * .pi * 5.1 + 2.1) * 0.3
+                + sin(t * .pi * 9.7 + 0.4) * 0.15
+            path.addLine(to: CGPoint(x: x, y: base + swell * wave))
+        }
+        path.closeSubpath()
+        return path
     }
 }
 

@@ -66,7 +66,7 @@ final class LockScreenPlayerController {
 
     /// The lock screen's layout over the desktop for a while, without locking
     /// anything - for seeing it from Settings.
-    func preview(for seconds: Double = 20) {
+    func preview(for seconds: Double = 3) {
         previewTask?.cancel()
         show()
         previewTask = Task { @MainActor [weak self] in
