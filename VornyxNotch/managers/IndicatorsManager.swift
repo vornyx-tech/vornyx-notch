@@ -1,0 +1,226 @@
+//
+//  IndicatorsManager.swift
+//  VornyxNotch
+//
+//  The camera, the microphone, Focus and Caps Lock.
+//
+
+import AppKit
+import Combine
+import CoreAudio
+import CoreMediaIO
+import Defaults
+import Foundation
+
+/// Whether each indicator is currently on.
+struct SystemIndicators: Equatable {
+    var camera = false
+    var microphone = false
+    var focus = false
+    var capsLock = false
+
+    var any: Bool { camera || microphone || focus || capsLock }
+}
+
+/// Polls the four indicators.
+///
+/// Every source works inside the app sandbox, which rules out both
+/// `~/Library/DoNotDisturb/DB` and the Focus Status API, so Focus is read from
+/// Control Center's menu bar item by the helper.
+@MainActor
+final class IndicatorsManager: ObservableObject {
+    static let shared = IndicatorsManager()
+
+    @Published private(set) var indicators = SystemIndicators()
+    /// The helper's last answer about Focus, for Settings to explain a light
+    /// that never comes on. Nil until it has answered.
+    @Published private(set) var focusStatus: FocusStatus?
+
+    private var ticker: AnyCancellable?
+    /// Caps Lock on its own, faster ticker: reading modifier flags costs
+    /// nothing, and a second's wait for the light is a second too long.
+    private var capsTicker: AnyCancellable?
+    /// Last answer from the helper, and the question still out, if any.
+    private var focusFromMenuBar = false
+    private var focusQuery: Task<Void, Never>?
+
+    private init() {}
+
+    func start() {
+        guard ticker == nil else { return }
+        poll()
+        ticker = Timer.publish(every: 1, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in self?.poll() }
+        capsTicker = Timer.publish(every: 0.2, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in self?.pollCapsLock() }
+    }
+
+    func stop() {
+        ticker?.cancel()
+        ticker = nil
+        capsTicker?.cancel()
+        capsTicker = nil
+        focusQuery?.cancel()
+        focusQuery = nil
+    }
+
+    // MARK: - Polling
+
+    private func pollCapsLock() {
+        let on = Defaults[.showCapsLockIndicator] && NSEvent.modifierFlags.contains(.capsLock)
+        guard on != indicators.capsLock else { return }
+        var next = indicators
+        next.capsLock = on
+        indicators = next
+
+        if Defaults[.capsLockSneakPeek] {
+            VornyxViewCoordinator.shared.toggleSneakPeek(
+                status: true, type: .capsLock, duration: 1.4, value: on ? 1 : 0)
+        }
+    }
+
+    private func poll() {
+        var next = SystemIndicators()
+
+        if Defaults[.showPrivacyIndicators] {
+            next.camera = Self.cameraInUse()
+            next.microphone = Self.microphoneInUse()
+        }
+        if Defaults[.showFocusIndicator] {
+            next.focus = focusFromMenuBar
+            refreshFocusFromMenuBar()
+        }
+        if Defaults[.showCapsLockIndicator] {
+            // Modifier flags are readable without permission or a monitor.
+            next.capsLock = NSEvent.modifierFlags.contains(.capsLock)
+        }
+
+        guard next != indicators else { return }
+        indicators = next
+    }
+
+    /// Asks the helper, and publishes the answer without waiting for the next
+    /// tick.
+    private func refreshFocusFromMenuBar() {
+        guard focusQuery == nil else { return }
+        focusQuery = Task { [weak self] in
+            let status = await XPCHelperClient.shared.focusStatus()
+            guard let self, !Task.isCancelled else { return }
+            self.focusQuery = nil
+            if status != self.focusStatus { self.focusStatus = status }
+            let focused = status == .on
+            guard focused != self.focusFromMenuBar else { return }
+            self.focusFromMenuBar = focused
+            var next = self.indicators
+            next.focus = focused && Defaults[.showFocusIndicator]
+            if next != self.indicators { self.indicators = next }
+        }
+    }
+
+    // MARK: - Camera
+
+    /// True when any video device is running, this app included.
+    /// `kAudioDevicePropertyDeviceIsRunningSomewhere` is not a typo: the
+    /// CoreMediaIO device model is CoreAudio's and answers the same selector.
+    private static func cameraInUse() -> Bool {
+        var address = CMIOObjectPropertyAddress(
+            mSelector: CMIOObjectPropertySelector(kCMIOHardwarePropertyDevices),
+            mScope: CMIOObjectPropertyScope(kCMIOObjectPropertyScopeGlobal),
+            mElement: CMIOObjectPropertyElement(kCMIOObjectPropertyElementMain)
+        )
+
+        var dataSize: UInt32 = 0
+        guard CMIOObjectGetPropertyDataSize(
+            CMIOObjectID(kCMIOObjectSystemObject), &address, 0, nil, &dataSize
+        ) == OSStatus(kCMIOHardwareNoError), dataSize > 0 else { return false }
+
+        let count = Int(dataSize) / MemoryLayout<CMIOObjectID>.size
+        var devices = [CMIOObjectID](repeating: 0, count: count)
+        var used: UInt32 = 0
+        guard CMIOObjectGetPropertyData(
+            CMIOObjectID(kCMIOObjectSystemObject), &address, 0, nil, dataSize, &used, &devices
+        ) == OSStatus(kCMIOHardwareNoError) else { return false }
+
+        var running = CMIOObjectPropertyAddress(
+            mSelector: CMIOObjectPropertySelector(kAudioDevicePropertyDeviceIsRunningSomewhere),
+            mScope: CMIOObjectPropertyScope(kCMIOObjectPropertyScopeWildcard),
+            mElement: CMIOObjectPropertyElement(kCMIOObjectPropertyElementWildcard)
+        )
+
+        for device in devices {
+            var isRunning: UInt32 = 0
+            var size = UInt32(MemoryLayout<UInt32>.size)
+            var got: UInt32 = 0
+            let status = CMIOObjectGetPropertyData(
+                device, &running, 0, nil, size, &got, &isRunning
+            )
+            _ = size
+            if status == OSStatus(kCMIOHardwareNoError), isRunning != 0 { return true }
+        }
+        return false
+    }
+
+    // MARK: - Microphone
+
+    private static func microphoneInUse() -> Bool {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDevices,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+
+        var dataSize: UInt32 = 0
+        guard AudioObjectGetPropertyDataSize(
+            AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &dataSize
+        ) == noErr, dataSize > 0 else { return false }
+
+        let count = Int(dataSize) / MemoryLayout<AudioObjectID>.size
+        var devices = [AudioObjectID](repeating: 0, count: count)
+        guard AudioObjectGetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &dataSize, &devices
+        ) == noErr else { return false }
+
+        for device in devices where hasInput(device) {
+            var running = AudioObjectPropertyAddress(
+                mSelector: kAudioDevicePropertyDeviceIsRunningSomewhere,
+                mScope: kAudioObjectPropertyScopeGlobal,
+                mElement: kAudioObjectPropertyElementMain
+            )
+            var isRunning: UInt32 = 0
+            var size = UInt32(MemoryLayout<UInt32>.size)
+            if AudioObjectGetPropertyData(device, &running, 0, nil, &size, &isRunning) == noErr,
+               isRunning != 0 {
+                return true
+            }
+        }
+        return false
+    }
+
+    /// Output-only devices answer the running property too, so they have to be
+    /// filtered out.
+    private static func hasInput(_ device: AudioObjectID) -> Bool {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyStreamConfiguration,
+            mScope: kAudioObjectPropertyScopeInput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var dataSize: UInt32 = 0
+        guard AudioObjectGetPropertyDataSize(device, &address, 0, nil, &dataSize) == noErr,
+              dataSize > 0 else { return false }
+
+        let buffer = UnsafeMutableRawPointer.allocate(
+            byteCount: Int(dataSize), alignment: MemoryLayout<AudioBufferList>.alignment
+        )
+        defer { buffer.deallocate() }
+
+        guard AudioObjectGetPropertyData(device, &address, 0, nil, &dataSize, buffer) == noErr
+        else { return false }
+
+        let list = UnsafeMutableAudioBufferListPointer(
+            buffer.assumingMemoryBound(to: AudioBufferList.self)
+        )
+        return list.contains { $0.mNumberChannels > 0 }
+    }
+}
