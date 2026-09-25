@@ -69,6 +69,18 @@ struct LockScreenBackdropView: View {
                 }
             }
             .frame(width: proxy.size.width, height: height)
+            // Fading out towards the bottom, where macOS draws the user's
+            // picture and the password field: they show through, and since
+            // this window takes no clicks, stay usable.
+            .mask {
+                LinearGradient(
+                    stops: [
+                        .init(color: .black, location: 0),
+                        .init(color: .black, location: 0.6),
+                        .init(color: .clear, location: 0.86),
+                    ],
+                    startPoint: .top, endPoint: .bottom)
+            }
         }
         .environment(\.colorScheme, .dark)
     }

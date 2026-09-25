@@ -136,6 +136,7 @@
 		AA00000000000000000D02 /* CountdownManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000D01 /* CountdownManager.swift */; };
 		AA00000000000000000D12 /* StatsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000D11 /* StatsManager.swift */; };
 		AA00000000000000000D22 /* TimerLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000D21 /* TimerLiveActivity.swift */; };
+		3CC3D4566512DDCDC4DB87BD /* ShortPeak.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4989B143CC3D4566512DDCD /* ShortPeak.swift */; };
 		AA00000000000000000D32 /* IndicatorsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000D31 /* IndicatorsManager.swift */; };
 		AA00000000000000000D42 /* IndicatorLights.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000D41 /* IndicatorLights.swift */; };
 		AA00000000000000000D52 /* AudioDeviceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000D51 /* AudioDeviceManager.swift */; };
@@ -337,6 +338,7 @@
 		AA00000000000000000D01 /* CountdownManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CountdownManager.swift; sourceTree = "<group>"; };
 		AA00000000000000000D11 /* StatsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsManager.swift; sourceTree = "<group>"; };
 		AA00000000000000000D21 /* TimerLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerLiveActivity.swift; sourceTree = "<group>"; };
+		E4989B143CC3D4566512DDCD /* ShortPeak.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortPeak.swift; sourceTree = "<group>"; };
 		AA00000000000000000D31 /* IndicatorsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IndicatorsManager.swift; sourceTree = "<group>"; };
 		AA00000000000000000D41 /* IndicatorLights.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IndicatorLights.swift; sourceTree = "<group>"; };
 		AA00000000000000000D51 /* AudioDeviceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioDeviceManager.swift; sourceTree = "<group>"; };
@@ -825,6 +827,7 @@
 				14D570CC2C5F4BB70011E668 /* VornyxBattery.swift */,
 				AA00000000000000000D41 /* IndicatorLights.swift */,
 				AA00000000000000000D21 /* TimerLiveActivity.swift */,
+				E4989B143CC3D4566512DDCD /* ShortPeak.swift */,
 				BACED81D8A9A9997DB0DDE57 /* QuickLiveActivities.swift */,
 				356F55D6F84CC566F00845C2 /* RecordingLiveActivity.swift */,
 				AE1F2F2315826A9760E22569 /* LiveCompanion.swift */,
@@ -1110,6 +1113,7 @@
 				AA00000000000000000D42 /* IndicatorLights.swift in Sources */,
 				AA00000000000000000D32 /* IndicatorsManager.swift in Sources */,
 				AA00000000000000000D22 /* TimerLiveActivity.swift in Sources */,
+				3CC3D4566512DDCDC4DB87BD /* ShortPeak.swift in Sources */,
 				8A9A9997DB0DDE5752299C93 /* QuickLiveActivities.swift in Sources */,
 				F84CC566F00845C2F165C780 /* RecordingLiveActivity.swift in Sources */,
 				15826A9760E22569D0C7A426 /* LiveCompanion.swift in Sources */,

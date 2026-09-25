@@ -35,35 +35,25 @@ struct ColorPickedLiveActivity: View {
     }
 }
 
-/// The language's flag left of the cut-out, its code right of it.
+/// A short peak: the language's flag on the left, its code on the right.
 struct InputSourceLiveActivity: View {
-    @EnvironmentObject var vm: VornyxViewModel
     @ObservedObject private var input = InputSourceManager.shared
 
     var body: some View {
         let source = input.current
 
-        HStack(spacing: 0) {
-            Group {
-                if let flag = source?.flag {
-                    Text(flag).font(.system(size: 15))
-                } else {
-                    Image(systemName: "keyboard")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(.white)
-                }
+        ShortPeak {
+            if let flag = source?.flag {
+                Text(flag).font(.system(size: 13))
+            } else {
+                Image(systemName: "keyboard")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.white)
             }
-            .frame(width: 90, alignment: .leading)
-
-            Rectangle()
-                .fill(.black)
-                .frame(width: vm.closedNotchSize.width + 10)
-
+        } trailing: {
             Text(source?.code ?? "")
-                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .font(.system(size: 11, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
-                .frame(width: 90, alignment: .trailing)
         }
-        .frame(height: vm.effectiveClosedNotchHeight, alignment: .center)
     }
 }
