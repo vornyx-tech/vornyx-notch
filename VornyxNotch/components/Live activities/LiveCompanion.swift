@@ -13,8 +13,8 @@ import SwiftUI
 /// its one number on the far right, the same width both sides so the camera
 /// stays in the middle.
 ///
-/// One at a time - a transfer moving outranks a countdown, a countdown the
-/// hotspot, the hotspot a VPN, a VPN a Focus.
+/// One at a time - a transfer moving, then a Focus that has just changed,
+/// then a countdown, the hotspot, a VPN.
 enum LiveCompanion: Equatable {
     case localSend(upload: Bool, fraction: Double)
     case timer
@@ -34,12 +34,9 @@ enum LiveCompanion: Equatable {
                 return .localSend(upload: false, fraction: incoming.fraction)
             }
         }
-        let countdown = CountdownManager.shared
-        if countdown.isActive, Defaults[.timerLiveActivity] { return .timer }
-        if (HotspotManager.shared.isActive || BannerPreview.shared.hotspot), Defaults[.hotspotLiveActivity] {
-            return .hotspot
-        }
-        if let vpn = VPNManager.shared.connected, Defaults[.vpnLiveActivity] { return .vpn(vpn) }
+        // A Focus that just changed lasts seconds, so for those seconds it
+        // goes before the ones that stay up for hours - otherwise, with the
+        // hotspot or a VPN already beside the music, it was never seen.
         let indicators = IndicatorsManager.shared
         // Only for a while after it comes on: a Focus lasts hours, and the
         // notch is not the place to say so all that time.
@@ -51,6 +48,12 @@ enum LiveCompanion: Equatable {
             let mode = preview?.mode ?? (on ? indicators.focusMode : indicators.lastFocusMode) ?? .other
             return .focus(mode, on: on)
         }
+        let countdown = CountdownManager.shared
+        if countdown.isActive, Defaults[.timerLiveActivity] { return .timer }
+        if (HotspotManager.shared.isActive || BannerPreview.shared.hotspot), Defaults[.hotspotLiveActivity] {
+            return .hotspot
+        }
+        if let vpn = VPNManager.shared.connected, Defaults[.vpnLiveActivity] { return .vpn(vpn) }
         return nil
     }
 

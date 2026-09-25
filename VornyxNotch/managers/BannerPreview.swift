@@ -99,9 +99,11 @@ final class BannerPreview: ObservableObject {
         switch kind {
         case .focusOn:
             focus = (true, .work)
+            coordinator.announceFocus()
             IndicatorsManager.shared.holdFocusInline()
         case .focusOff:
             focus = (false, .work)
+            coordinator.announceFocus()
             IndicatorsManager.shared.holdFocusInline()
         case .vpnConnected, .vpnDisconnected:
             vpn = (ConnectedVPN(

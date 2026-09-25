@@ -310,8 +310,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         window.alphaValue = 1
     }
 
+    /// Keeps App Nap off: a notch that answers late is no use, and a napping
+    /// app has its timers and notifications held back - the layout banner came
+    /// seconds after the switch. The system may still sleep as usual.
+    private var responsiveness: NSObjectProtocol?
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         installEditMenuIfNeeded()
+        responsiveness = ProcessInfo.processInfo.beginActivity(
+            options: [.userInitiatedAllowingIdleSystemSleep],
+            reason: "The notch answers events as they happen")
 
         // Cheap to keep running: two IO registry notifications and a two-minute
         // backstop, no polling and no permission prompt.

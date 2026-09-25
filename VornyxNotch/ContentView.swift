@@ -567,6 +567,13 @@ struct ContentView: View {
           // A running countdown outranks the banner's own timeout:
           // it stays for as long as it is counting, rather than
           // showing for three seconds and leaving.
+          // A Focus that just changed, for a few seconds after its banner:
+          // ahead of a running countdown, since it is gone again so soon,
+          // though not of Time's up. With music it rides along instead.
+          } else if showsFocusInline && !showsMusicActivity && countdown.state != .finished {
+              FocusLiveActivity()
+                  .environmentObject(vm)
+                  .transition(.notchInline)
           // With music playing, a running countdown rides along with it
           // instead (see `musicCompanion`); only "Time's up" takes over.
           } else if countdown.isShowingInNotch && vm.notchState == .closed && !vm.hideOnClosed
@@ -583,12 +590,6 @@ struct ContentView: View {
           } else if coordinator.sneakPeek.show && Defaults[.inlineHUD] && (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && (coordinator.sneakPeek.type != .audioRoute) && (coordinator.sneakPeek.type != .capsLock) && vm.notchState == .closed {
               InlineHUD(type: $coordinator.sneakPeek.type, value: $coordinator.sneakPeek.value, icon: $coordinator.sneakPeek.icon, hoverAnimation: $isHovering, gestureProgress: $gestureProgress)
                   .transition(.opacity)
-          // A Focus that just came on, for a while after its banner; with
-          // music playing it rides along instead.
-          } else if showsFocusInline && !showsMusicActivity && !countdown.isShowingInNotch {
-              FocusLiveActivity()
-                  .environmentObject(vm)
-                  .transition(.notchInline)
           // The hotspot in use, when the music is not holding the notch; with
           // music it goes in the bubble beside the notch instead.
           } else if showsHotspotActivity && !showsMusicActivity && !countdown.isShowingInNotch {

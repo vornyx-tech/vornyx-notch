@@ -41,11 +41,13 @@ final class IndicatorsManager: ObservableObject {
     @Published private(set) var focusMode: FocusMode?
     /// The last mode seen on, so "Off" can say which one ended.
     @Published private(set) var lastFocusMode: FocusMode?
-    /// A Focus went on or off a moment ago: the closed notch shows a slim
-    /// peek of it - the mode's symbol, On or Off - then lets it go.
+    /// A Focus went on or off a moment ago: after its banner, the closed
+    /// notch keeps a slim peek of it - the mode's symbol, On or Off - then
+    /// lets it go.
     @Published private(set) var focusJustOn = false
     private var focusJustOnTask: Task<Void, Never>?
-    static let focusInlineSeconds: Double = 4
+    /// The banner's three seconds, then five more as a slim peek.
+    static let focusInlineSeconds: Double = 8
     /// Whether the Focus file is readable - the source that needs nothing
     /// else set up.
     @Published private(set) var readsFocusFile = false
@@ -181,8 +183,9 @@ final class IndicatorsManager: ObservableObject {
         next.focus = focused && Defaults[.showFocusIndicator]
         if next != indicators { indicators = next }
 
-        // A slim peek either way, on or off; no drop-down.
+        // The banner, then a slim peek for a few seconds, on or off.
         if focusKnown, changed || modeChanged, Defaults[.showFocusIndicator], Defaults[.focusLiveActivity] {
+            VornyxViewCoordinator.shared.announceFocus()
             holdFocusInline()
         }
         focusKnown = true

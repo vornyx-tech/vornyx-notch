@@ -58,7 +58,7 @@ final class InputSourceManager: ObservableObject {
         }
         // For switches the notification never announces. Reading the current
         // source costs next to nothing.
-        backstop = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
+        backstop = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: true) { _ in
             Task { @MainActor in InputSourceManager.shared.changed() }
         }
     }
@@ -69,7 +69,7 @@ final class InputSourceManager: ObservableObject {
     private func notified() {
         settle?.cancel()
         settle = Task { @MainActor [weak self] in
-            for delay in [0, 100, 300, 600] {
+            for delay in [0, 50, 150, 300] {
                 if delay > 0 { try? await Task.sleep(for: .milliseconds(delay)) }
                 guard !Task.isCancelled else { return }
                 if self?.changed() == true { return }
@@ -95,7 +95,9 @@ final class InputSourceManager: ObservableObject {
     private func confirmAnnouncement(of source: InputSource) {
         confirm?.cancel()
         confirm = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .milliseconds(600))
+            // Long enough for a password field's flip to Latin and back, and
+            // no longer: every millisecond here is felt as lag.
+            try? await Task.sleep(for: .milliseconds(250))
             guard let self, !Task.isCancelled else { return }
             guard Defaults[.inputSourceLiveActivity],
                   Self.read() == source, source != self.announced,
