@@ -20,6 +20,8 @@ final class HotspotManager: ObservableObject {
     static let shared = HotspotManager()
 
     @Published private(set) var isActive = false
+    /// When the Mac joined it, for how long it has been on.
+    @Published private(set) var connectedAt: Date?
     /// Bytes through the hotspot, both ways, since the Mac joined it - the
     /// phone's mobile data, which is what a hotspot costs.
     @Published private(set) var sessionBytes: UInt64 = 0
@@ -50,6 +52,7 @@ final class HotspotManager: ObservableObject {
         guard hotspot != isActive || !known else { return }
         let changed = known && hotspot != isActive
         isActive = hotspot
+        connectedAt = hotspot ? Date() : nil
         known = true
         hotspot ? startCounting() : stopCounting()
         // Once, on joining; after that the closed notch keeps it up on its own.

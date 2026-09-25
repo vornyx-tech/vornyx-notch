@@ -26,7 +26,7 @@ struct HotspotLiveActivity: View {
                 .fill(.black)
                 .frame(width: vm.closedNotchSize.width - cornerRadiusInsets.closed.top)
 
-            HotspotUsage()
+            HotspotDuration()
                 .frame(width: side, height: side)
         }
         .frame(height: vm.effectiveClosedNotchHeight, alignment: .center)
@@ -60,6 +60,31 @@ struct HotspotSymbol: View {
                     glowing = true
                 }
             }
+    }
+}
+
+/// How long the Mac has been on the hotspot: `4:12`, `1:04:32`.
+struct HotspotDuration: View {
+    @ObservedObject private var hotspot = HotspotManager.shared
+    @ObservedObject private var preview = BannerPreview.shared
+
+    var body: some View {
+        let since = hotspot.connectedAt ?? (preview.hotspot ? Date().addingTimeInterval(-252) : nil)
+
+        Group {
+            if let since {
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    Text(VPNLiveActivity.elapsed(from: since, to: context.date))
+                        .contentTransition(.numericText())
+                }
+            } else {
+                Text("On")
+            }
+        }
+        .font(.system(size: 10, weight: .semibold, design: .rounded))
+        .monospacedDigit()
+        .foregroundStyle(.green)
+        .fixedSize()
     }
 }
 

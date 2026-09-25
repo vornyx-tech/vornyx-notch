@@ -15,6 +15,7 @@ struct VornyxHeader: View {
     @StateObject var tvm = ShelfStateViewModel.shared
     @ObservedObject var audio = AudioDeviceManager.shared
     @ObservedObject var pods = AirPodsManager.shared
+    @ObservedObject var hotspot = HotspotManager.shared
     @State private var audioMenuHovering = false
     var body: some View {
         HStack(spacing: 0) {
@@ -26,6 +27,21 @@ struct VornyxHeader: View {
                     TabSelectionView()
                 } else if vm.notchState == .open {
                     EmptyView()
+                }
+                // The hotspot while it is on, in the room after the tabs; on
+                // the dashboard, with the data it has used.
+                if hotspot.isActive, Defaults[.hotspotLiveActivity], vm.notchState == .open {
+                    Spacer(minLength: 6)
+                    HStack(spacing: 5) {
+                        HotspotSymbol(side: 18)
+                        if coordinator.currentView == .dashboard {
+                            HotspotUsage()
+                                .transition(.opacity.combined(with: .scale(scale: 0.8, anchor: .leading)))
+                        }
+                    }
+                    .animation(.smooth(duration: 0.2), value: coordinator.currentView)
+                    .help("Personal Hotspot")
+                    .padding(.trailing, 6)
                 }
             }
             .frame(width: sideWidth, alignment: .leading)

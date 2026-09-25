@@ -133,7 +133,7 @@ struct LiveCompanionValue: View {
                     .foregroundStyle(CountdownManager.color)
                     .contentTransition(.numericText(countsDown: true))
             case .hotspot:
-                HotspotUsage()
+                HotspotDuration()
             case .vpn(let vpn):
                 if let since = vpn.connectedAt {
                     TimelineView(.periodic(from: .now, by: 1)) { context in
