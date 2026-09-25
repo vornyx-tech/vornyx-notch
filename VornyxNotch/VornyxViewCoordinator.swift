@@ -27,7 +27,6 @@ enum SneakContentType {
     case batteryAlert
     case bluetooth
     case hotspot
-    case screenRecording
     case colorPicked
     case inputSource
 }
@@ -443,11 +442,6 @@ class VornyxViewCoordinator: ObservableObject {
     /// Say in the closed notch which keyboard layout is now on.
     func announceInputSource() {
         toggleExpandingView(status: true, type: .inputSource)
-    }
-
-    /// Say in the closed notch that the screen is being recorded.
-    func announceScreenRecording() {
-        toggleExpandingView(status: true, type: .screenRecording)
     }
 
     /// Say in the closed notch that the Mac joined a Personal Hotspot.

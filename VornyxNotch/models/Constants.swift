@@ -222,9 +222,6 @@ extension Defaults.Keys {
     static let bluetoothLiveActivity = Key<Bool>("bluetoothLiveActivity", default: true)
     /// A banner as the Mac joins a phone's Personal Hotspot.
     static let hotspotLiveActivity = Key<Bool>("hotspotLiveActivity", default: true)
-    /// The screen being recorded or shared: a banner as it starts, and a red
-    /// light and running time for as long as it lasts.
-    static let screenRecordingLiveActivity = Key<Bool>("screenRecordingLiveActivity", default: true)
     /// A word in the notch as the keyboard layout changes.
     static let inputSourceLiveActivity = Key<Bool>("inputSourceLiveActivity", default: true)
     /// The layout banner's own style, apart from the other banners': a

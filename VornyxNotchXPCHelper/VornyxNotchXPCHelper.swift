@@ -227,12 +227,6 @@ class VornyxNotchXPCHelper: NSObject, VornyxNotchXPCHelperProtocol {
         reply(info as NSDictionary)
     }
 
-    @objc func stopScreenCapture() {
-        for name in ["screencapture", "screencaptureui"] {
-            _ = Self.run("/usr/bin/pkill", ["-INT", "-x", name])
-        }
-    }
-
     /// A command's standard output, or nil if it could not run.
     private static func run(_ path: String, _ arguments: [String]) -> String? {
         let process = Process()

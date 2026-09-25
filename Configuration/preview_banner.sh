@@ -7,14 +7,14 @@
 #
 # Banners: focusOn focusOff vpnConnected vpnDisconnected batteryLow
 #          batteryFull bluetooth hotspot timer timerEnd lockScreen
-#          airPodsPro airPods3 airPods2 airPodsMax speaker screenRecording
+#          airPodsPro airPods3 airPods2 airPodsMax speaker
 #          charging unplugged colorPicked inputSource
 #
 # The same list is under Settings > Indicators > Try the banners.
 
 set -euo pipefail
 
-ALL=(focusOn focusOff vpnConnected vpnDisconnected batteryLow batteryFull bluetooth hotspot timer timerEnd lockScreen airPodsPro airPods3 airPods2 airPodsMax speaker screenRecording charging unplugged colorPicked inputSource)
+ALL=(focusOn focusOff vpnConnected vpnDisconnected batteryLow batteryFull bluetooth hotspot timer timerEnd lockScreen airPodsPro airPods3 airPods2 airPodsMax speaker charging unplugged colorPicked inputSource)
 
 post() {
   /usr/bin/swift - "$1" <<'SWIFT'

@@ -30,8 +30,8 @@ struct VornyxHeader: View {
                 }
                 // The hotspot while it is on, in the room after the tabs; on
                 // the dashboard, with the data it has used.
+                // Right after the tabs, as one group with them.
                 if hotspot.isActive, Defaults[.hotspotLiveActivity], vm.notchState == .open {
-                    Spacer(minLength: 6)
                     HStack(spacing: 5) {
                         HotspotSymbol(side: 18)
                         if coordinator.currentView == .dashboard {
@@ -41,7 +41,7 @@ struct VornyxHeader: View {
                     }
                     .animation(.smooth(duration: 0.2), value: coordinator.currentView)
                     .help("Personal Hotspot")
-                    .padding(.trailing, 6)
+                    .padding(.leading, 4)
                 }
             }
             .frame(width: sideWidth, alignment: .leading)

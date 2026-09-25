@@ -13,11 +13,9 @@ import SwiftUI
 /// its one number on the far right, the same width both sides so the camera
 /// stays in the middle.
 ///
-/// One at a time - a recording outranks everything, then a transfer moving
-/// outranks a countdown, a countdown the
+/// One at a time - a transfer moving outranks a countdown, a countdown the
 /// hotspot, the hotspot a VPN, a VPN a Focus.
 enum LiveCompanion: Equatable {
-    case recording(since: Date)
     case localSend(upload: Bool, fraction: Double)
     case timer
     case hotspot
@@ -27,12 +25,6 @@ enum LiveCompanion: Equatable {
     /// The companion, if anything live wants to ride along.
     @MainActor
     static var current: LiveCompanion? {
-        // First: the screen being recorded is the one thing never to miss.
-        let recorder = ScreenRecordingManager.shared
-        if Defaults[.screenRecordingLiveActivity],
-           let since = BannerPreview.shared.recording ?? (recorder.isRecording ? recorder.startedAt : nil) {
-            return .recording(since: since)
-        }
         let localSend = LocalSendManager.shared
         if Defaults[.localSendEnabled] {
             if let outgoing = localSend.outgoing, !outgoing.isOver, !outgoing.isMessage {
@@ -80,8 +72,6 @@ struct LiveCompanionSymbol: View {
     var body: some View {
         Group {
             switch companion {
-            case .recording:
-                RecordingDot(size: 9)
             case .localSend(let upload, _):
                 Image(systemName: upload ? "arrow.up.circle.fill" : "arrow.down.circle.fill")
                     .font(.system(size: 14, weight: .semibold))
@@ -120,11 +110,6 @@ struct LiveCompanionValue: View {
     var body: some View {
         Group {
             switch companion {
-            case .recording(let since):
-                TimelineView(.periodic(from: .now, by: 1)) { context in
-                    Text(VPNLiveActivity.elapsed(from: since, to: context.date))
-                }
-                .foregroundStyle(.red)
             case .localSend(_, let fraction):
                 Text(fraction.formatted(.percent.precision(.fractionLength(0))))
                     .foregroundStyle(.blue)

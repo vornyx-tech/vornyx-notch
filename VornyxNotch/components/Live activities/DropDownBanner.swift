@@ -16,7 +16,7 @@ import SwiftUI
 extension SneakContentType {
     var hasDropDownBanner: Bool {
         switch self {
-        case .vpn, .batteryAlert, .bluetooth, .hotspot, .screenRecording, .battery,
+        case .vpn, .batteryAlert, .bluetooth, .hotspot, .battery,
              .colorPicked, .inputSource: return true
         default: return false
         }
@@ -35,7 +35,6 @@ struct DropDownBanner: View {
     @ObservedObject private var bluetooth = BluetoothDeviceManager.shared
     @ObservedObject private var hotspot = HotspotManager.shared
     @ObservedObject private var countdown = CountdownManager.shared
-    @ObservedObject private var recorder = ScreenRecordingManager.shared
     @ObservedObject private var colors = ColorPickerManager.shared
     @ObservedObject private var input = InputSourceManager.shared
 
@@ -71,7 +70,6 @@ struct DropDownBanner: View {
         case .batteryAlert: batteryRow
         case .bluetooth: bluetoothRow
         case .hotspot: hotspotRow
-        case .screenRecording: recordingRow
         case .battery: powerRow
         case .colorPicked: colorRow
         case .inputSource: inputRow
@@ -284,38 +282,6 @@ struct DropDownBanner: View {
         }
     }
 
-    // MARK: - Screen recording
-
-    private var recordingRow: some View {
-        let since = preview.recording ?? recorder.startedAt
-
-        return Group {
-            RecordingDot(size: 14)
-                .frame(width: 30)
-            titles("Screen Recording", "The screen is being recorded")
-            Spacer(minLength: 0)
-            if let since {
-                TimelineView(.periodic(from: .now, by: 1)) { context in
-                    Text(VPNLiveActivity.elapsed(from: since, to: context.date))
-                        .font(.system(size: 20, weight: .bold, design: .rounded))
-                        .monospacedDigit()
-                        .foregroundStyle(.red)
-                        .contentTransition(.numericText())
-                }
-            }
-            Button { recorder.stop() } label: {
-                Image(systemName: "stop.fill")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(.white)
-                    .frame(width: 34, height: 34)
-                    .background(Color.red.opacity(0.85), in: Circle())
-                    .contentShape(Circle())
-            }
-            .springyTile(hoverScale: 1.1, pressScale: 0.92, hoverBrightness: 0.14)
-            .help("Stop the recording")
-        }
-    }
-
     // MARK: - Power
 
     /// Plugged in or out: charging and how long until full, or on battery.
@@ -483,22 +449,5 @@ private struct MagSafeIndicator: View {
                 withAnimation(.spring(duration: 0.3)) { charged = true }
             }
         }
-    }
-}
-
-/// A red light, breathing, for a recording in progress.
-struct RecordingDot: View {
-    var size: CGFloat = 8
-    @State private var lit = false
-
-    var body: some View {
-        Circle()
-            .fill(.red)
-            .frame(width: size, height: size)
-            .shadow(color: .red.opacity(lit ? 0.9 : 0.3), radius: lit ? size * 0.6 : size * 0.2)
-            .opacity(lit ? 1 : 0.55)
-            .onAppear {
-                withAnimation(.easeInOut(duration: 1).repeatForever(autoreverses: true)) { lit = true }
-            }
     }
 }

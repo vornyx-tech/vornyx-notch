@@ -30,7 +30,6 @@ struct ContentView: View {
     // Watched for the companion riding along with the music.
     @ObservedObject var vpnManager = VPNManager.shared
     @ObservedObject var indicatorsManager = IndicatorsManager.shared
-    @ObservedObject var recorder = ScreenRecordingManager.shared
     @ObservedObject var bannerPreview = BannerPreview.shared
     @State private var hoverTask: Task<Void, Never>?
     @State private var isHovering: Bool = false
@@ -225,7 +224,6 @@ struct ContentView: View {
                             .animation(.notchBanner, value: showsDropDownBanner)
                             .animation(.notchBanner, value: showsHotspotActivity)
                             .animation(.notchBanner, value: showsFocusInline)
-                            .animation(.notchBanner, value: showsRecordingActivity)
                             .animation(.notchBanner, value: coordinator.expandingView.show)
                             .animation(.notchBanner, value: coordinator.expandingView.type)
                             // The first-launch greeting opening and collapsing.
@@ -446,17 +444,11 @@ struct ContentView: View {
         return bannerDrops || timerDrops
     }
 
-    /// A drop-down with a button in it - a finished timer's Stop, a
-    /// recording's - which hover must not open the notch over.
+    /// A drop-down with a button in it - a finished timer's Stop - which
+    /// hover must not open the notch over.
     private var showsButtonsUnderCamera: Bool {
         showsDropDownBanner
-            && (showsTimerDone || coordinator.expandingView.type == .screenRecording)
-    }
-
-    /// The screen is being recorded, and the closed notch is free to say so.
-    private var showsRecordingActivity: Bool {
-        (recorder.isRecording || bannerPreview.recording != nil) && Defaults[.screenRecordingLiveActivity]
-            && vm.notchState == .closed && !vm.hideOnClosed && !coordinator.expandingView.show
+            && showsTimerDone
     }
 
     /// A countdown just finished, with its Stop waiting under the camera.
@@ -591,13 +583,6 @@ struct ContentView: View {
           } else if coordinator.sneakPeek.show && Defaults[.inlineHUD] && (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && (coordinator.sneakPeek.type != .audioRoute) && (coordinator.sneakPeek.type != .capsLock) && vm.notchState == .closed {
               InlineHUD(type: $coordinator.sneakPeek.type, value: $coordinator.sneakPeek.value, icon: $coordinator.sneakPeek.icon, hoverAnimation: $isHovering, gestureProgress: $gestureProgress)
                   .transition(.opacity)
-          // A recording, for as long as it runs; with music it rides along.
-          } else if (showsRecordingActivity && !showsMusicActivity && !countdown.isShowingInNotch)
-                      || (coordinator.expandingView.show && coordinator.expandingView.type == .screenRecording
-                          && vm.notchState == .closed && Defaults[.bannerStyle] == .inline) {
-              RecordingLiveActivity()
-                  .environmentObject(vm)
-                  .transition(.notchInline)
           // A Focus that just came on, for a while after its banner; with
           // music playing it rides along instead.
           } else if showsFocusInline && !showsMusicActivity && !countdown.isShowingInNotch {

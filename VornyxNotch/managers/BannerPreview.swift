@@ -27,7 +27,7 @@ final class BannerPreview: ObservableObject {
         case focusOn, focusOff, vpnConnected, vpnDisconnected
         case batteryLow, batteryFull, bluetooth, hotspot, timer, timerEnd, lockScreen
         case airPodsPro, airPods3, airPods2, airPodsMax, speaker
-        case screenRecording, charging, unplugged, colorPicked, inputSource
+        case charging, unplugged, colorPicked, inputSource
 
         var id: String { rawValue }
 
@@ -49,7 +49,6 @@ final class BannerPreview: ObservableObject {
             case .airPods2: return "AirPods 2"
             case .airPodsMax: return "AirPods Max"
             case .speaker: return "Speaker"
-            case .screenRecording: return "Screen recording"
             case .charging: return "Charging"
             case .unplugged: return "Unplugged"
             case .colorPicked: return "Colour picked"
@@ -63,8 +62,6 @@ final class BannerPreview: ObservableObject {
     @Published private(set) var battery: (alert: BatteryStatusViewModel.BatteryAlert, level: Int)?
     @Published private(set) var bluetooth: ConnectedBluetoothDevice?
     @Published private(set) var hotspot = false
-    /// A recording "running" since this date.
-    @Published private(set) var recording: Date?
     /// Plugged in or not, at this level, this many minutes from full.
     @Published private(set) var power: (pluggedIn: Bool, level: Int, minutesToFull: Int)?
 
@@ -96,7 +93,7 @@ final class BannerPreview: ObservableObject {
     /// Settings closes it first.
     func show(_ kind: Kind) {
         clear?.cancel()
-        focus = nil; vpn = nil; battery = nil; bluetooth = nil; hotspot = false; recording = nil; power = nil
+        focus = nil; vpn = nil; battery = nil; bluetooth = nil; hotspot = false; power = nil
         let coordinator = VornyxViewCoordinator.shared
 
         switch kind {
@@ -144,9 +141,6 @@ final class BannerPreview: ObservableObject {
             ColorPickerManager.shared.picked(NSColor(red: 0.95, green: 0.33, blue: 0.47, alpha: 1))
         case .inputSource:
             coordinator.announceInputSource()
-        case .screenRecording:
-            recording = Date().addingTimeInterval(-42)
-            coordinator.announceScreenRecording()
         case .charging:
             power = (true, 67, 83)
             coordinator.toggleExpandingView(status: true, type: .battery)
@@ -170,14 +164,14 @@ final class BannerPreview: ObservableObject {
         // The hotspot stays on for a while after its banner, so what the notch
         // shows while one is in use - alone, or beside the music - can be seen.
         let hold: Duration = switch kind {
-        case .hotspot, .screenRecording: .seconds(15)
+        case .hotspot: .seconds(15)
         case .focusOn, .focusOff: .seconds(IndicatorsManager.focusInlineSeconds)
         default: .seconds(4)
         }
         clear = Task { [weak self] in
             try? await Task.sleep(for: hold)
             guard let self, !Task.isCancelled else { return }
-            self.focus = nil; self.vpn = nil; self.battery = nil; self.bluetooth = nil; self.hotspot = false; self.recording = nil; self.power = nil
+            self.focus = nil; self.vpn = nil; self.battery = nil; self.bluetooth = nil; self.hotspot = false; self.power = nil
         }
     }
 }

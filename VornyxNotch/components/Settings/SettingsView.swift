@@ -489,14 +489,6 @@ struct IndicatorsSettings: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                Defaults.Toggle(key: .screenRecordingLiveActivity) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Screen recording in the notch")
-                        Text("A red light and the running time while the screen is recorded or shared, with Stop for the screenshot toolbar's recordings.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
             } header: {
                 SettingsSectionHeader("Banners", icon: "rectangle.topthird.inset.filled", tint: .purple)
             } footer: {

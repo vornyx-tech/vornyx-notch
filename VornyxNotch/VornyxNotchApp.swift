@@ -326,7 +326,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // scutil only when either fires.
         VPNManager.shared.start()
         HotspotManager.shared.start()
-        ScreenRecordingManager.shared.start()
         InputSourceManager.shared.start()
         BannerPreview.shared.listen()
         // Two CoreAudio property listeners. Started here rather than by the
