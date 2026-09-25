@@ -196,10 +196,25 @@ struct NotchEdgeLight: View {
     }
 
     private func halo(_ tint: Color) -> some View {
-        shape
-            .stroke(tint, lineWidth: 1.5)
-            .shadow(color: tint.opacity(0.9), radius: 5)
-            .shadow(color: tint.opacity(0.45), radius: 14)
+        onEdge(
+            shape
+                .stroke(tint, lineWidth: 1.5)
+                .shadow(color: tint.opacity(0.9), radius: 5)
+                .shadow(color: tint.opacity(0.45), radius: 14))
+    }
+
+    /// The light as part of the notch's own edge: the same shape, in the same
+    /// frame, on the same spring as the black - drawn in one pass on the GPU.
+    ///
+    /// Soft shadows on a path redrawn on the CPU every frame were what made
+    /// the light crawl behind the notch as it grew or shrank. The padding
+    /// gives the glow room inside the flattened layer, which would clip it at
+    /// the notch's own bounds, and is taken back after.
+    private func onEdge<Content: View>(_ light: Content) -> some View {
+        light
+            .padding(Self.glowReach)
+            .drawingGroup()
+            .padding(-Self.glowReach)
     }
 
     private func breathing<Content: View>(
@@ -214,10 +229,11 @@ struct NotchEdgeLight: View {
 
     /// The cover's colour on the edge, much weaker than a signal.
     private func ambient(_ tint: Color) -> some View {
-        shape
-            .stroke(tint.opacity(0.5), lineWidth: isOpen ? 1.4 : 1)
-            .shadow(color: tint.opacity(0.45), radius: 6)
-            .shadow(color: tint.opacity(0.25), radius: 16)
+        onEdge(
+            shape
+                .stroke(tint.opacity(0.5), lineWidth: isOpen ? 1.4 : 1)
+                .shadow(color: tint.opacity(0.45), radius: 6)
+                .shadow(color: tint.opacity(0.25), radius: 16))
     }
 
     /// The outline drawn as far as `fraction`, from the top left down and round.
@@ -229,12 +245,13 @@ struct NotchEdgeLight: View {
             let visible = (2 * size.height + size.width)
                 / max(1, 2 * size.height + 2 * size.width)
 
-            shape
-                .trim(from: 0, to: visible * max(0, min(1, fraction)))
-                .stroke(tint, style: StrokeStyle(lineWidth: 2, lineCap: .round))
-                .shadow(color: tint.opacity(0.9), radius: 5)
-                .shadow(color: tint.opacity(0.45), radius: 12)
-                .animation(.smooth(duration: 0.25), value: fraction)
+            onEdge(
+                shape
+                    .trim(from: 0, to: visible * max(0, min(1, fraction)))
+                    .stroke(tint, style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                    .shadow(color: tint.opacity(0.9), radius: 5)
+                    .shadow(color: tint.opacity(0.45), radius: 12)
+                    .animation(.smooth(duration: 0.25), value: fraction))
         }
     }
 }
