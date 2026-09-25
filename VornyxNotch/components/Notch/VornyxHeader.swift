@@ -28,18 +28,17 @@ struct VornyxHeader: View {
                 } else if vm.notchState == .open {
                     EmptyView()
                 }
-                // The hotspot while it is on, in the room after the tabs; on
-                // the dashboard, with the data it has used.
-                // Right after the tabs, as one group with them.
+                // The hotspot while it is on, right after the tabs as one group
+                // with them: with the data it has used wherever the row has
+                // room for it, the symbol alone where it has not.
                 if hotspot.isActive, Defaults[.hotspotLiveActivity], vm.notchState == .open {
-                    HStack(spacing: 5) {
-                        HotspotSymbol(side: 18)
-                        if coordinator.currentView == .dashboard {
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 5) {
+                            HotspotSymbol(side: 18)
                             HotspotUsage()
-                                .transition(.opacity.combined(with: .scale(scale: 0.8, anchor: .leading)))
                         }
+                        HotspotSymbol(side: 18)
                     }
-                    .animation(.smooth(duration: 0.2), value: coordinator.currentView)
                     .help("Personal Hotspot")
                     .padding(.leading, 4)
                 }
