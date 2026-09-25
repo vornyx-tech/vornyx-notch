@@ -98,11 +98,10 @@ final class BannerPreview: ObservableObject {
         switch kind {
         case .focusOn:
             focus = (true, .work)
-            coordinator.announceFocus()
             IndicatorsManager.shared.holdFocusInline()
         case .focusOff:
             focus = (false, .work)
-            coordinator.announceFocus()
+            IndicatorsManager.shared.holdFocusInline()
         case .vpnConnected, .vpnDisconnected:
             vpn = (ConnectedVPN(
                 id: "preview", name: "WireGuard Tunnel", bundleID: "com.wireguard.macos",
@@ -168,7 +167,7 @@ final class BannerPreview: ObservableObject {
         // shows while one is in use - alone, or beside the music - can be seen.
         let hold: Duration = switch kind {
         case .hotspot, .screenRecording: .seconds(15)
-        case .focusOn: .seconds(IndicatorsManager.focusInlineSeconds)
+        case .focusOn, .focusOff: .seconds(IndicatorsManager.focusInlineSeconds)
         default: .seconds(4)
         }
         clear = Task { [weak self] in

@@ -406,9 +406,9 @@ struct ContentView: View {
     /// and the same on the left so the camera stays centred.
     private var hotspotSlotWidth: CGFloat { max(26, vm.effectiveClosedNotchHeight - 6) }
 
+    /// The slim Focus peek, for a few seconds after it goes on or off.
     private var showsFocusInline: Bool {
-        let preview = bannerPreview.focus?.on == true
-        return (preview || (indicatorsManager.focusJustOn && indicatorsManager.indicators.focus))
+        (bannerPreview.focus != nil || indicatorsManager.focusJustOn)
             && Defaults[.focusLiveActivity]
             && vm.notchState == .closed && !vm.hideOnClosed && !coordinator.expandingView.show
     }

@@ -22,7 +22,7 @@ enum LiveCompanion: Equatable {
     case timer
     case hotspot
     case vpn(ConnectedVPN)
-    case focus(FocusMode)
+    case focus(FocusMode, on: Bool)
 
     /// The companion, if anything live wants to ride along.
     @MainActor
@@ -52,9 +52,10 @@ enum LiveCompanion: Equatable {
         // Only for a while after it comes on: a Focus lasts hours, and the
         // notch is not the place to say so all that time.
         let preview = BannerPreview.shared.focus
-        if (indicators.focusJustOn && indicators.indicators.focus) || preview?.on == true,
-           Defaults[.focusLiveActivity] {
-            return .focus(preview?.mode ?? indicators.focusMode ?? indicators.lastFocusMode ?? .other)
+        if indicators.focusJustOn || preview != nil, Defaults[.focusLiveActivity] {
+            return .focus(
+                preview?.mode ?? indicators.focusMode ?? indicators.lastFocusMode ?? .other,
+                on: preview?.on ?? indicators.indicators.focus)
         }
         return nil
     }
@@ -99,10 +100,10 @@ struct LiveCompanionSymbol: View {
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(Color(red: 1.0, green: 0.62, blue: 0.2))
                 }
-            case .focus(let mode):
+            case .focus(let mode, let on):
                 Image(systemName: mode.symbol)
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(mode.tint)
+                    .foregroundStyle(on ? mode.tint : .white.opacity(0.45))
             }
         }
         .frame(width: side, height: side)
@@ -140,8 +141,8 @@ struct LiveCompanionValue: View {
                 } else {
                     Text("On").foregroundStyle(Color(red: 1.0, green: 0.62, blue: 0.2))
                 }
-            case .focus(let mode):
-                Text("On").foregroundStyle(mode.tint)
+            case .focus(let mode, let on):
+                Text(on ? "On" : "Off").foregroundStyle(on ? mode.tint : .white.opacity(0.45))
             }
         }
         .font(.system(size: 10, weight: .semibold, design: .rounded))

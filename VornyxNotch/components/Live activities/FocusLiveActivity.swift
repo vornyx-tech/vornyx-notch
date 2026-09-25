@@ -2,16 +2,17 @@
 //  FocusLiveActivity.swift
 //  VornyxNotch
 //
-//  A Focus going on or off, in the closed notch.
+//  A Focus going on or off: a slim peek in the closed notch.
 //
-//  Layout after DynamicNotch's Focus activity by Evgeniy Petrukovich
-//  (GPL-3.0), https://github.com/jackson-storm/dynamicnotch
+//  After DynamicNotch's Focus activity by Evgeniy Petrukovich (GPL-3.0),
+//  https://github.com/jackson-storm/dynamicnotch
 //
 
 import SwiftUI
 
-/// The mode's symbol and name left of the cut-out, On or Off right of it, in
-/// the mode's own colour.
+/// The mode's symbol left of the cut-out and On or Off right of it, in the
+/// mode's colour - built from the music activity's pieces, so it is exactly
+/// as wide and no taller than the notch.
 struct FocusLiveActivity: View {
     @EnvironmentObject var vm: VornyxViewModel
     @ObservedObject private var indicators = IndicatorsManager.shared
@@ -23,38 +24,29 @@ struct FocusLiveActivity: View {
     private var mode: FocusMode {
         preview.focus?.mode ?? indicators.focusMode ?? indicators.lastFocusMode ?? .other
     }
-    private var knowsMode: Bool {
-        preview.focus != nil || indicators.focusMode != nil || indicators.lastFocusMode != nil
-    }
 
     var body: some View {
-        HStack(spacing: 0) {
-            HStack(spacing: 6) {
-                Image(systemName: mode.symbol)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(isOn ? mode.tint : .white.opacity(0.45))
-                    .contentTransition(.symbolEffect(.replace))
-                    .symbolEffect(.bounce, value: isOn)
-                // Only a named mode is worth the words; "Focus" says nothing
-                // the moon does not.
-                if knowsMode {
-                    Text(mode.name)
-                        .font(.subheadline)
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-                }
-            }
-            .frame(width: 110, alignment: .leading)
+        let side = max(0, vm.effectiveClosedNotchHeight - 12)
+        let tint = isOn ? mode.tint : .white.opacity(0.45)
+
+        HStack {
+            Image(systemName: mode.symbol)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(tint)
+                .contentTransition(.symbolEffect(.replace))
+                .symbolEffect(.bounce, value: isOn)
+                .frame(width: side, height: side)
 
             Rectangle()
                 .fill(.black)
-                .frame(width: vm.closedNotchSize.width + 10)
+                .frame(width: vm.closedNotchSize.width - cornerRadiusInsets.closed.top)
 
             Text(isOn ? "On" : "Off")
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .foregroundStyle(isOn ? mode.tint : .white.opacity(0.45))
+                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                .foregroundStyle(tint)
                 .contentTransition(.numericText())
-                .frame(width: 110, alignment: .trailing)
+                .fixedSize()
+                .frame(width: side, height: side)
         }
         .frame(height: vm.effectiveClosedNotchHeight, alignment: .center)
         .animation(.smooth(duration: 0.25), value: isOn)

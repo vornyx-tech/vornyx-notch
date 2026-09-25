@@ -16,7 +16,7 @@ import SwiftUI
 extension SneakContentType {
     var hasDropDownBanner: Bool {
         switch self {
-        case .focus, .vpn, .batteryAlert, .bluetooth, .hotspot, .screenRecording, .battery,
+        case .vpn, .batteryAlert, .bluetooth, .hotspot, .screenRecording, .battery,
              .colorPicked, .inputSource: return true
         default: return false
         }
