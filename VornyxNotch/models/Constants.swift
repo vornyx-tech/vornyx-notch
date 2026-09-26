@@ -230,6 +230,12 @@ extension Defaults.Keys {
     /// The eyedropper on the dashboard, beside the shortcuts.
     static let colorPickerInDashboard = Key<Bool>("colorPickerInDashboard", default: true)
     static let bannerStyle = Key<BannerStyle>("bannerStyle", default: .dropDown)
+    // Each banner with its own choice keeps its own style.
+    static let focusBannerStyle = Key<BannerStyle>("focusBannerStyle", default: .dropDown)
+    static let vpnBannerStyle = Key<BannerStyle>("vpnBannerStyle", default: .dropDown)
+    static let batteryAlertBannerStyle = Key<BannerStyle>("batteryAlertBannerStyle", default: .dropDown)
+    static let bluetoothBannerStyle = Key<BannerStyle>("bluetoothBannerStyle", default: .dropDown)
+    static let hotspotBannerStyle = Key<BannerStyle>("hotspotBannerStyle", default: .dropDown)
     static let showCapsLockIndicator = Key<Bool>("showCapsLockIndicator", default: true)
     /// Say it under the closed notch as it happens, as well as lighting the edge.
     static let capsLockSneakPeek = Key<Bool>("capsLockSneakPeek", default: true)

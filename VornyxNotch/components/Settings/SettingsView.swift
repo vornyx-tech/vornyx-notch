@@ -448,47 +448,27 @@ struct IndicatorsSettings: View {
             }
             Section {
                 BannerStylePicker()
-                Defaults.Toggle(key: .focusLiveActivity) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Say it in the notch")
-                        Text("The Focus's icon and On or Off in the closed notch as it changes.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
+                BannerChoice(
+                    title: "Focus",
+                    caption: "The mode's icon and On or Off as a Focus goes on or off.",
+                    enabled: .focusLiveActivity, style: .focusBannerStyle)
                 .disabled(!Defaults[.showFocusIndicator])
-                Defaults.Toggle(key: .vpnLiveActivity) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("VPN in the notch")
-                        Text("The VPN's name and how long it has been up, as it connects or drops.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                Defaults.Toggle(key: .batteryAlerts) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Battery low and full")
-                        Text("A banner as the battery drops to 20% on battery, and as it reaches full.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                Defaults.Toggle(key: .bluetoothLiveActivity) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Bluetooth devices in the notch")
-                        Text("A keyboard, mouse, controller or headphones connecting, with the charge when it reports one. AirPods keep their own banner.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                Defaults.Toggle(key: .hotspotLiveActivity) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Personal Hotspot in the notch")
-                        Text("A banner as the Mac joins a phone's hotspot, with the phone's charge when it shares it.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
+                BannerChoice(
+                    title: "VPN",
+                    caption: "The VPN's name and how long it has been up, as it connects or drops.",
+                    enabled: .vpnLiveActivity, style: .vpnBannerStyle)
+                BannerChoice(
+                    title: "Battery low and full",
+                    caption: "A banner as the battery drops to 20% on battery, and as it reaches full.",
+                    enabled: .batteryAlerts, style: .batteryAlertBannerStyle)
+                BannerChoice(
+                    title: "Bluetooth devices",
+                    caption: "A keyboard, mouse, controller or headphones connecting, with the charge when it reports one. AirPods keep their own banner.",
+                    enabled: .bluetoothLiveActivity, style: .bluetoothBannerStyle)
+                BannerChoice(
+                    title: "Personal Hotspot",
+                    caption: "As the Mac joins a phone's hotspot, then how long it has been on.",
+                    enabled: .hotspotLiveActivity, style: .hotspotBannerStyle)
             } header: {
                 SettingsSectionHeader("Banners", icon: "rectangle.topthird.inset.filled", tint: .purple)
             } footer: {
@@ -2334,7 +2314,7 @@ private struct BannerStylePicker: View {
     @Default(.bannerStyle) private var style
 
     var body: some View {
-        Picker("Banner style", selection: $style) {
+        Picker("Charging, colour and timer", selection: $style) {
             ForEach(BannerStyle.allCases) { style in
                 Text(style.rawValue).tag(style)
             }
@@ -2390,6 +2370,53 @@ private struct ClipboardShortcutSetting: View {
         }
         if !doubleTap {
             KeyboardShortcuts.Recorder("Clipboard shortcut:", name: .showClipboard)
+        }
+    }
+}
+
+/// Off, or which style: one choice per banner, rather than a toggle and a
+/// style that only means something while the toggle is on.
+private struct BannerChoice: View {
+    let title: String
+    let caption: String
+    let enabled: Defaults.Key<Bool>
+    let style: Defaults.Key<BannerStyle>
+
+    private enum Choice: Hashable { case off, inline, dropDown }
+
+    /// Mirrors the two settings, so a tap redraws the picker.
+    @State private var current: Choice = .dropDown
+
+    private static func read(_ enabled: Defaults.Key<Bool>, _ style: Defaults.Key<BannerStyle>) -> Choice {
+        guard Defaults[enabled] else { return .off }
+        return Defaults[style] == .inline ? .inline : .dropDown
+    }
+
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                Text(caption)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 12)
+            Picker("", selection: $current) {
+                Text("Off").tag(Choice.off)
+                Text("Inline").tag(Choice.inline)
+                Text("Drop-down").tag(Choice.dropDown)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .fixedSize()
+        }
+        .onAppear { current = Self.read(enabled, style) }
+        .onChange(of: current) { _, choice in
+            switch choice {
+            case .off: Defaults[enabled] = false
+            case .inline: Defaults[enabled] = true; Defaults[style] = .inline
+            case .dropDown: Defaults[enabled] = true; Defaults[style] = .dropDown
+            }
         }
     }
 }

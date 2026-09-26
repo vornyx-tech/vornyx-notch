@@ -12,6 +12,23 @@
 import Defaults
 import SwiftUI
 
+extension BannerStyle {
+    /// The style a banner of this type is shown in: its own where it has a
+    /// choice of its own, the shared one otherwise.
+    @MainActor
+    static func `for`(_ type: SneakContentType) -> BannerStyle {
+        switch type {
+        case .focus: return Defaults[.focusBannerStyle]
+        case .vpn: return Defaults[.vpnBannerStyle]
+        case .batteryAlert: return Defaults[.batteryAlertBannerStyle]
+        case .bluetooth: return Defaults[.bluetoothBannerStyle]
+        case .hotspot: return Defaults[.hotspotBannerStyle]
+        case .inputSource: return Defaults[.inputSourceBannerStyle]
+        default: return Defaults[.bannerStyle]
+        }
+    }
+}
+
 /// Whether a banner of this type has a drop-down form.
 extension SneakContentType {
     var hasDropDownBanner: Bool {

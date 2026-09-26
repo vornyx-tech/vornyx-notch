@@ -434,8 +434,8 @@ struct ContentView: View {
     private var showsDropDownBanner: Bool {
         guard vm.notchState == .closed, !vm.hideOnClosed else { return false }
         let banner = coordinator.expandingView
-        // The layout banner keeps a style of its own; the rest share one.
-        let style = banner.type == .inputSource ? Defaults[.inputSourceBannerStyle] : Defaults[.bannerStyle]
+        // Each banner in its own style, where it has one.
+        let style = BannerStyle.for(banner.type)
         // Plugging in or out keeps to the setting it always had.
         let powerAllowed = banner.type != .battery
             || Defaults[.showPowerStatusNotifications] || bannerPreview.power != nil
@@ -530,27 +530,27 @@ struct ContentView: View {
           // Before the countdown: three seconds for the Focus, and the
           // countdown comes back after.
           } else if coordinator.expandingView.type == .focus && coordinator.expandingView.show
-                      && vm.notchState == .closed && !vm.hideOnClosed && Defaults[.bannerStyle] == .inline {
+                      && vm.notchState == .closed && !vm.hideOnClosed && BannerStyle.for(.focus) == .inline {
               FocusLiveActivity()
                   .environmentObject(vm)
                   .transition(.notchInline)
           } else if coordinator.expandingView.type == .vpn && coordinator.expandingView.show
-                      && vm.notchState == .closed && !vm.hideOnClosed && Defaults[.bannerStyle] == .inline {
+                      && vm.notchState == .closed && !vm.hideOnClosed && BannerStyle.for(.vpn) == .inline {
               VPNLiveActivity()
                   .environmentObject(vm)
                   .transition(.notchInline)
           } else if coordinator.expandingView.type == .batteryAlert && coordinator.expandingView.show
-                      && vm.notchState == .closed && !vm.hideOnClosed && Defaults[.bannerStyle] == .inline {
+                      && vm.notchState == .closed && !vm.hideOnClosed && BannerStyle.for(.batteryAlert) == .inline {
               BatteryAlertLiveActivity()
                   .environmentObject(vm)
                   .transition(.notchInline)
           } else if coordinator.expandingView.type == .bluetooth && coordinator.expandingView.show
-                      && vm.notchState == .closed && !vm.hideOnClosed && Defaults[.bannerStyle] == .inline {
+                      && vm.notchState == .closed && !vm.hideOnClosed && BannerStyle.for(.bluetooth) == .inline {
               BluetoothLiveActivity()
                   .environmentObject(vm)
                   .transition(.notchInline)
           } else if coordinator.expandingView.type == .colorPicked && coordinator.expandingView.show
-                      && vm.notchState == .closed && !vm.hideOnClosed && Defaults[.bannerStyle] == .inline {
+                      && vm.notchState == .closed && !vm.hideOnClosed && BannerStyle.for(.colorPicked) == .inline {
               ColorPickedLiveActivity()
                   .environmentObject(vm)
                   .transition(.notchInline)
@@ -560,7 +560,7 @@ struct ContentView: View {
                   .environmentObject(vm)
                   .transition(.notchInline)
           } else if coordinator.expandingView.type == .hotspot && coordinator.expandingView.show
-                      && vm.notchState == .closed && !vm.hideOnClosed && Defaults[.bannerStyle] == .inline {
+                      && vm.notchState == .closed && !vm.hideOnClosed && BannerStyle.for(.hotspot) == .inline {
               HotspotLiveActivity()
                   .environmentObject(vm)
                   .transition(.notchInline)
