@@ -29,6 +29,8 @@ enum SneakContentType {
     case hotspot
     case colorPicked
     case inputSource
+    /// Live activities paused or back: value 1 for paused.
+    case livePause
 }
 
 struct sneakPeek {
@@ -89,6 +91,31 @@ class VornyxViewCoordinator: ObservableObject {
     /// Lives here rather than in the page because the notch has to grow to hold
     /// the extra row, and the notch's height is worked out in `ContentView`.
     @Published var clipboardRows: Int = 1
+
+    /// The closed notch kept to a plain notch: no music, banners, companions
+    /// or edge light, for `livePauseLength` or until turned back on.
+    @Published private(set) var liveActivitiesPaused = false
+    private var livePauseTask: Task<Void, Never>?
+    static let livePauseLength: Duration = .seconds(20 * 60)
+
+    /// Pause the closed notch's live activities, or bring them back.
+    func toggleLiveActivities() {
+        setLiveActivitiesPaused(!liveActivitiesPaused)
+    }
+
+    private func setLiveActivitiesPaused(_ paused: Bool) {
+        livePauseTask?.cancel()
+        livePauseTask = nil
+        withAnimation(.notchBanner) { liveActivitiesPaused = paused }
+        if paused {
+            livePauseTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(for: Self.livePauseLength)
+                guard !Task.isCancelled else { return }
+                self?.setLiveActivitiesPaused(false)
+            }
+        }
+        toggleSneakPeek(status: true, type: .livePause, duration: 1.6, value: paused ? 1 : 0)
+    }
 
     /// How far the LocalSend strip has stretched down to hold a long text
     /// being written. Here for the same reason as `clipboardRows`.
@@ -312,7 +339,7 @@ class VornyxViewCoordinator: ObservableObject {
         sneakPeekDuration = duration ?? Defaults[.sneakPeekDuration]
         // Music and the output changing are news of their own; everything
         // else here stands in for the system HUD, and only when it is replaced.
-        if type != .music && type != .audioRoute && type != .capsLock {
+        if type != .music && type != .audioRoute && type != .capsLock && type != .livePause {
             // close()
             if !Defaults[.hudReplacement] {
                 return

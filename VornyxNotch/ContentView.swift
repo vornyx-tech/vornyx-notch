@@ -184,7 +184,8 @@ struct ContentView: View {
                     )
                     .overlay {
                         NotchEdgeLight(
-                            shape: currentNotchShape, isOpen: vm.notchState == .open)
+                            shape: currentNotchShape, isOpen: vm.notchState == .open,
+                            paused: coordinator.liveActivitiesPaused && vm.notchState != .open)
                     }
                     .padding(
                         .bottom,
@@ -587,7 +588,7 @@ struct ContentView: View {
               TimerLiveActivity()
                   .environmentObject(vm)
                   .transition(.opacity)
-          } else if coordinator.sneakPeek.show && Defaults[.inlineHUD] && (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && (coordinator.sneakPeek.type != .audioRoute) && (coordinator.sneakPeek.type != .capsLock) && vm.notchState == .closed {
+          } else if coordinator.sneakPeek.show && Defaults[.inlineHUD] && (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && (coordinator.sneakPeek.type != .audioRoute) && (coordinator.sneakPeek.type != .capsLock) && (coordinator.sneakPeek.type != .livePause) && vm.notchState == .closed {
               InlineHUD(type: $coordinator.sneakPeek.type, value: $coordinator.sneakPeek.value, icon: $coordinator.sneakPeek.icon, hoverAnimation: $isHovering, gestureProgress: $gestureProgress)
                   .transition(.opacity)
           // The hotspot in use, when the music is not holding the notch; with
@@ -722,7 +723,7 @@ struct ContentView: View {
                     }
 
                       if coordinator.sneakPeek.show {
-                          if (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && (coordinator.sneakPeek.type != .audioRoute) && (coordinator.sneakPeek.type != .capsLock) && !Defaults[.inlineHUD] && vm.notchState == .closed {
+                          if (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && (coordinator.sneakPeek.type != .audioRoute) && (coordinator.sneakPeek.type != .capsLock) && (coordinator.sneakPeek.type != .livePause) && !Defaults[.inlineHUD] && vm.notchState == .closed {
                               SystemEventIndicatorModifier(
                                   eventType: $coordinator.sneakPeek.type,
                                   value: $coordinator.sneakPeek.value,
@@ -747,6 +748,13 @@ struct ContentView: View {
                           else if coordinator.sneakPeek.type == .audioRoute {
                               if vm.notchState == .closed && !vm.hideOnClosed && Defaults[.audioRouteSneakPeek] {
                                   AudioRouteSneakPeek()
+                              }
+                          }
+                          // Live activities paused or back: said even while
+                          // paused, which is what hides everything else.
+                          else if coordinator.sneakPeek.type == .livePause {
+                              if vm.notchState == .closed {
+                                  LivePauseSneakPeek(isPaused: coordinator.sneakPeek.value == 1)
                               }
                           }
                           // Caps Lock went on or off.

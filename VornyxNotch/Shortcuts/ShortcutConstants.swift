@@ -25,4 +25,7 @@ extension KeyboardShortcuts.Name {
     static let openShelf = Self("openShelf", default: .init(.s, modifiers: [.control, .option]))
     /// Control-Option-C: C for colour, next to the shelf's S.
     static let pickColor = Self("pickColor", default: .init(.c, modifiers: [.control, .option]))
+    /// Control-Option-N: the closed notch back to a plain notch for a while,
+    /// so nothing live covers the top of the window you are working in.
+    static let toggleLiveActivities = Self("toggleLiveActivities", default: .init(.n, modifiers: [.control, .option]))
 }

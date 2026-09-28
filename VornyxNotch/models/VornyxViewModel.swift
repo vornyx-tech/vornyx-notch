@@ -87,10 +87,14 @@ class VornyxViewModel: NSObject, ObservableObject {
             .removeDuplicates()
 
         // Combine all three: screen UUID, fullscreen status, and enabled setting
-        Publishers.CombineLatest3(screenPublisher, fullscreenStatusPublisher, enabledPublisher)
-            .map { screenUUID, fullscreenStatus, enabled in
+        // - and the live activities paused by their shortcut, which hides
+        // them the same way.
+        Publishers.CombineLatest4(
+            screenPublisher, fullscreenStatusPublisher, enabledPublisher,
+            VornyxViewCoordinator.shared.$liveActivitiesPaused.removeDuplicates())
+            .map { screenUUID, fullscreenStatus, enabled, paused in
                 let isFullscreen = fullscreenStatus[screenUUID] ?? false
-                return enabled && isFullscreen
+                return (enabled && isFullscreen) || paused
             }
             .removeDuplicates()
             .receive(on: RunLoop.main)

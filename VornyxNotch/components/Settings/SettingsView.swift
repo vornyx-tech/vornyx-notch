@@ -1706,12 +1706,13 @@ struct Shortcuts: View {
                 KeyboardShortcuts.Recorder("Toggle Notch Open:", name: .toggleNotchOpen)
                 KeyboardShortcuts.Recorder("Open Shelf:", name: .openShelf)
                 KeyboardShortcuts.Recorder("Pick a Colour:", name: .pickColor)
+                KeyboardShortcuts.Recorder("Pause Live Activities:", name: .toggleLiveActivities)
                 ClipboardShortcutSetting()
             } header: {
                 SettingsSectionHeader("Notch", icon: "macbook", tint: .blue)
             } footer: {
                 Text(
-                    "Open Shelf opens the notch on the shelf, and closes it if the shelf is already showing. Show Clipboard opens the notch on the clipboard tab: by double-tapping the right Option key, which needs Accessibility, or by a shortcut of your own. Turn the clipboard on under Clipboard first."
+                    "Open Shelf opens the notch on the shelf, and closes it if the shelf is already showing. Show Clipboard opens the notch on the clipboard tab: by double-tapping the right Option key, which needs Accessibility, or by a shortcut of your own. Turn the clipboard on under Clipboard first. Pause Live Activities keeps the closed notch plain - no music, banners or lights over the top of your window - for 20 minutes, or until pressed again."
                 )
                 .multilineTextAlignment(.trailing)
                 .foregroundStyle(.secondary)

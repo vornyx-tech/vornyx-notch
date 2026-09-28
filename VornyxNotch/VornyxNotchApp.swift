@@ -464,6 +464,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
+        // The closed notch back to plain for a while; pressed again, back.
+        KeyboardShortcuts.onKeyDown(for: .toggleLiveActivities) { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self, !self.coordinator.firstLaunch else { return }
+                self.coordinator.toggleLiveActivities()
+            }
+        }
+
         // Opens the notch on the shelf; pressed again on the shelf, closes it.
         KeyboardShortcuts.onKeyDown(for: .openShelf) { [weak self] in
             Task { @MainActor [weak self] in

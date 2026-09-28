@@ -109,6 +109,8 @@ struct NotchEdgeLight: View {
     let shape: NotchShape
     /// The ambient colour is for the closed notch only.
     let isOpen: Bool
+    /// Live activities paused by their shortcut: no light either.
+    var paused: Bool = false
 
     var body: some View {
         ZStack {
@@ -172,6 +174,7 @@ struct NotchEdgeLight: View {
     }
 
     private var signal: EdgeSignal? {
+        if paused { return nil }
         // The colours macOS itself uses for the camera and the microphone.
         if recordingGlow, privacyIndicators {
             if monitor.indicators.camera { return .recording(.green) }
@@ -271,6 +274,28 @@ struct NotchEdgeLight: View {
                     .shadow(color: tint.opacity(0.45), radius: 12)
                     .animation(.smooth(duration: 0.25), value: fraction))
         }
+    }
+}
+
+/// Said under the closed notch when the live activities are paused or back.
+struct LivePauseSneakPeek: View {
+    let isPaused: Bool
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 6) {
+            Image(systemName: isPaused ? "eye.slash" : "eye")
+                .foregroundStyle(isPaused ? .gray : Color.effectiveAccent)
+                .contentTransition(.symbolEffect(.replace))
+                .frame(width: 18)
+
+            Text(isPaused ? "Notch live off" : "Notch live on")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.gray)
+                .lineLimit(1)
+
+            Spacer(minLength: 0)
+        }
+        .padding(.bottom, 10)
     }
 }
 
