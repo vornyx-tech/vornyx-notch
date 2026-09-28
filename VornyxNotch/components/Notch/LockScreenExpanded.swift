@@ -516,7 +516,7 @@ private struct LockScreenClock: View {
             Text(date.formatted(.dateTime.weekday(.wide).day().month(.wide)))
                 .font(.system(size: 20, weight: .semibold, design: .rounded))
                 .foregroundStyle(.white.opacity(0.75))
-            Text(date.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)).minute()))
+            Text(date.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits)))
                 .font(.system(size: 92, weight: .bold, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(.white.opacity(0.92))

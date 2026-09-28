@@ -36,6 +36,9 @@ final class LockScreenPlayerController {
 
     func screenLocked() {
         guard Defaults[.lockScreenPlayer] else { return }
+        // Built before anything is shown, so showing is only ordering them in.
+        if card == nil { card = makeWindow(LockScreenCardView(), interactive: true) }
+        if backdrop == nil { backdrop = makeWindow(LockScreenBackdropView(), interactive: false) }
         // Follow the player while locked: nothing before the first track
         // starts, nothing left up after the last one stops. Only real changes
         // count - the player republishes the same state often, and every show
@@ -49,11 +52,11 @@ final class LockScreenPlayerController {
             .sink { [weak self] playing in
                 guard let self else { return }
                 if playing {
-                    // A second after locking, once macOS has its own lock
-                    // screen up, rather than in the middle of putting it up.
+                    // A moment after locking, just past macOS putting its own
+                    // lock screen up - a full second of it bare was too long.
                     self.showTask?.cancel()
                     self.showTask = Task { @MainActor [weak self] in
-                        try? await Task.sleep(for: .seconds(1))
+                        try? await Task.sleep(for: .milliseconds(150))
                         guard !Task.isCancelled else { return }
                         self?.show()
                     }
