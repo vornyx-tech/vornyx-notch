@@ -48,6 +48,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var whatsNewWindow: NSWindow?
     var timer: Timer?
     var closeNotchTask: Task<Void, Never>?
+    private var shortcutObservers: Set<AnyCancellable> = []
     private var clipboardDoubleTap: RightOptionDoubleTap?
     private var clipboardDoubleTapCancellable: AnyCancellable?
     private var previousScreens: [NSScreen]?
@@ -489,9 +490,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
+        // Off, the combination is let go altogether, for other apps to have.
+        Defaults.publisher(.pickColorShortcut)
+            .sink { change in
+                if change.newValue {
+                    KeyboardShortcuts.enable(.pickColor)
+                } else {
+                    KeyboardShortcuts.disable(.pickColor)
+                }
+            }
+            .store(in: &shortcutObservers)
         KeyboardShortcuts.onKeyDown(for: .pickColor) { [weak self] in
             Task { @MainActor [weak self] in
-                guard let self, !self.coordinator.firstLaunch else { return }
+                guard let self, !self.coordinator.firstLaunch, Defaults[.pickColorShortcut] else { return }
                 let viewModel = self.viewModelUnderMouse()
                 ColorPickerManager.shared.pick(closingNotch: { viewModel.close() })
             }

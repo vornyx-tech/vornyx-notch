@@ -1705,7 +1705,7 @@ struct Shortcuts: View {
             Section {
                 KeyboardShortcuts.Recorder("Toggle Notch Open:", name: .toggleNotchOpen)
                 KeyboardShortcuts.Recorder("Open Shelf:", name: .openShelf)
-                KeyboardShortcuts.Recorder("Pick a Colour:", name: .pickColor)
+                PickColorShortcutSetting()
                 KeyboardShortcuts.Recorder("Pause Live Activities:", name: .toggleLiveActivities)
                 ClipboardShortcutSetting()
             } header: {
@@ -2178,6 +2178,18 @@ private struct KeyboardLayoutBannerSettings: View {
 
 /// How the clipboard is summoned: the right Option key tapped twice, the
 /// default, or a shortcut of the user's own.
+/// The pick-a-colour shortcut, with a switch of its own to turn it off.
+private struct PickColorShortcutSetting: View {
+    @Default(.pickColorShortcut) private var enabled
+
+    var body: some View {
+        Toggle("Pick a colour with a shortcut", isOn: $enabled)
+        if enabled {
+            KeyboardShortcuts.Recorder("Pick a Colour:", name: .pickColor)
+        }
+    }
+}
+
 private struct ClipboardShortcutSetting: View {
     @Default(.clipboardDoubleTapRightOption) private var doubleTap
 

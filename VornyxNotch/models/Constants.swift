@@ -229,6 +229,9 @@ extension Defaults.Keys {
     static let inputSourceBannerStyle = Key<BannerStyle>("inputSourceBannerStyle", default: .inline)
     /// The eyedropper on the dashboard, beside the shortcuts.
     static let colorPickerInDashboard = Key<Bool>("colorPickerInDashboard", default: true)
+    /// The pick-a-colour shortcut, off unless asked for: Control-Option-C is
+    /// a combination other apps use too.
+    static let pickColorShortcut = Key<Bool>("pickColorShortcut", default: false)
     static let bannerStyle = Key<BannerStyle>("bannerStyle", default: .dropDown)
     // Each banner with its own choice keeps its own style.
     static let focusBannerStyle = Key<BannerStyle>("focusBannerStyle", default: .dropDown)
