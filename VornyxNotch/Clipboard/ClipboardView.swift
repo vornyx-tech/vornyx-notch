@@ -61,6 +61,11 @@ struct ClipboardView: View {
                         }
                         .scrollIndicators(.never)
                         .scrollableNotchContent()
+                        // A row opening or closing reflows every card; on the
+                        // notch's spring they flew across each other to their
+                        // new places, glass and all. They go straight there,
+                        // and the notch growing is what reveals the new row.
+                        .transaction(value: rows) { $0.animation = nil }
                         .onChange(of: selected) { _, id in
                             guard let id else { return }
                             withAnimation(.smooth(duration: 0.22)) {
