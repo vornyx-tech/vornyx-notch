@@ -25,11 +25,20 @@ enum FocusMode: Equatable {
     /// that this list knows, its own look otherwise.
     static func configured(name: String, symbol: String?, tintName: String?, identifier: String) -> FocusMode {
         let known = FocusMode(menuTitle: name) ?? FocusMode(identifier: identifier)
-        let symbolName = symbol.flatMap { NSImage(systemSymbolName: $0, accessibilityDescription: nil) != nil ? $0 : nil }
+        // Some built-in modes - Reduce Interruptions - keep a stock moon and
+        // indigo there while System Settings draws their real icon, so a
+        // known mode other than Do Not Disturb keeps its own look over those.
+        let placeholder = symbol == "moon.fill" && known != .doNotDisturb && known != .other
+        let symbolName = placeholder ? nil : symbol.flatMap(Self.validSymbol)
         return .named(
             name: name,
             symbol: symbolName ?? (known == .other ? "moon.fill" : known.symbol),
-            tint: tintName.map(Self.color(named:)) ?? (known == .other ? Color.indigo : known.tint))
+            tint: (placeholder ? nil : tintName.map(Self.color(named:)))
+                ?? (known == .other ? Color.indigo : known.tint))
+    }
+
+    private static func validSymbol(_ name: String) -> String? {
+        NSImage(systemSymbolName: name, accessibilityDescription: nil) != nil ? name : nil
     }
 
     /// `systemOrangeColor`, `orange` and the like, as macOS names a tint.
@@ -134,7 +143,7 @@ enum FocusMode: Equatable {
         case .gaming: return "gamecontroller.fill"
         case .mindfulness: return "brain.head.profile"
         case .reading: return "book.closed.fill"
-        case .reduceInterruptions: return "apple.intelligence"
+        case .reduceInterruptions: return Self.validSymbol("apple.intelligence") ?? "sparkles"
         }
     }
 
