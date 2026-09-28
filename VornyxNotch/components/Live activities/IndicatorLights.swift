@@ -114,25 +114,14 @@ struct NotchEdgeLight: View {
 
     var body: some View {
         ZStack {
-            // Kept in place and faded, rather than inserted and removed: a
-            // removed view is frozen at its last size, so the light going out
-            // as a banner grew the notch - Caps Lock off - stayed the old
-            // notch's size, and could be left there as a stray outline.
-            if let shown = signal ?? lastSignal {
-                Group {
-                    switch shown {
-                    case .recording(let tint):
-                        breathing(halo(tint), duration: 1.1)
-                    case .attention(let tint):
-                        breathing(halo(tint), duration: 1.8)
-                    case .steady(let tint):
-                        halo(tint).opacity(0.85)
-                    case .progress(let tint, let fraction):
-                        progress(tint, fraction)
-                    case .ambient(let tint):
-                        breathing(ambient(tint), duration: 3.4, from: 0.7)
-                    }
-                }
+            // One outline, always there, that only changes colour, weight and
+            // how far round it goes - never a view inserted or removed, or
+            // swapped for another. A removed view is frozen at its last size
+            // and an inserted one starts at its final size: the light going
+            // out as a banner grew the notch stayed the old notch's size, and
+            // one coming on as the notch opened was the open notch's size
+            // before the black was. With nothing to show it is clear.
+            lightLook(EdgeLook(signal ?? lastSignal, isOpen: isOpen))
                 // Fade out the top edge, and keep the mask wider than the notch
                 // so it does not clip the glow the shadows throw.
                 .mask {
@@ -145,7 +134,6 @@ struct NotchEdgeLight: View {
                     .padding(.bottom, -Self.glowReach)
                 }
                 .opacity(signal == nil ? 0 : 1)
-            }
         }
         .allowsHitTesting(false)
         .animation(.smooth(duration: 0.3), value: signal)
@@ -216,14 +204,6 @@ struct NotchEdgeLight: View {
         return nil
     }
 
-    private func halo(_ tint: Color) -> some View {
-        onEdge(
-            shape
-                .stroke(tint, lineWidth: 1.5)
-                .shadow(color: tint.opacity(0.9), radius: 5)
-                .shadow(color: tint.opacity(0.45), radius: 14))
-    }
-
     /// The light as part of the notch's own edge: the same shape, in the same
     /// frame, on the same spring as the black - drawn in one pass on the GPU.
     ///
@@ -238,41 +218,81 @@ struct NotchEdgeLight: View {
             .padding(-Self.glowReach)
     }
 
-    private func breathing<Content: View>(
-        _ content: Content, duration: Double, from low: Double = 0.45
-    ) -> some View {
-        content.phaseAnimator([low, 1.0]) { halo, phase in
-            halo.opacity(phase)
-        } animation: { _ in
-            .easeInOut(duration: duration)
-        }
-    }
-
-    /// The cover's colour on the edge, much weaker than a signal.
-    private func ambient(_ tint: Color) -> some View {
-        onEdge(
-            shape
-                .stroke(tint.opacity(0.5), lineWidth: isOpen ? 1.4 : 1)
-                .shadow(color: tint.opacity(0.45), radius: 6)
-                .shadow(color: tint.opacity(0.25), radius: 16))
-    }
-
-    /// The outline drawn as far as `fraction`, from the top left down and round.
-    private func progress(_ tint: Color, _ fraction: Double) -> some View {
+    private func lightLook(_ look: EdgeLook) -> some View {
         GeometryReader { proxy in
             let size = proxy.size
             // `NotchShape` closes across the top, which the hardware notch
             // hides, so a full sweep stops just before that run.
             let visible = (2 * size.height + size.width)
                 / max(1, 2 * size.height + 2 * size.width)
+            let end: CGFloat = look.fraction.map { visible * CGFloat(max(0, min(1, $0))) } ?? 1
 
             onEdge(
                 shape
-                    .trim(from: 0, to: visible * max(0, min(1, fraction)))
-                    .stroke(tint, style: StrokeStyle(lineWidth: 2, lineCap: .round))
-                    .shadow(color: tint.opacity(0.9), radius: 5)
-                    .shadow(color: tint.opacity(0.45), radius: 12)
-                    .animation(.smooth(duration: 0.25), value: fraction))
+                    .trim(from: 0, to: end)
+                    .stroke(
+                        look.tint.opacity(look.strokeOpacity),
+                        style: StrokeStyle(lineWidth: look.lineWidth, lineCap: .round))
+                    .shadow(color: look.tint.opacity(look.nearGlow), radius: look.nearRadius)
+                    .shadow(color: look.tint.opacity(look.farGlow), radius: look.farRadius))
+        }
+        // Breathing only for the signals that breathe; one phase is still.
+        .phaseAnimator(look.breath.map { [$0.low, 1.0] } ?? [1.0]) { (light, phase: Double) in
+            light.opacity(phase)
+        } animation: { _ in
+            .easeInOut(duration: look.breath?.duration ?? 1)
+        }
+    }
+}
+
+/// What the edge light looks like for a signal, as numbers one outline can
+/// move between.
+private struct EdgeLook: Equatable {
+    var tint: Color = .clear
+    var lineWidth: CGFloat = 1.5
+    var strokeOpacity: Double = 1
+    var nearGlow: Double = 0.9
+    var nearRadius: CGFloat = 5
+    var farGlow: Double = 0.45
+    var farRadius: CGFloat = 14
+    /// How far round the outline goes; nil for all the way.
+    var fraction: Double?
+    var breath: Breath?
+
+    struct Breath: Equatable {
+        let duration: Double
+        let low: Double
+    }
+
+    init(_ signal: EdgeSignal?, isOpen: Bool) {
+        switch signal {
+        case nil:
+            break
+        case .recording(let tint):
+            self.tint = tint
+            breath = Breath(duration: 1.1, low: 0.45)
+        case .attention(let tint):
+            self.tint = tint
+            breath = Breath(duration: 1.8, low: 0.45)
+        case .steady(let tint):
+            self.tint = tint
+            strokeOpacity = 0.85
+            nearGlow = 0.9 * 0.85
+            farGlow = 0.45 * 0.85
+        case .progress(let tint, let fraction):
+            self.tint = tint
+            lineWidth = 2
+            farRadius = 12
+            self.fraction = fraction
+        case .ambient(let tint):
+            self.tint = tint
+            lineWidth = isOpen ? 1.4 : 1
+            strokeOpacity = 0.5
+            nearGlow = 0.45
+            nearRadius = 6
+            farGlow = 0.25
+            farRadius = 16
+            breath = Breath(duration: 3.4, low: 0.7)
         }
     }
 }
