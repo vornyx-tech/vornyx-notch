@@ -171,16 +171,30 @@ class VornyxNotchXPCHelper: NSObject, VornyxNotchXPCHelperProtocol {
 
         struct Root: Decodable { let data: [Entry] }
         struct Entry: Decodable { let storeAssertionRecords: [Record]? }
-        struct Record: Decodable { let assertionDetails: Details? }
+        struct Record: Decodable {
+            let assertionDetails: Details?
+            let assertionStartDateTimestamp: Double?
+        }
         struct Details: Decodable { let assertionDetailsModeIdentifier: String? }
 
         // macOS cuts the file down to a stub with no Focus on, which does not
         // decode: that is off, not unreadable.
-        guard let root = try? JSONDecoder().decode(Root.self, from: data) else { return reply("off") }
-        let mode = root.data
+        guard let root = try? JSONDecoder().decode(Root.self, from: data) else {
+            logFocusSource("file: off")
+            return reply("off")
+        }
+        // More than one record can be in force - a scheduled Do Not Disturb
+        // and the Work just turned on - and the first was taken as the one
+        // on. The one started last is.
+        let records = root.data
             .flatMap { $0.storeAssertionRecords ?? [] }
-            .compactMap { $0.assertionDetails?.assertionDetailsModeIdentifier }
-            .first { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+            .compactMap { record -> (String, Double)? in
+                guard let id = record.assertionDetails?.assertionDetailsModeIdentifier,
+                      !id.trimmingCharacters(in: .whitespaces).isEmpty else { return nil }
+                return (id, record.assertionStartDateTimestamp ?? 0)
+            }
+        let mode = records.max { $0.1 < $1.1 }?.0
+        logFocusSource("file: " + records.map { "\($0.0)@\(Int($0.1))" }.joined(separator: ", "))
         reply((mode ?? "off") as NSString)
     }
 
@@ -260,7 +274,9 @@ class VornyxNotchXPCHelper: NSObject, VornyxNotchXPCHelperProtocol {
                 return value as? String
             }
             guard texts.contains(where: { $0.localizedCaseInsensitiveContains("focus") }) else { continue }
-            return reply(texts.joined(separator: " ") as NSString)
+            let title = texts.joined(separator: " ")
+            logFocusSource("menu: " + title)
+            return reply(title as NSString)
         }
         reply(nil)
     }
@@ -320,7 +336,19 @@ class VornyxNotchXPCHelper: NSObject, VornyxNotchXPCHelperProtocol {
         focusLog.notice("menu extras: \(identifiers.joined(separator: ", "), privacy: .public)")
     }
 
-    private func logFocusProbe(_ probe: FocusProbe) {
+    private var loggedFocusSource: String?
+
+    /// What the Focus sources said, on change only, for telling from Console
+    /// why a mode was read as it was.
+    private func logFocusSource(_ line: String) {
+        menuExtrasLock.lock()
+        defer { menuExtrasLock.unlock() }
+        guard line != loggedFocusSource else { return }
+        loggedFocusSource = line
+        focusLog.notice("\(line, privacy: .public)")
+    }
+
+        private func logFocusProbe(_ probe: FocusProbe) {
         menuExtrasLock.lock()
         defer { menuExtrasLock.unlock() }
         guard probe != loggedProbe else { return }

@@ -29,9 +29,27 @@ enum FocusMode: Equatable {
         case "com.apple.focus.mindfulness": self = .mindfulness
         case "com.apple.focus.reading": self = .reading
         case "com.apple.focus.reduce-interruptions": self = .reduceInterruptions
-        case let id? where id.hasPrefix("com.apple.donotdisturb"): self = .doNotDisturb
+        case let id?:
+            // Identifiers vary between releases - com.apple.focus.work, or
+            // com.apple.donotdisturb.mode.work - so a known word in one names
+            // the mode before the Do Not Disturb prefix is taken to mean Do
+            // Not Disturb itself, which read every mode on newer systems as it.
+            self = Self.byWord(in: id)
+                ?? (id.hasPrefix("com.apple.donotdisturb") ? .doNotDisturb : .other)
         default: self = .other
         }
+    }
+
+    private static func byWord(in identifier: String) -> FocusMode? {
+        let id = identifier.lowercased()
+        let words: [(String, FocusMode)] = [
+            ("work", .work), ("personal", .personal), ("sleep", .sleep), ("bedtime", .sleep),
+            ("driving", .driving), ("fitness", .fitness), ("workout", .fitness), ("gaming", .gaming),
+            ("mindfulness", .mindfulness), ("reading", .reading), ("reduce-interruptions", .reduceInterruptions),
+            ("reduceinterruptions", .reduceInterruptions),
+        ]
+        // "workout" before "work", or a workout would read as Work.
+        return words.sorted { $0.0.count > $1.0.count }.first { id.contains($0.0) }?.1
     }
 
     /// From what the menu bar item says - "Focus, Work", or a localised
@@ -39,10 +57,13 @@ enum FocusMode: Equatable {
     /// identifier to go by. Nil when it names no mode this list knows.
     init?(menuTitle: String) {
         let lowered = menuTitle.lowercased()
+        // Named modes first, Do Not Disturb last: the item can mention Do Not
+        // Disturb beside the mode actually on, and was read as it.
         let byName: [(String, FocusMode)] = [
-            ("do not disturb", .doNotDisturb), ("work", .work), ("personal", .personal),
+            ("workout", .fitness), ("work", .work), ("personal", .personal),
             ("sleep", .sleep), ("driving", .driving), ("fitness", .fitness), ("gaming", .gaming),
             ("mindfulness", .mindfulness), ("reading", .reading), ("reduce interruptions", .reduceInterruptions),
+            ("do not disturb", .doNotDisturb),
         ]
         guard let match = byName.first(where: { lowered.contains($0.0) }) else { return nil }
         self = match.1
