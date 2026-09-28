@@ -99,6 +99,8 @@ struct NotchEdgeLight: View {
     /// 100 with nothing to mark the moment.
     @State private var justCharged = false
     @State private var chargedReset: Task<Void, Never>?
+    /// The last light shown, kept to fade out on.
+    @State private var lastSignal: EdgeSignal?
 
     /// How far past the notch the widest glow shows: a shadow fades out over
     /// about three times its radius, and the widest here is 16.
@@ -110,9 +112,13 @@ struct NotchEdgeLight: View {
 
     var body: some View {
         ZStack {
-            if let signal {
+            // Kept in place and faded, rather than inserted and removed: a
+            // removed view is frozen at its last size, so the light going out
+            // as a banner grew the notch - Caps Lock off - stayed the old
+            // notch's size, and could be left there as a stray outline.
+            if let shown = signal ?? lastSignal {
                 Group {
-                    switch signal {
+                    switch shown {
                     case .recording(let tint):
                         breathing(halo(tint), duration: 1.1)
                     case .attention(let tint):
@@ -136,11 +142,23 @@ struct NotchEdgeLight: View {
                     .padding(.horizontal, -Self.glowReach)
                     .padding(.bottom, -Self.glowReach)
                 }
-                .transition(.opacity)
+                .opacity(signal == nil ? 0 : 1)
             }
         }
         .allowsHitTesting(false)
         .animation(.smooth(duration: 0.3), value: signal)
+        .onChange(of: signal, initial: true) { _, next in
+            if let next {
+                lastSignal = next
+                return
+            }
+            // Gone once it has faded, so a breathing light does not go on
+            // animating unseen.
+            Task {
+                try? await Task.sleep(for: .milliseconds(400))
+                if signal == nil { lastSignal = nil }
+            }
+        }
         .onChange(of: battery.levelBattery) { previous, level in
             guard edgeBattery, level >= 100, previous < 100, battery.isPluggedIn else { return }
             justCharged = true
