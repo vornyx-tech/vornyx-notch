@@ -615,6 +615,7 @@ private struct LockScreenLyrics: View {
         if music.isPlaying {
             elapsed += date.timeIntervalSince(music.timestampDate) * music.playbackRate
         }
+        elapsed += MusicManager.lyricsLead
         return music.syncedLyrics.lastIndex { $0.time <= elapsed } ?? 0
     }
 }

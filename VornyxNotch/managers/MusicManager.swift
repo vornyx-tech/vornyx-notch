@@ -598,6 +598,12 @@ class MusicManager: ObservableObject {
         return result.sorted { $0.0 < $1.0 }
     }
 
+    /// How far ahead of the song the lyrics run. A line timed to the moment
+    /// it is sung, drawn a tick later and rolling in over a few tenths of a
+    /// second, was read a second or so after it was heard; Apple Music shows
+    /// the next line a little early for the same reason.
+    static let lyricsLead: Double = 0.7
+
     func lyricLine(at elapsed: Double) -> String {
         guard !syncedLyrics.isEmpty else { return currentLyrics }
         // Binary search for last line with time <= elapsed

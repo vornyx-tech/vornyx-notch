@@ -253,7 +253,7 @@ struct MusicControlsView: View {
             )
             .fontWeight(.medium)
             if Defaults[.enableLyrics] {
-                TimelineView(.animation(minimumInterval: 0.25)) { timeline in
+                TimelineView(.animation(minimumInterval: 0.1)) { timeline in
                     let currentElapsed: Double = {
                         guard musicManager.isPlaying else { return musicManager.elapsedTime }
                         let delta = timeline.date.timeIntervalSince(musicManager.timestampDate)
@@ -263,7 +263,7 @@ struct MusicControlsView: View {
                     let line: String = {
                         if musicManager.isFetchingLyrics { return "Loading lyrics…" }
                         if !musicManager.syncedLyrics.isEmpty {
-                            return musicManager.lyricLine(at: currentElapsed)
+                            return musicManager.lyricLine(at: currentElapsed + MusicManager.lyricsLead)
                         }
                         let trimmed = musicManager.currentLyrics.trimmingCharacters(in: .whitespacesAndNewlines)
                         return trimmed.isEmpty ? "No lyrics found" : trimmed.replacingOccurrences(of: "\n", with: " ")
@@ -1113,7 +1113,7 @@ private struct LyricLine: View {
         }
         .frame(width: width, alignment: .leading)
         .clipped()
-        .animation(.spring(response: 0.5, dampingFraction: 0.86), value: line)
+        .animation(.spring(response: 0.38, dampingFraction: 0.86), value: line)
     }
 }
 
