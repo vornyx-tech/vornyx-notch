@@ -188,7 +188,12 @@ final class IndicatorsManager: ObservableObject {
 
         // The banner, then a slim peek for a few seconds, on or off.
         if focusKnown, changed || modeChanged, Defaults[.showFocusIndicator], Defaults[.focusLiveActivity] {
-            VornyxViewCoordinator.shared.announceFocus()
+            // Inline, the peek alone says it: as a banner of its own it took
+            // the notch from the music and whatever rode along with it,
+            // where the peek joins them as one more activity.
+            if BannerStyle.for(.focus) != .inline {
+                VornyxViewCoordinator.shared.announceFocus()
+            }
             holdFocusInline()
         }
         focusKnown = true
