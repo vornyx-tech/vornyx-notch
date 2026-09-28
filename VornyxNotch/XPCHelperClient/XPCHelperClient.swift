@@ -276,7 +276,13 @@ extension XPCHelperClient {
             switch result as String? {
             case nil, "unreadable": return .unreadable
             case "off": return .off
-            case let mode?: return .on(mode: mode)
+            case let reply?:
+                // identifier, then its name, symbol and colour when known.
+                let fields = reply.components(separatedBy: "\t")
+                func field(_ i: Int) -> String? {
+                    i < fields.count && !fields[i].isEmpty ? fields[i] : nil
+                }
+                return .on(mode: fields[0], name: field(1), symbol: field(2), tint: field(3))
             }
         } catch {
             return nil
@@ -333,7 +339,7 @@ enum FocusAssertion: Equatable {
     /// No Full Disk Access.
     case unreadable
     case off
-    case on(mode: String)
+    case on(mode: String, name: String? = nil, symbol: String? = nil, tint: String? = nil)
 }
 
 /// The helper's answer about Focus; the raw values are its wire format.

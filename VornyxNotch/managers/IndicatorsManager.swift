@@ -138,9 +138,12 @@ final class IndicatorsManager: ObservableObject {
             var menuBarStatus: FocusStatus?
 
             switch file {
-            case .on(let identifier)?:
+            case .on(let identifier, let name, let symbol, let tint)?:
                 focused = true
-                mode = FocusMode(identifier: identifier)
+                // The mode's own name, symbol and colour when macOS gives
+                // them; the identifier's reading otherwise.
+                mode = name.map { FocusMode.configured(name: $0, symbol: symbol, tintName: tint, identifier: identifier) }
+                    ?? FocusMode(identifier: identifier)
             case .off?:
                 focused = false
             case .unreadable?, nil:

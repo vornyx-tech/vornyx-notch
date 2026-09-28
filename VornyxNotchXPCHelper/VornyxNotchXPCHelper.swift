@@ -193,9 +193,18 @@ class VornyxNotchXPCHelper: NSObject, VornyxNotchXPCHelperProtocol {
                       !id.trimmingCharacters(in: .whitespaces).isEmpty else { return nil }
                 return (id, record.assertionStartDateTimestamp ?? 0)
             }
-        let mode = records.max { $0.1 < $1.1 }?.0
-        logFocusSource("file: " + records.map { "\($0.0)@\(Int($0.1))" }.joined(separator: ", "))
-        reply((mode ?? "off") as NSString)
+        guard let mode = records.max(by: { $0.1 < $1.1 })?.0 else {
+            logFocusSource("file: off")
+            return reply("off")
+        }
+        // The identifier alone often says nothing: newer releases name a mode
+        // after its symbol - com.apple.donotdisturb.mode.buildingcolumnsfill
+        // for a Work set up with that icon - which read as Do Not Disturb. Its
+        // name, symbol and colour are in the configuration beside it.
+        let details = Self.focusModeDetails(for: mode)
+        logFocusSource("file: \(mode) -> \(details?.name ?? "?") / \(details?.symbol ?? "?") / \(details?.tint ?? "?")")
+        let fields = [mode, details?.name ?? "", details?.symbol ?? "", details?.tint ?? ""]
+        reply(fields.joined(separator: "\t") as NSString)
     }
 
     // MARK: - VPN
@@ -279,6 +288,35 @@ class VornyxNotchXPCHelper: NSObject, VornyxNotchXPCHelperProtocol {
             return reply(title as NSString)
         }
         reply(nil)
+    }
+
+    /// A Focus mode's own name, symbol and colour, from
+    /// `ModeConfigurations.json`, the settings macOS keeps for each mode.
+    ///
+    /// After DynamicNotch's FocusMetadataReader by Evgeniy Petrukovich
+    /// (GPL-3.0).
+    private static func focusModeDetails(for identifier: String) -> (name: String, symbol: String?, tint: String?)? {
+        struct Root: Decodable { let data: [Entry] }
+        struct Entry: Decodable { let modeConfigurations: [String: Wrapper] }
+        struct Wrapper: Decodable { let mode: Mode }
+        struct Mode: Decodable {
+            let name: String
+            let modeIdentifier: String
+            let symbolImageName: String?
+            let tintColorName: String?
+        }
+        let url = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/DoNotDisturb/DB/ModeConfigurations.json")
+        guard let data = try? Data(contentsOf: url),
+              let root = try? JSONDecoder().decode(Root.self, from: data)
+        else { return nil }
+        for entry in root.data {
+            for wrapper in entry.modeConfigurations.values
+            where wrapper.mode.modeIdentifier.caseInsensitiveCompare(identifier) == .orderedSame {
+                return (wrapper.mode.name, wrapper.mode.symbolImageName, wrapper.mode.tintColorName)
+            }
+        }
+        return nil
     }
 
     private enum FocusProbe: Int {

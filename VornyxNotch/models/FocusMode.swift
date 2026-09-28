@@ -8,6 +8,7 @@
 //  Petrukovich (GPL-3.0), https://github.com/jackson-storm/dynamicnotch
 //
 
+import AppKit
 import SwiftUI
 
 /// A Focus mode, by the identifier macOS gives it.
@@ -16,6 +17,41 @@ enum FocusMode: Equatable {
     case mindfulness, reading, reduceInterruptions
     /// One the user made, or one this list has not heard of.
     case other
+    /// A mode as macOS's own configuration describes it: its name, symbol
+    /// and colour, whatever it is called.
+    case named(name: String, symbol: String, tint: Color)
+
+    /// From the configuration's fields: the built-in look for a mode it names
+    /// that this list knows, its own look otherwise.
+    static func configured(name: String, symbol: String?, tintName: String?, identifier: String) -> FocusMode {
+        let known = FocusMode(menuTitle: name) ?? FocusMode(identifier: identifier)
+        let symbolName = symbol.flatMap { NSImage(systemSymbolName: $0, accessibilityDescription: nil) != nil ? $0 : nil }
+        return .named(
+            name: name,
+            symbol: symbolName ?? (known == .other ? "moon.fill" : known.symbol),
+            tint: tintName.map(Self.color(named:)) ?? (known == .other ? Color.indigo : known.tint))
+    }
+
+    /// `systemOrangeColor`, `orange` and the like, as macOS names a tint.
+    private static func color(named raw: String) -> Color {
+        let name = raw.lowercased().replacingOccurrences(of: "system", with: "").replacingOccurrences(of: "color", with: "")
+        switch name {
+        case "red": return .red
+        case "orange": return .orange
+        case "yellow": return .yellow
+        case "green": return .green
+        case "mint": return .mint
+        case "teal": return .teal
+        case "cyan": return .cyan
+        case "blue": return .blue
+        case "indigo": return .indigo
+        case "purple": return .purple
+        case "pink": return .pink
+        case "brown": return .brown
+        case "gray", "grey": return .gray
+        default: return .indigo
+        }
+    }
 
     init(identifier: String?) {
         switch identifier {
@@ -71,6 +107,7 @@ enum FocusMode: Equatable {
 
     var name: String {
         switch self {
+        case .named(let name, _, _): return name
         case .doNotDisturb: return "Do Not Disturb"
         case .work: return "Work"
         case .personal: return "Personal"
@@ -87,6 +124,7 @@ enum FocusMode: Equatable {
 
     var symbol: String {
         switch self {
+        case .named(_, let symbol, _): return symbol
         case .doNotDisturb, .other: return "moon.fill"
         case .work: return "briefcase.fill"
         case .personal: return "person.fill"
@@ -103,6 +141,7 @@ enum FocusMode: Equatable {
     /// The colours System Settings uses for each.
     var tint: Color {
         switch self {
+        case .named(_, _, let tint): return tint
         case .doNotDisturb, .other: return Color(red: 0.370, green: 0.360, blue: 0.902)
         case .work: return Color(red: 0.414, green: 0.769, blue: 0.863)
         case .personal: return Color(red: 0.748, green: 0.354, blue: 0.948)
