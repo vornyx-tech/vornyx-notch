@@ -312,6 +312,8 @@ final class SystemAudioLevels: ObservableObject {
 
     /// Each band's recent peak, forgotten slowly, to read the band against.
     private var peaks = SIMD4<Float>(repeating: 0)
+    /// What the bars show, eased towards each new reading.
+    private var shown = SIMD4<Float>(repeating: 0)
 
     private func publish() {
         guard let processor else { return }
@@ -326,7 +328,16 @@ final class SystemAudioLevels: ObservableObject {
             max(peaks[0] * 0.997, raw[0]), max(peaks[1] * 0.997, raw[1]),
             max(peaks[2] * 0.997, raw[2]), max(peaks[3] * 0.997, raw[3]))
         let floor = SIMD4<Float>(repeating: 0.002)
-        let values = raw / simd_max(peaks, floor)
+        // A quarter's headroom over the peak, so the loudest beat reaches
+        // high but seldom slams flat against the top.
+        let target = simd_min(raw / (simd_max(peaks, floor) * 1.25), SIMD4(repeating: 1))
+        // Eased on screen as well - up quickly, down gently - so the bars
+        // swing with the beat rather than twitching at every block.
+        for band in 0 ..< 4 {
+            let rate: Float = target[band] > shown[band] ? 0.45 : 0.15
+            shown[band] += (target[band] - shown[band]) * rate
+        }
+        let values = shown
 
         // Silence while music plays: no permission, or a player the tap cannot
         // hear. Given a moment, since a quiet passage is silence too.
@@ -422,6 +433,7 @@ final class SystemAudioLevels: ObservableObject {
         }
         processor = nil
         peaks = SIMD4(repeating: 0)
+        shown = SIMD4(repeating: 0)
         tappedBundleID = nil
         silentSince = nil
         if hasSignal { hasSignal = false }
@@ -507,8 +519,8 @@ final class BandProcessor: @unchecked Sendable {
     private static let blockSize = 512
     private static let bands = 4
     private static let gains: [Float] = [3.0, 5.0, 8.0, 14.0]
-    private static let attack: Float = 0.85
-    private static let release: Float = 0.40
+    private static let attack: Float = 0.6
+    private static let release: Float = 0.25
 
     private let mono = UnsafeMutablePointer<Float>.allocate(capacity: BandProcessor.blockSize)
     private let filtered = UnsafeMutablePointer<Float>.allocate(capacity: BandProcessor.blockSize)
