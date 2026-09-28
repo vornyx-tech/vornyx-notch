@@ -232,6 +232,9 @@ extension Defaults.Keys {
     /// The pick-a-colour shortcut, off unless asked for: Control-Option-C is
     /// a combination other apps use too.
     static let pickColorShortcut = Key<Bool>("pickColorShortcut", default: false)
+    static let toggleNotchOpenShortcut = Key<Bool>("toggleNotchOpenShortcut", default: true)
+    static let openShelfShortcut = Key<Bool>("openShelfShortcut", default: true)
+    static let liveActivitiesShortcut = Key<Bool>("liveActivitiesShortcut", default: true)
     static let bannerStyle = Key<BannerStyle>("bannerStyle", default: .dropDown)
     // Each banner with its own choice keeps its own style.
     static let focusBannerStyle = Key<BannerStyle>("focusBannerStyle", default: .dropDown)

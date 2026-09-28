@@ -490,16 +490,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        // Off, the combination is let go altogether, for other apps to have.
-        Defaults.publisher(.pickColorShortcut)
-            .sink { change in
-                if change.newValue {
-                    KeyboardShortcuts.enable(.pickColor)
-                } else {
-                    KeyboardShortcuts.disable(.pickColor)
+        // A shortcut switched off lets its combination go altogether, for
+        // other apps to have.
+        let switchable: [(Defaults.Key<Bool>, KeyboardShortcuts.Name)] = [
+            (.pickColorShortcut, .pickColor),
+            (.toggleNotchOpenShortcut, .toggleNotchOpen),
+            (.openShelfShortcut, .openShelf),
+            (.liveActivitiesShortcut, .toggleLiveActivities),
+        ]
+        for (key, name) in switchable {
+            Defaults.publisher(key)
+                .sink { change in
+                    if change.newValue {
+                        KeyboardShortcuts.enable(name)
+                    } else {
+                        KeyboardShortcuts.disable(name)
+                    }
                 }
-            }
-            .store(in: &shortcutObservers)
+                .store(in: &shortcutObservers)
+        }
         KeyboardShortcuts.onKeyDown(for: .pickColor) { [weak self] in
             Task { @MainActor [weak self] in
                 guard let self, !self.coordinator.firstLaunch, Defaults[.pickColorShortcut] else { return }

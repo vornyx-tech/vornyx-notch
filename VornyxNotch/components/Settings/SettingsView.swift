@@ -1703,10 +1703,10 @@ struct Shortcuts: View {
                 .font(.caption)
             }
             Section {
-                KeyboardShortcuts.Recorder("Toggle Notch Open:", name: .toggleNotchOpen)
-                KeyboardShortcuts.Recorder("Open Shelf:", name: .openShelf)
-                PickColorShortcutSetting()
-                KeyboardShortcuts.Recorder("Pause Live Activities:", name: .toggleLiveActivities)
+                SwitchableShortcut("Toggle Notch Open", name: .toggleNotchOpen, enabled: .toggleNotchOpenShortcut)
+                SwitchableShortcut("Open Shelf", name: .openShelf, enabled: .openShelfShortcut)
+                SwitchableShortcut("Pick a Colour", name: .pickColor, enabled: .pickColorShortcut)
+                SwitchableShortcut("Pause Live Activities", name: .toggleLiveActivities, enabled: .liveActivitiesShortcut)
                 ClipboardShortcutSetting()
             } header: {
                 SettingsSectionHeader("Notch", icon: "macbook", tint: .blue)
@@ -2178,14 +2178,30 @@ private struct KeyboardLayoutBannerSettings: View {
 
 /// How the clipboard is summoned: the right Option key tapped twice, the
 /// default, or a shortcut of the user's own.
-/// The pick-a-colour shortcut, with a switch of its own to turn it off.
-private struct PickColorShortcutSetting: View {
-    @Default(.pickColorShortcut) private var enabled
+/// A shortcut on one line: its name, a switch, and the combination, which
+/// stays in view but cannot be changed while the switch is off.
+private struct SwitchableShortcut: View {
+    let title: LocalizedStringKey
+    let name: KeyboardShortcuts.Name
+    @Default private var enabled: Bool
+
+    init(_ title: LocalizedStringKey, name: KeyboardShortcuts.Name, enabled: Defaults.Key<Bool>) {
+        self.title = title
+        self.name = name
+        _enabled = Default(enabled)
+    }
 
     var body: some View {
-        Toggle("Pick a colour with a shortcut", isOn: $enabled)
-        if enabled {
-            KeyboardShortcuts.Recorder("Pick a Colour:", name: .pickColor)
+        HStack(spacing: 10) {
+            Text(title)
+            Spacer(minLength: 8)
+            Toggle("", isOn: $enabled)
+                .labelsHidden()
+                .toggleStyle(.switch)
+                .controlSize(.small)
+            KeyboardShortcuts.Recorder(for: name)
+                .disabled(!enabled)
+                .opacity(enabled ? 1 : 0.45)
         }
     }
 }
