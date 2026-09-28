@@ -306,9 +306,10 @@ extension Defaults.Keys {
     /// rest of the time, same as today.
     static let hudMatchesAlbumArt = Key<Bool>("hudMatchesAlbumArt", default: true)
     static let useMusicVisualizer = Key<Bool>("useMusicVisualizer", default: true)
-    /// Drive the visualizer from the audio actually playing. Off by default:
-    /// it needs the system audio permission, and the bars work without it.
-    static let realAudioSpectrum = Key<Bool>("realAudioSpectrum", default: false)
+    /// Drive the visualizer from the audio actually playing. It needs the
+    /// system audio permission; without it the bars fall back to moving on
+    /// their own.
+    static let realAudioSpectrum = Key<Bool>("realAudioSpectrum", default: true)
     static let customVisualizers = Key<[CustomVisualizer]>("customVisualizers", default: [])
     static let selectedVisualizer = Key<CustomVisualizer?>("selectedVisualizer", default: nil)
     

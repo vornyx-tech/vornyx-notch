@@ -971,6 +971,14 @@ struct Media: View {
             
             Section {
                 MusicSlotConfigurationView()
+                Defaults.Toggle(key: .realAudioSpectrum) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Bars follow the music")
+                        Text("The bars move with what the player is actually playing. Needs the system audio permission; without it they move on their own.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 Defaults.Toggle(key: .enableLyrics) {
                     HStack {
                         Text("Show lyrics below artist name")
