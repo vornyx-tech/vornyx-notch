@@ -285,7 +285,11 @@ final class IndicatorsManager: ObservableObject {
             AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &dataSize, &devices
         ) == noErr else { return false }
 
-        for device in devices where hasInput(device) {
+        // The visualizer's own private device takes the tap's audio in, so it
+        // reads as an input running - the notch lit orange for a microphone
+        // that nobody was using. It is not a microphone.
+        let own = SystemAudioLevels.shared.ownDeviceID
+        for device in devices where device != own && hasInput(device) {
             var running = AudioObjectPropertyAddress(
                 mSelector: kAudioDevicePropertyDeviceIsRunningSomewhere,
                 mScope: kAudioObjectPropertyScopeGlobal,

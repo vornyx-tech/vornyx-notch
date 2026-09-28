@@ -24,13 +24,15 @@ import simd
 // MARK: - The bars
 
 class AudioSpectrum: NSView {
-    private var barLayers: [CAShapeLayer] = []
+    private var barLayers: [CALayer] = []
     private var isPlaying = false
     private var animationTimer: Timer?
     /// Set while real levels are driving the bars, so the random animation
     /// stays out of the way.
     private var driven = false
 
+    private static let barWidth: CGFloat = 2
+    private static let totalHeight: CGFloat = 14
     private static let rest: CGFloat = 0.35
 
     override init(frame frameRect: NSRect) {
@@ -49,32 +51,31 @@ class AudioSpectrum: NSView {
         animationTimer?.invalidate()
     }
 
+    /// Plain layers with round ends. Each bar grows by its height, not by a
+    /// vertical scale - a scale squashed the round ends into flat ones.
     private func setupBars() {
-        let barWidth: CGFloat = 2
         let barCount = 4
-        let spacing: CGFloat = barWidth
-        let totalWidth = CGFloat(barCount) * (barWidth + spacing)
-        let totalHeight: CGFloat = 14
-        frame.size = CGSize(width: totalWidth, height: totalHeight)
+        let spacing = Self.barWidth
+        frame.size = CGSize(width: CGFloat(barCount) * (Self.barWidth + spacing), height: Self.totalHeight)
 
         for i in 0 ..< barCount {
-            let xPosition = CGFloat(i) * (barWidth + spacing)
-            let barLayer = CAShapeLayer()
-            barLayer.frame = CGRect(x: xPosition, y: 0, width: barWidth, height: totalHeight)
-            barLayer.anchorPoint = CGPoint(x: 0.5, y: 0.5)
-            barLayer.position = CGPoint(x: xPosition + barWidth / 2, y: totalHeight / 2)
-            barLayer.fillColor = NSColor.white.cgColor
+            let barLayer = CALayer()
             barLayer.backgroundColor = NSColor.white.cgColor
-            barLayer.allowsGroupOpacity = false
-            barLayer.masksToBounds = true
-            barLayer.path = NSBezierPath(
-                roundedRect: CGRect(x: 0, y: 0, width: barWidth, height: totalHeight),
-                xRadius: barWidth / 2, yRadius: barWidth / 2
-            ).cgPath
-            barLayer.transform = CATransform3DMakeScale(1, Self.rest, 1)
+            barLayer.cornerRadius = Self.barWidth / 2
+            barLayer.cornerCurve = .continuous
+            barLayer.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+            barLayer.position = CGPoint(
+                x: CGFloat(i) * (Self.barWidth + spacing) + Self.barWidth / 2,
+                y: Self.totalHeight / 2)
+            barLayer.bounds = CGRect(x: 0, y: 0, width: Self.barWidth, height: height(for: Self.rest))
             barLayers.append(barLayer)
             layer?.addSublayer(barLayer)
         }
+    }
+
+    /// Never shorter than the bar is wide, so it is a dot at rest, not a sliver.
+    private func height(for level: CGFloat) -> CGFloat {
+        max(Self.barWidth, Self.totalHeight * level)
     }
 
     // MARK: Random
@@ -106,20 +107,20 @@ class AudioSpectrum: NSView {
 
     /// From the height on screen - mid-animation or not - to the target, the
     /// model set to the target so nothing snaps back when it ends.
-    private func move(_ barLayer: CAShapeLayer, to scale: CGFloat, duration: CFTimeInterval) {
-        let current = (barLayer.presentation()?.value(forKeyPath: "transform.scale.y") as? CGFloat)
-            ?? (barLayer.value(forKeyPath: "transform.scale.y") as? CGFloat) ?? Self.rest
-        barLayer.removeAnimation(forKey: "scaleY")
+    private func move(_ barLayer: CALayer, to level: CGFloat, duration: CFTimeInterval) {
+        let current = barLayer.presentation()?.bounds.height ?? barLayer.bounds.height
+        let target = height(for: level)
+        barLayer.removeAnimation(forKey: "height")
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        barLayer.transform = CATransform3DMakeScale(1, scale, 1)
+        barLayer.bounds.size.height = target
         CATransaction.commit()
-        let animation = CABasicAnimation(keyPath: "transform.scale.y")
+        let animation = CABasicAnimation(keyPath: "bounds.size.height")
         animation.fromValue = current
-        animation.toValue = scale
+        animation.toValue = target
         animation.duration = duration
         animation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-        barLayer.add(animation, forKey: "scaleY")
+        barLayer.add(animation, forKey: "height")
     }
 
     private func settle() {
@@ -158,11 +159,11 @@ class AudioSpectrum: NSView {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         for (i, barLayer) in barLayers.enumerated() {
-            barLayer.removeAnimation(forKey: "scaleY")
+            barLayer.removeAnimation(forKey: "height")
             let level = levels[min(i, levels.count - 1)]
-            // The envelope already smooths; a layer animation on top of it
+            // Already eased in `SystemAudioLevels`; a layer animation on top
             // would only add lag.
-            barLayer.transform = CATransform3DMakeScale(1, 0.2 + 0.8 * max(0, min(1, level)), 1)
+            barLayer.bounds.size.height = height(for: 0.15 + 0.85 * max(0, min(1, level)))
         }
         CATransaction.commit()
     }
@@ -230,6 +231,10 @@ final class SystemAudioLevels: ObservableObject {
     private var silentSince: Date?
 
     private var isRunning: Bool { aggregateID != AudioObjectID(kAudioObjectUnknown) }
+
+    /// The private device the tap feeds, for the microphone light to leave
+    /// out: it takes audio in, but it is no microphone.
+    var ownDeviceID: AudioObjectID { aggregateID }
 
     private init() {}
 
