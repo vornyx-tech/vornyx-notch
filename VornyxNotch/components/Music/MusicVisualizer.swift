@@ -19,6 +19,7 @@ import CoreAudio
 import Defaults
 import SwiftUI
 import os
+import simd
 
 // MARK: - The bars
 
@@ -309,10 +310,23 @@ final class SystemAudioLevels: ObservableObject {
 
     // MARK: Publishing
 
+    /// Each band's recent peak, forgotten slowly, to read the band against.
+    private var peaks = SIMD4<Float>(repeating: 0)
+
     private func publish() {
         guard let processor else { return }
-        let values = processor.levels()
-        let loud = values.max() > 0.004
+        let raw = processor.levels()
+        let loud = raw.max() > 0.0005
+
+        // Music spreads its energy across the bands, so each one alone is a
+        // few percent of full scale - raw, the bars barely moved. Each is read
+        // against its own recent peak instead, which fades over a few seconds:
+        // the bars use their height at any volume, in any track.
+        peaks = SIMD4(
+            max(peaks[0] * 0.997, raw[0]), max(peaks[1] * 0.997, raw[1]),
+            max(peaks[2] * 0.997, raw[2]), max(peaks[3] * 0.997, raw[3]))
+        let floor = SIMD4<Float>(repeating: 0.002)
+        let values = raw / simd_max(peaks, floor)
 
         // Silence while music plays: no permission, or a player the tap cannot
         // hear. Given a moment, since a quiet passage is silence too.
@@ -324,7 +338,7 @@ final class SystemAudioLevels: ObservableObject {
         let signal = loud || (silentSince.map { Date().timeIntervalSince($0) < 2 } ?? false)
         if signal != hasSignal { hasSignal = signal }
         guard signal else { return }
-        bars = [values[0], values[1], values[2], values[3]].map { CGFloat(min(1, $0)) }
+        bars = [values[0], values[1], values[2], values[3]].map { CGFloat(min(1, max(0, $0))) }
     }
 
     // MARK: Core Audio
@@ -407,6 +421,7 @@ final class SystemAudioLevels: ObservableObject {
             tapID = AudioObjectID(kAudioObjectUnknown)
         }
         processor = nil
+        peaks = SIMD4(repeating: 0)
         tappedBundleID = nil
         silentSince = nil
         if hasSignal { hasSignal = false }
