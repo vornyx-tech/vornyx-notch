@@ -272,17 +272,13 @@ struct MusicControlsView: View {
                         let v = scalar.value
                         return v >= 0x0600 && v <= 0x06FF
                     }
-                    MarqueeText(
-                        .constant(line),
-                        font: .subheadline,
-                        nsFont: .subheadline,
-                        textColor: musicManager.isFetchingLyrics ? .gray.opacity(0.7) : .gray,
-                        frameWidth: width
+                    LyricLine(
+                        line: line,
+                        color: musicManager.isFetchingLyrics ? .gray.opacity(0.7) : .gray,
+                        font: isPersian ? .custom("Vazirmatn-Regular", size: NSFont.preferredFont(forTextStyle: .subheadline).pointSize) : .subheadline,
+                        width: width
                     )
-                    .font(isPersian ? .custom("Vazirmatn-Regular", size: NSFont.preferredFont(forTextStyle: .subheadline).pointSize) : .subheadline)
-                    .lineLimit(1)
                     .opacity(musicManager.isPlaying ? 1 : 0)
-                    .transition(.opacity.combined(with: .move(edge: .top)))
                 }
             }
         }
@@ -1083,5 +1079,55 @@ private struct ArtworkClip: Shape {
             return Path(rect.insetBy(dx: -rect.width * 0.3, dy: -rect.height * 0.3))
         }
         return RoundedRectangle(cornerRadius: cornerRadius).path(in: rect)
+    }
+}
+
+/// One line of the lyrics under the artist, rolling up to the next the way
+/// Apple Music's do: the old line lifts away blurring out as the new one rises
+/// into its place and comes into focus.
+private struct LyricLine: View {
+    let line: String
+    let color: Color
+    let font: Font
+    let width: CGFloat
+
+    var body: some View {
+        ZStack(alignment: .leading) {
+            MarqueeText(
+                .constant(line),
+                font: .subheadline,
+                nsFont: .subheadline,
+                textColor: color,
+                frameWidth: width
+            )
+            .font(font)
+            .lineLimit(1)
+            .id(line)
+            .transition(.asymmetric(
+                insertion: .modifier(
+                    active: LyricRoll(offset: 12, blur: 4, opacity: 0, scale: 0.96),
+                    identity: LyricRoll(offset: 0, blur: 0, opacity: 1, scale: 1)),
+                removal: .modifier(
+                    active: LyricRoll(offset: -12, blur: 4, opacity: 0, scale: 0.96),
+                    identity: LyricRoll(offset: 0, blur: 0, opacity: 1, scale: 1))))
+        }
+        .frame(width: width, alignment: .leading)
+        .clipped()
+        .animation(.spring(response: 0.5, dampingFraction: 0.86), value: line)
+    }
+}
+
+private struct LyricRoll: ViewModifier {
+    let offset: CGFloat
+    let blur: CGFloat
+    let opacity: Double
+    let scale: CGFloat
+
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(scale, anchor: .leading)
+            .offset(y: offset)
+            .blur(radius: blur)
+            .opacity(opacity)
     }
 }
