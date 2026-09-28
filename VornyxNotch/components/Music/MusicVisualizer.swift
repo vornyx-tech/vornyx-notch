@@ -296,7 +296,9 @@ final class SystemAudioLevels: ObservableObject {
             return
         }
         silentSince = nil
-        let ticker = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
+        // Thirty a second: as smooth to the eye as sixty for four small bars,
+        // and half the redrawing.
+        let ticker = Timer(timeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.publish() }
         }
         RunLoop.main.add(ticker, forMode: .common)
@@ -330,8 +332,8 @@ final class SystemAudioLevels: ObservableObject {
         // against its own recent peak instead, which fades over a few seconds:
         // the bars use their height at any volume, in any track.
         peaks = SIMD4(
-            max(peaks[0] * 0.997, raw[0]), max(peaks[1] * 0.997, raw[1]),
-            max(peaks[2] * 0.997, raw[2]), max(peaks[3] * 0.997, raw[3]))
+            max(peaks[0] * 0.994, raw[0]), max(peaks[1] * 0.994, raw[1]),
+            max(peaks[2] * 0.994, raw[2]), max(peaks[3] * 0.994, raw[3]))
         let floor = SIMD4<Float>(repeating: 0.002)
         // A quarter's headroom over the peak, so the loudest beat reaches
         // high but seldom slams flat against the top.
@@ -339,7 +341,8 @@ final class SystemAudioLevels: ObservableObject {
         // Eased on screen as well - up quickly, down gently - so the bars
         // swing with the beat rather than twitching at every block.
         for band in 0 ..< 4 {
-            let rate: Float = target[band] > shown[band] ? 0.45 : 0.15
+            // The rates for 30 frames a second, the same feel as they had at 60.
+            let rate: Float = target[band] > shown[band] ? 0.7 : 0.28
             shown[band] += (target[band] - shown[band]) * rate
         }
         let values = shown

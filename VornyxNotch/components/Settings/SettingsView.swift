@@ -974,7 +974,7 @@ struct Media: View {
                 Defaults.Toggle(key: .realAudioSpectrum) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Bars follow the music")
-                        Text("The bars move with what the player is actually playing. Needs the system audio permission; without it they move on their own.")
+                        Text("The bars move with what your player is playing. Vornyx Notch reads only how loud the sound is - four numbers, many times a second - and keeps none of it: nothing is recorded, saved or sent anywhere. While it is on, macOS shows its purple System Audio indicator; that is this. Off, the bars move on their own.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }

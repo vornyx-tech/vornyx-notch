@@ -112,7 +112,7 @@ enum PermissionKind: String, CaseIterable, Identifiable {
         case .location: return "Local weather. You can name a place in Settings instead."
         case .localNetwork: return "Finding nearby devices for LocalSend."
         case .mediaApps: return "Reading what is playing, and the play, pause and skip buttons."
-        case .systemAudio: return "Bars in the notch that move with the music. The screen is never captured."
+        case .systemAudio: return "Optional. Lets the bars in the notch move with the music. Only how loud it is is read - nothing is recorded or sent - and macOS shows a purple indicator while it is on."
         }
     }
 
