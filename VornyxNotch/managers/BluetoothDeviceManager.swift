@@ -24,6 +24,8 @@ struct ConnectedBluetoothDevice: Equatable {
     var left: Int? = nil
     var right: Int? = nil
     var caseLevel: Int? = nil
+    /// Which pair, for drawing each ear and the case.
+    var model: AirPodsModel? = nil
 
     var hasEars: Bool { left != nil || right != nil }
 }
@@ -119,7 +121,7 @@ final class BluetoothDeviceManager: ObservableObject {
     static func device(for pair: AirPodsBattery) -> ConnectedBluetoothDevice {
         ConnectedBluetoothDevice(
             name: pair.name, symbol: pair.model.symbol, battery: pair.headline,
-            left: pair.left, right: pair.right, caseLevel: pair.caseLevel)
+            left: pair.left, right: pair.right, caseLevel: pair.caseLevel, model: pair.model)
     }
 
     // MARK: - Reading

@@ -356,14 +356,37 @@ struct DropDownBanner: View {
 
     // MARK: - Bluetooth
 
+    /// A part's level as a ring with the part drawn in it - the left bud,
+    /// the right, the case - and the percentage under it, the way the open
+    /// notch's AirPods widget shows them.
     @ViewBuilder
-    private func labelledRing(_ level: Int?, _ label: String) -> some View {
+    private func partRing(_ level: Int?, symbol: String?, label: String) -> some View {
         if let level {
-            VStack(spacing: 2) {
-                BatteryRing(level: level)
-                Text(label)
-                    .font(.system(size: 8, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.5))
+            let tint: Color = level < 20 ? .red : (level < 50 ? .orange : .green)
+            VStack(spacing: 3) {
+                ZStack {
+                    Circle().stroke(.white.opacity(0.12), lineWidth: 2.5)
+                    Circle()
+                        .trim(from: 0, to: CGFloat(level) / 100)
+                        .stroke(tint, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                    if let symbol {
+                        Image(systemName: symbol)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.9))
+                    } else {
+                        Text(label)
+                            .font(.system(size: 9, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white.opacity(0.9))
+                    }
+                }
+                .frame(width: 28, height: 28)
+
+                Text("\(level)%")
+                    .font(.system(size: 9, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(tint)
+                    .fixedSize()
             }
         }
     }
@@ -380,10 +403,11 @@ struct DropDownBanner: View {
             Spacer(minLength: 0)
             if let device, device.hasEars {
                 // Ear by ear and the case, the way the AirPods widget shows it.
+                let model = device.model ?? AirPodsModel(productID: nil, name: device.name, hasEars: true)
                 HStack(spacing: 10) {
-                    labelledRing(device.left, "L")
-                    labelledRing(device.right, "R")
-                    labelledRing(device.caseLevel, "Case")
+                    partRing(device.left, symbol: model.leftSymbol, label: "L")
+                    partRing(device.right, symbol: model.rightSymbol, label: "R")
+                    partRing(device.caseLevel, symbol: model.caseSymbol, label: "C")
                 }
             } else if let level = device?.battery {
                 BatteryRing(level: level)
