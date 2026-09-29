@@ -372,7 +372,7 @@ struct DropDownBanner: View {
                         .rotationEffect(.degrees(-90))
                     if let symbol {
                         Image(systemName: symbol)
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.system(size: 16, weight: .medium))
                             .foregroundStyle(.white.opacity(0.9))
                     } else {
                         Text(label)
@@ -380,7 +380,7 @@ struct DropDownBanner: View {
                             .foregroundStyle(.white.opacity(0.9))
                     }
                 }
-                .frame(width: 28, height: 28)
+                .frame(width: 30, height: 30)
 
                 Text("\(level)%")
                     .font(.system(size: 9, weight: .semibold, design: .rounded))

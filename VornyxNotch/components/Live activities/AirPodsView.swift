@@ -73,7 +73,8 @@ private struct LevelRing: View {
 
                 if let symbol = part.symbol {
                     Image(systemName: symbol)
-                        .font(.system(size: diameter * 0.36, weight: .medium))
+                        // Big enough to read as a bud or a case, not a dot.
+                        .font(.system(size: diameter * 0.52, weight: .medium))
                         .foregroundStyle(.white.opacity(0.9))
                 } else {
                     Text(part.label)
