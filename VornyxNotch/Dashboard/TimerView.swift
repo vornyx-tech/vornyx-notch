@@ -13,6 +13,10 @@ import SwiftUI
 /// add or take time off the one going.
 struct TimerView: View {
     @ObservedObject private var countdown = CountdownManager.shared
+    /// Read here rather than through the manager: a setting changing does
+    /// not republish the manager, so the length stepped with - and + stayed
+    /// on screen as it was until the countdown started.
+    @Default(.timerLastDuration) private var lastDuration
 
     /// Lengths offered for a click, in minutes.
     private static let presets: [Int] = [5, 10, 15, 25, 45, 60]
@@ -40,7 +44,7 @@ struct TimerView: View {
 
     private var timeLabel: String {
         if isGoing || countdown.state == .finished { return countdown.label }
-        return CountdownManager.format(countdown.lastDuration)
+        return CountdownManager.format(lastDuration)
     }
 
     /// How much of the ring is lit: what is left of the countdown, or all of
@@ -108,7 +112,7 @@ struct TimerView: View {
             spacing: 6
         ) {
             ForEach(Self.presets, id: \.self) { minutes in
-                let current = !isGoing && Int(countdown.lastDuration / 60) == minutes
+                let current = !isGoing && Int(lastDuration / 60) == minutes
                 Button {
                     countdown.start(Double(minutes) * 60)
                 } label: {
@@ -146,7 +150,7 @@ struct TimerView: View {
             if isGoing {
                 countdown.adjust(by: seconds)
             } else {
-                countdown.lastDuration = (countdown.lastDuration + seconds).clamped(to: 60...Self.longest)
+                lastDuration = (lastDuration + seconds).clamped(to: 60...Self.longest)
             }
         } label: {
             Image(systemName: symbol)
