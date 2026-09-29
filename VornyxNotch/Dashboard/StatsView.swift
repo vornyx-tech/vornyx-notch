@@ -5,70 +5,46 @@
 
 import SwiftUI
 
-/// One number, one graph, and two quiet meters under it.
+/// Three rings for the processor, memory and disk; under them, the
+/// processor's recent history and the network, each in a tile of its own.
 struct StatsView: View {
     @ObservedObject private var stats = StatsManager.shared
 
     var body: some View {
         // Sized to fit the notch: this column gets about 190pt of the
-        // dashboard's 252, and the row takes the height of its tallest child.
-        VStack(alignment: .leading, spacing: 6) {
-            hero
-            chart
-            meters
-            network
-            Spacer(minLength: 0)
+        // dashboard's 252.
+        VStack(spacing: 8) {
+            HStack(spacing: 8) {
+                gauge(
+                    "Processor", value: reading.cpu, tint: cpuTint,
+                    detail: "\(reading.cores) cores")
+                gauge(
+                    "Memory", value: reading.memory,
+                    tint: reading.memory < 0.85 ? .cyan : .red,
+                    detail: "\(StatsManager.bytes(reading.memoryUsedBytes)) of \(StatsManager.bytes(reading.memoryTotalBytes))")
+                gauge(
+                    "Disk", value: reading.disk,
+                    tint: reading.disk < 0.9 ? .purple : .red,
+                    detail: "\(StatsManager.bytes(reading.diskUsedBytes)) of \(StatsManager.bytes(reading.diskTotalBytes))")
+            }
+            // Their own height; the tiles below take what is left.
+            .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 8) {
+                historyTile
+                networkTile
+            }
+
             footer
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .onAppear { stats.addWatcher() }
         .onDisappear { stats.removeWatcher() }
     }
 
     private var reading: MachineStats { stats.stats }
 
-    // MARK: - Hero
-
-    private var hero: some View {
-        HStack(alignment: .lastTextBaseline, spacing: 3) {
-            Text("\(Int((reading.cpu * 100).rounded()))")
-                .font(.system(size: 40, weight: .light, design: .rounded))
-                .monospacedDigit()
-                .contentTransition(.numericText())
-                // Light type on black loses its edges without the gradient.
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [.white, tint.opacity(0.85)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-
-            Text("%")
-                .font(.system(size: 16, weight: .medium, design: .rounded))
-                .foregroundStyle(.white.opacity(0.35))
-
-            Spacer(minLength: 0)
-
-            VStack(alignment: .trailing, spacing: 1) {
-                Text("Processor")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.85))
-                Text("\(reading.cores) cores · load \(String(format: "%.2f", reading.loadAverage))")
-                    .font(.system(size: 9))
-                    .foregroundStyle(.white.opacity(0.35))
-                    .monospacedDigit()
-            }
-        }
-    }
-
-    /// Full width and unboxed, running off both edges of the page.
-    private var chart: some View {
-        AreaChart(values: stats.cpuHistory, ceiling: 1, tint: tint)
-            .frame(height: 42)
-    }
-
-    private var tint: Color {
+    private var cpuTint: Color {
         switch reading.cpu {
         case ..<0.6: return Color.effectiveAccent
         case ..<0.85: return .orange
@@ -76,84 +52,115 @@ struct StatsView: View {
         }
     }
 
-    // MARK: - Meters
+    // MARK: - Tiles
 
-    private var meters: some View {
-        VStack(spacing: 6) {
-            meter(
-                "Memory",
-                value: reading.memory,
-                detail: "\(StatsManager.bytes(reading.memoryUsedBytes)) of "
-                    + StatsManager.bytes(reading.memoryTotalBytes),
-                tint: reading.memory < 0.85 ? .cyan : .red
-            )
-            meter(
-                "Disk",
-                value: reading.disk,
-                detail: "\(StatsManager.bytes(reading.diskUsedBytes)) of "
-                    + StatsManager.bytes(reading.diskTotalBytes),
-                tint: .white.opacity(0.55)
-            )
-        }
+    private func tile<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        content()
+            .padding(8)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(.white.opacity(0.05))
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(.white.opacity(0.06), lineWidth: 1)
+            }
     }
 
-    /// Name on the left, figures on the right, bar underneath spanning both.
-    private func meter(_ title: String, value: Double, detail: String, tint: Color) -> some View {
-        VStack(spacing: 3) {
-            HStack(spacing: 4) {
-                Text(title)
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.75))
-                Spacer(minLength: 0)
-                Text(detail)
-                    .font(.system(size: 9))
-                    .foregroundStyle(.white.opacity(0.35))
-                    .monospacedDigit()
-            }
+    /// A ring filled to the reading, the percentage in it, name and figures
+    /// under it.
+    private func gauge(_ title: String, value: Double, tint: Color, detail: String) -> some View {
+        tile {
+            VStack(spacing: 5) {
+                ZStack {
+                    Circle()
+                        .stroke(.white.opacity(0.08), lineWidth: 5)
+                    Circle()
+                        .trim(from: 0, to: value.clamped(to: 0...1))
+                        .stroke(tint, style: StrokeStyle(lineWidth: 5, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                        .shadow(color: tint.opacity(0.4), radius: 4)
+                        .animation(.smooth(duration: 0.5), value: value)
+                    HStack(alignment: .firstTextBaseline, spacing: 0) {
+                        Text("\(Int((value * 100).rounded()))")
+                            .font(.system(size: 14, weight: .semibold, design: .rounded))
+                            .monospacedDigit()
+                            .contentTransition(.numericText())
+                            .animation(.smooth(duration: 0.3), value: Int((value * 100).rounded()))
+                        Text("%")
+                            .font(.system(size: 8, weight: .semibold, design: .rounded))
+                            .foregroundStyle(.white.opacity(0.45))
+                    }
+                    .foregroundStyle(.white)
+                }
+                .frame(width: 44, height: 44)
 
-            GeometryReader { proxy in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(.white.opacity(0.07))
-                    Capsule()
-                        .fill(tint)
-                        .frame(width: max(3, proxy.size.width * value.clamped(to: 0...1)))
-                        .animation(.smooth(duration: 0.4), value: value)
+                VStack(spacing: 1) {
+                    Text(title)
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.85))
+                    Text(detail)
+                        .font(.system(size: 8))
+                        .foregroundStyle(.white.opacity(0.4))
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
                 }
             }
-            .frame(height: 3)
         }
     }
 
-    // MARK: - Network
+    /// The processor over the last while, and its load.
+    private var historyTile: some View {
+        tile {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 4) {
+                    Text("Activity")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.7))
+                    Spacer(minLength: 0)
+                    Text("load \(String(format: "%.2f", reading.loadAverage))")
+                        .font(.system(size: 8))
+                        .foregroundStyle(.white.opacity(0.4))
+                        .monospacedDigit()
+                }
+                AreaChart(values: stats.cpuHistory, ceiling: 1, tint: cpuTint)
+                    .frame(maxHeight: .infinity)
+            }
+        }
+    }
 
-    /// Rates on the outside, the shape of the traffic between them.
-    private var network: some View {
-        HStack(spacing: 8) {
-            rate("arrow.down", StatsManager.rate(reading.networkDown), .cyan)
-
-            MirroredChart(
-                values: stats.networkHistory,
-                ceiling: max(64_000, stats.networkPeak)
-            )
-            .frame(height: 20)
-            .frame(maxWidth: .infinity)
-
-            rate("arrow.up", StatsManager.rate(reading.networkUp), .orange)
+    /// Down and up, their rates beside the shape of the traffic.
+    private var networkTile: some View {
+        tile {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 8) {
+                    rate("arrow.down", StatsManager.rate(reading.networkDown), .cyan)
+                    rate("arrow.up", StatsManager.rate(reading.networkUp), .orange)
+                    Spacer(minLength: 0)
+                }
+                MirroredChart(
+                    values: stats.networkHistory,
+                    ceiling: max(64_000, stats.networkPeak)
+                )
+                .frame(maxHeight: .infinity)
+            }
         }
     }
 
     private func rate(_ symbol: String, _ value: String, _ tint: Color) -> some View {
         HStack(spacing: 3) {
             Image(systemName: symbol)
-                .font(.system(size: 8, weight: .black))
+                .font(.system(size: 7, weight: .black))
                 .foregroundStyle(tint)
             Text(value)
                 .font(.system(size: 9, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.7))
+                .foregroundStyle(.white.opacity(0.75))
                 .monospacedDigit()
                 .lineLimit(1)
+                .minimumScaleFactor(0.8)
         }
-        .frame(width: 62, alignment: .leading)
     }
 
     // MARK: - Footer
@@ -171,6 +178,7 @@ struct StatsView: View {
                 .lineLimit(1)
             Spacer(minLength: 0)
         }
+        .padding(.horizontal, 4)
     }
 
     private var footerText: String {
