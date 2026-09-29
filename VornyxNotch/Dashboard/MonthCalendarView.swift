@@ -283,8 +283,8 @@ struct DayAgendaView: View {
                     }
                 } else {
                     Task {
-                        await calendarManager.checkCalendarAuthorization()
-                        await calendarManager.checkReminderAuthorization()
+                        await calendarManager.checkCalendarAuthorization(ask: true)
+                        await calendarManager.checkReminderAuthorization(ask: true)
                         await calendarManager.loadAgenda(for: date)
                     }
                 }

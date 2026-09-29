@@ -109,6 +109,9 @@ final class WeatherManager: NSObject, ObservableObject {
         case loading
         /// No location, and no place typed in Settings to fall back on.
         case needsLocation
+        /// Location never asked for: waits for the button, rather than the
+        /// dashboard popping a prompt the moment it opens.
+        case needsPermission
         case failed(String)
     }
 
@@ -133,6 +136,14 @@ final class WeatherManager: NSObject, ObservableObject {
     }
 
     // MARK: Refreshing
+
+    /// The Allow button: macOS's prompt, then the forecast once it is answered
+    /// - see `locationManagerDidChangeAuthorization`.
+    func requestLocationAccess() {
+        guard locationManager.authorizationStatus == .notDetermined else { return refresh() }
+        state = .loading
+        locationManager.requestWhenInUseAuthorization()
+    }
 
     func refreshIfStale() {
         if let snapshot, Date().timeIntervalSince(snapshot.fetched) < staleAfter { return }
@@ -160,6 +171,7 @@ final class WeatherManager: NSObject, ObservableObject {
         } catch let error as LocationError {
             switch error {
             case .awaitingPermission: state = .loading
+            case .notAsked: state = .needsPermission
             case .denied: state = .needsLocation
             default: state = .failed(error.message)
             }
@@ -177,6 +189,8 @@ final class WeatherManager: NSObject, ObservableObject {
         /// The prompt is on screen; the answer arrives at
         /// `locationManagerDidChangeAuthorization`, which starts the fetch again.
         case awaitingPermission
+        /// Never asked, and not to be until the user presses Allow.
+        case notAsked
 
         var message: String {
             switch self {
@@ -184,6 +198,7 @@ final class WeatherManager: NSObject, ObservableObject {
             case .unknownPlace(let name): return "Couldn't find \"\(name)\"."
             case .unavailable: return "Couldn't work out where you are. Name a place in Settings."
             case .awaitingPermission: return "Waiting for permission…"
+            case .notAsked: return "Location not allowed yet."
             }
         }
     }
@@ -205,9 +220,7 @@ final class WeatherManager: NSObject, ObservableObject {
         case .denied, .restricted:
             throw LocationError.denied
         case .notDetermined:
-            // Ask, then stop here: requestLocation fails before the answer comes back.
-            locationManager.requestWhenInUseAuthorization()
-            throw LocationError.awaitingPermission
+            throw LocationError.notAsked
         default:
             break
         }

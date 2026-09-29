@@ -303,6 +303,15 @@ struct WeatherView: View {
                     .font(.system(size: 10))
                     .foregroundStyle(.tertiary)
                 settingsButton
+            case .needsPermission:
+                Image(systemName: "location")
+                    .font(.title3)
+                    .foregroundStyle(.tertiary)
+                Text("Weather where you are")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+                Button("Allow location") { weather.requestLocationAccess() }
+                    .controlSize(.small)
             case .failed(let message):
                 Image(systemName: "exclamationmark.triangle")
                     .font(.title3)
