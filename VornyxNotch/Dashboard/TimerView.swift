@@ -6,54 +6,54 @@
 import Defaults
 import SwiftUI
 
-/// The time on top, a horizontal slider that sets it, the controls below.
+/// A ring with the time in it on the left; on the right, lengths to start
+/// with one click, fine steps, and play and reset.
 ///
-/// Idle, the slider picks the next countdown's length. Running or paused, it
-/// shows what is left and dragging it moves the countdown's end.
+/// Idle, the steps set the next countdown's length. Running or paused, they
+/// add or take time off the one going.
 struct TimerView: View {
     @ObservedObject private var countdown = CountdownManager.shared
 
-    /// What the knob is on while it is held, in minutes.
-    @State private var dragMinutes: Double?
-
-    static let range: ClosedRange<Double> = 1...120
+    /// Lengths offered for a click, in minutes.
+    private static let presets: [Int] = [5, 10, 15, 25, 45, 60]
+    private static let longest: Double = 12 * 60 * 60
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            header
-            TimerSlider(
-                minutes: sliderMinutes,
-                range: Self.range,
-                tint: Color.effectiveAccent,
-                onChange: { dragMinutes = $0 },
-                onCommit: commit
-            )
-            .frame(height: 40)
-            transport
+        HStack(alignment: .center, spacing: 18) {
+            ring
+                .frame(width: 138, height: 138)
+
+            VStack(alignment: .leading, spacing: 10) {
+                presetGrid
+                stepper
+                transport
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 6)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     // MARK: - Reading
 
-    /// Minutes the slider sits at: the held value, what is left, or the next
-    /// countdown's length.
-    private var sliderMinutes: Double {
-        if let dragMinutes { return dragMinutes }
-        if countdown.isActive || countdown.state == .finished {
-            return countdown.remaining / 60
-        }
-        return countdown.lastDuration / 60
-    }
+    private var isGoing: Bool { countdown.isActive }
 
     private var timeLabel: String {
-        if let dragMinutes { return CountdownManager.format(dragMinutes.rounded() * 60) }
-        if countdown.isActive || countdown.state == .finished { return countdown.label }
+        if isGoing || countdown.state == .finished { return countdown.label }
         return CountdownManager.format(countdown.lastDuration)
     }
 
+    /// How much of the ring is lit: what is left of the countdown, or all of
+    /// it while nothing runs.
+    private var fraction: Double {
+        switch countdown.state {
+        case .running, .paused: return 1 - countdown.progress
+        case .finished: return 0
+        case .idle: return 1
+        }
+    }
+
     private var status: String {
-        if dragMinutes != nil { return countdown.isActive ? "Change" : "Set" }
         switch countdown.state {
         case .idle: return "Ready"
         case .running: return "Running"
@@ -62,180 +62,132 @@ struct TimerView: View {
         }
     }
 
-    private var statusTint: Color {
-        switch countdown.state {
-        case .finished: return Color.effectiveAccent
-        case .running: return .white.opacity(0.45)
-        default: return .white.opacity(0.3)
-        }
-    }
+    private var tint: Color { CountdownManager.color }
 
     // MARK: - Pieces
 
-    private var header: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text(timeLabel)
-                .font(.system(size: 30, weight: .semibold, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(.white)
-                .contentTransition(.numericText())
-                .animation(.smooth(duration: 0.15), value: timeLabel)
+    private var ring: some View {
+        ZStack {
+            Circle()
+                .stroke(.white.opacity(0.08), lineWidth: 8)
 
-            Text(status)
-                .font(.system(size: 9, weight: .semibold))
-                .textCase(.uppercase)
-                .kerning(0.5)
-                .foregroundStyle(statusTint)
+            Circle()
+                .trim(from: 0, to: fraction)
+                .stroke(
+                    tint.opacity(countdown.state == .idle ? 0.35 : 1),
+                    style: StrokeStyle(lineWidth: 8, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+                .shadow(color: tint.opacity(countdown.state == .running ? 0.45 : 0), radius: 6)
+                .animation(.linear(duration: 1), value: fraction)
+                .animation(.smooth(duration: 0.3), value: countdown.state)
 
-            Spacer(minLength: 0)
+            VStack(spacing: 2) {
+                Text(timeLabel)
+                    .font(.system(size: timeLabel.count > 5 ? 22 : 28, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(.white)
+                    .contentTransition(.numericText())
+                    .animation(.smooth(duration: 0.2), value: timeLabel)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+
+                Text(status)
+                    .font(.system(size: 9, weight: .semibold))
+                    .textCase(.uppercase)
+                    .kerning(0.6)
+                    .foregroundStyle(countdown.state == .finished ? tint : .white.opacity(0.4))
+            }
+            .padding(.horizontal, 14)
         }
+    }
+
+    /// One click starts a countdown of that length, over whatever runs.
+    private var presetGrid: some View {
+        LazyVGrid(
+            columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 3),
+            spacing: 6
+        ) {
+            ForEach(Self.presets, id: \.self) { minutes in
+                let current = !isGoing && Int(countdown.lastDuration / 60) == minutes
+                Button {
+                    countdown.start(Double(minutes) * 60)
+                } label: {
+                    Text(minutes == 60 ? "1h" : "\(minutes)m")
+                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .foregroundStyle(current ? .black.opacity(0.85) : .white.opacity(0.85))
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 24)
+                        .background {
+                            Capsule().fill(current ? tint.opacity(0.9) : .white.opacity(0.08))
+                        }
+                        .contentShape(Capsule())
+                }
+                .springyTile(hoverScale: 1.06, pressScale: 0.94, hoverBrightness: 0.12)
+            }
+        }
+    }
+
+    /// A minute off or on: the next length while idle, the running one else.
+    private var stepper: some View {
+        HStack(spacing: 6) {
+            stepButton("minus", seconds: -60)
+            Text(isGoing ? "Adjust" : "Length")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(.white.opacity(0.4))
+                .frame(maxWidth: .infinity)
+            stepButton("plus", seconds: 60)
+        }
+        .frame(height: 24)
+        .background { Capsule().fill(.white.opacity(0.05)) }
+    }
+
+    private func stepButton(_ symbol: String, seconds: TimeInterval) -> some View {
+        Button {
+            if isGoing {
+                countdown.adjust(by: seconds)
+            } else {
+                countdown.lastDuration = (countdown.lastDuration + seconds).clamped(to: 60...Self.longest)
+            }
+        } label: {
+            Image(systemName: symbol)
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(.white.opacity(0.8))
+                .frame(width: 32, height: 24)
+                .contentShape(Capsule())
+        }
+        .springyTile(hoverScale: 1.1, pressScale: 0.9, hoverBrightness: 0.15)
     }
 
     private var transport: some View {
-        HStack(spacing: 8) {
-            circleButton(
-                countdown.state == .running ? "pause.fill" : "play.fill",
-                prominent: true
-            ) {
+        HStack(spacing: 6) {
+            Button {
                 countdown.toggle()
+            } label: {
+                Label(
+                    countdown.state == .running ? "Pause" : (countdown.state == .paused ? "Resume" : "Start"),
+                    systemImage: countdown.state == .running ? "pause.fill" : "play.fill")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.black.opacity(0.85))
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 28)
+                    .background { Capsule().fill(tint) }
+                    .contentShape(Capsule())
             }
+            .springyTile(hoverScale: 1.04, pressScale: 0.95, hoverBrightness: 0.1)
 
-            circleButton("arrow.counterclockwise", prominent: false) {
+            Button {
                 countdown.reset()
+            } label: {
+                Image(systemName: "arrow.counterclockwise")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.8))
+                    .frame(width: 28, height: 28)
+                    .background { Circle().fill(.white.opacity(0.1)) }
+                    .contentShape(Circle())
             }
+            .springyTile(hoverScale: 1.1, pressScale: 0.9, hoverBrightness: 0.15)
             .disabled(countdown.state == .idle)
             .opacity(countdown.state == .idle ? 0.35 : 1)
-
-            Spacer(minLength: 0)
-
-            if countdown.isActive {
-                Text("Also in the closed notch")
-                    .font(.system(size: 9))
-                    .foregroundStyle(.white.opacity(0.35))
-                    .lineLimit(1)
-            }
         }
-    }
-
-    private func circleButton(
-        _ symbol: String,
-        prominent: Bool,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            Circle()
-                .fill(prominent ? Color.effectiveAccent.opacity(0.85) : .white.opacity(0.10))
-                .frame(width: prominent ? 28 : 24, height: prominent ? 28 : 24)
-                .overlay {
-                    Image(systemName: symbol)
-                        .font(.system(size: prominent ? 11 : 9, weight: .bold))
-                        .foregroundStyle(prominent ? .black.opacity(0.85) : .white.opacity(0.8))
-                }
-        }
-        .springyTile(hoverScale: 1.12, pressScale: 0.9, hoverBrightness: 0.12)
-    }
-
-    // MARK: - Driving
-
-    private func commit(_ minutes: Double) {
-        dragMinutes = nil
-        let seconds = minutes.rounded() * 60
-        switch countdown.state {
-        case .running, .paused:
-            countdown.adjust(by: seconds - countdown.remaining)
-        case .idle, .finished:
-            countdown.lastDuration = seconds
-        }
-    }
-}
-
-/// A ruler you drag along: a tick every five minutes, a taller one every
-/// fifteen, the fill up to the knob. Snaps to whole minutes.
-private struct TimerSlider: View {
-    let minutes: Double
-    let range: ClosedRange<Double>
-    let tint: Color
-    let onChange: (Double) -> Void
-    let onCommit: (Double) -> Void
-
-    @State private var held = false
-
-    var body: some View {
-        GeometryReader { proxy in
-            let width = proxy.size.width
-            let span = range.upperBound - range.lowerBound
-            let fraction = ((minutes - range.lowerBound) / span).clamped(to: 0...1)
-            let knobX = fraction * width
-            let trackHeight: CGFloat = held ? 10 : 8
-
-            ZStack(alignment: .leading) {
-                // Just under the track, which sits on the centre line.
-                ticks(width: width, span: span)
-                    .offset(y: 14)
-
-                Capsule()
-                    .fill(.white.opacity(0.10))
-                    .frame(height: trackHeight)
-
-                Capsule()
-                    .fill(
-                        LinearGradient(
-                            colors: [tint.opacity(0.6), tint],
-                            startPoint: .leading, endPoint: .trailing
-                        )
-                    )
-                    .frame(width: max(trackHeight, knobX), height: trackHeight)
-
-                Circle()
-                    .fill(.white)
-                    .frame(width: held ? 18 : 14, height: held ? 18 : 14)
-                    .shadow(color: .black.opacity(0.35), radius: 3, y: 1)
-                    .offset(x: knobX.clamped(to: 0...width) - (held ? 9 : 7))
-            }
-            .frame(height: proxy.size.height)
-            .contentShape(Rectangle())
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { gesture in
-                        held = true
-                        onChange(value(at: gesture.location.x, width: width, span: span))
-                    }
-                    .onEnded { gesture in
-                        held = false
-                        onCommit(value(at: gesture.location.x, width: width, span: span))
-                    }
-            )
-            .animation(.spring(response: 0.3, dampingFraction: 0.75), value: held)
-        }
-    }
-
-    private func value(at x: CGFloat, width: CGFloat, span: Double) -> Double {
-        guard width > 0 else { return range.lowerBound }
-        let raw = range.lowerBound + Double(x / width) * span
-        return raw.rounded().clamped(to: range)
-    }
-
-    /// Ticks under the track, with the fifteens labelled.
-    private func ticks(width: CGFloat, span: Double) -> some View {
-        let marks = stride(from: 0, through: Int(range.upperBound), by: 5).map { $0 }
-        return ZStack(alignment: .topLeading) {
-            ForEach(marks, id: \.self) { mark in
-                let x = CGFloat((Double(max(mark, Int(range.lowerBound))) - range.lowerBound) / span) * width
-                let major = mark % 15 == 0
-                Rectangle()
-                    .fill(.white.opacity(major ? 0.28 : 0.14))
-                    .frame(width: 1, height: major ? 6 : 3)
-                    .offset(x: x, y: 0)
-                if major && mark > 0 && mark < Int(range.upperBound) {
-                    Text("\(mark)")
-                        .font(.system(size: 7, weight: .medium, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.3))
-                        .fixedSize()
-                        .offset(x: x - 5, y: 7)
-                }
-            }
-        }
-        .frame(width: width, height: 16, alignment: .topLeading)
-        .allowsHitTesting(false)
     }
 }
