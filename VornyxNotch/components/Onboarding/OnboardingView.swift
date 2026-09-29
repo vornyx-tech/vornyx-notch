@@ -49,6 +49,7 @@ enum OnboardingStep: Int, CaseIterable {
     case welcome
     case permissions
     case theme
+    case deviceName
     case musicPermission
     case features
     case finished
@@ -75,7 +76,11 @@ struct OnboardingView: View {
                             .transition(.opacity)
 
                     case .theme:
-                        ThemeSelectionView { advance(to: .musicPermission) }
+                        ThemeSelectionView { advance(to: .deviceName) }
+                            .transition(.opacity)
+
+                    case .deviceName:
+                        DeviceNameView { advance(to: .musicPermission) }
                             .transition(.opacity)
 
                     case .musicPermission:
@@ -241,6 +246,70 @@ struct FeatureTourView: View {
             }
             .padding(.vertical, 13)
         }
+    }
+}
+
+/// The name LocalSend shows for this Mac on everyone else's devices, set
+/// once up front. Left empty, it is the Mac's own name.
+struct DeviceNameView: View {
+    let onContinue: () -> Void
+
+    @Default(.localSendAlias) private var alias
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Name your device")
+                .font(.system(size: 27, weight: .semibold))
+                .padding(.top, 26)
+
+            Text("For LocalSend: this is the name people see for your Mac when they send you files from their phone or computer.")
+                .font(.system(size: 13))
+                .foregroundStyle(.white.opacity(0.5))
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 6)
+
+            HStack(spacing: 12) {
+                Image(systemName: "laptopcomputer")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(Color.onboardingAccent)
+                    .frame(width: 24)
+                TextField("", text: $alias, prompt: Text(LocalSendManager.shared.alias).foregroundStyle(.white.opacity(0.35)))
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 16, weight: .medium))
+                    .focused($focused)
+                    .onSubmit(onContinue)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .background {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(.white.opacity(0.06))
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(focused ? Color.onboardingAccent : .white.opacity(0.1), lineWidth: focused ? 1.5 : 1)
+            }
+            .padding(.top, 24)
+
+            Text("Leave it empty to use your Mac's name. Change it any time in Settings > LocalSend.")
+                .font(.system(size: 11))
+                .foregroundStyle(.white.opacity(0.4))
+                .padding(.top, 10)
+
+            Spacer(minLength: 16)
+
+            Button(action: onContinue) {
+                Text("Continue")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(OnboardingPrimaryButtonStyle())
+            .controlSize(.large)
+            .keyboardShortcut(.defaultAction)
+        }
+        .padding(.horizontal, 34)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .onAppear { focused = true }
     }
 }
 
