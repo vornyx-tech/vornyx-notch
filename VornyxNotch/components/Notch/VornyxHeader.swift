@@ -16,6 +16,7 @@ struct VornyxHeader: View {
     @ObservedObject var audio = AudioDeviceManager.shared
     @ObservedObject var pods = AirPodsManager.shared
     @ObservedObject var hotspot = HotspotManager.shared
+    @ObservedObject var vpn = VPNManager.shared
     @State private var audioMenuHovering = false
     var body: some View {
         HStack(spacing: 0) {
@@ -40,6 +41,19 @@ struct VornyxHeader: View {
                         HotspotSymbol(side: 18)
                     }
                     .help("Personal Hotspot")
+                    .padding(.leading, 4)
+                }
+                // The VPN the same way: how long it has been up where there
+                // is room, its icon alone where there is not.
+                if let connected = vpn.connected, Defaults[.vpnLiveActivity], vm.notchState == .open {
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 5) {
+                            LiveCompanionSymbol(companion: .vpn(connected), side: 18)
+                            LiveCompanionValue(companion: .vpn(connected))
+                        }
+                        LiveCompanionSymbol(companion: .vpn(connected), side: 18)
+                    }
+                    .help(connected.name)
                     .padding(.leading, 4)
                 }
             }
