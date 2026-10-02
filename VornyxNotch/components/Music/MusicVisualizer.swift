@@ -268,13 +268,20 @@ final class SystemAudioLevels: ObservableObject {
         Defaults.publisher(.realAudioSpectrum, options: [])
             .sink { [weak self] _ in Task { @MainActor in self?.reconsider() } }
             .store(in: &watchers)
+        // Live activities paused: the bars are out of sight, so nothing is
+        // listened to until they come back.
+        VornyxViewCoordinator.shared.$liveActivitiesPaused.removeDuplicates()
+            .sink { [weak self] _ in Task { @MainActor in self?.reconsider() } }
+            .store(in: &watchers)
     }
 
-    /// Runs while anything shows the bars, the setting is on and music plays;
+    /// Runs while anything shows the bars, the setting is on, music plays and
+    /// the live activities are not paused;
     /// stops a moment after that is no longer so, so a notch opening and
     /// closing, or a track change, does not tear the tap down and rebuild it.
     private func reconsider() {
         let wanted = users > 0 && Defaults[.realAudioSpectrum] && MusicManager.shared.isPlaying
+            && !VornyxViewCoordinator.shared.liveActivitiesPaused
         if wanted {
             stopTask?.cancel()
             stopTask = nil
