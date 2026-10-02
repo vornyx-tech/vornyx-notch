@@ -968,6 +968,14 @@ struct Media: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                Defaults.Toggle(key: .lockScreenPlayer) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Music on the lock screen")
+                        Text("While music plays, the locked screen shows the player, with the lyrics when it is opened out.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 Defaults.Toggle(key: .enableLyrics) {
                     HStack {
                         Text("Show lyrics below artist name")
