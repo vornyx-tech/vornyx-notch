@@ -218,8 +218,6 @@ extension Defaults.Keys {
     static let vpnLiveActivity = Key<Bool>("vpnLiveActivity", default: true)
     /// Banners as the battery drops to 20% on battery, and reaches full.
     static let batteryAlerts = Key<Bool>("batteryAlerts", default: true)
-    /// A banner as a keyboard, mouse or other Bluetooth device connects.
-    static let bluetoothLiveActivity = Key<Bool>("bluetoothLiveActivity", default: true)
     /// A banner as the Mac joins a phone's Personal Hotspot.
     static let hotspotLiveActivity = Key<Bool>("hotspotLiveActivity", default: true)
     /// A word in the notch as the keyboard layout changes.

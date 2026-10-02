@@ -328,7 +328,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // until the Bluetooth permission is answered; see BluetoothAccess.
         BluetoothAccess.shared.whenAllowed {
             AirPodsManager.shared.start()
-            BluetoothDeviceManager.shared.start()
         }
         IndicatorsManager.shared.start()
         // One path monitor and a thirty-second backstop; the helper runs

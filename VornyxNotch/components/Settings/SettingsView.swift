@@ -461,9 +461,9 @@ struct IndicatorsSettings: View {
                     caption: "A banner as the battery drops to 20% on battery, and as it reaches full.",
                     enabled: .batteryAlerts, style: .batteryAlertBannerStyle)
                 BannerChoice(
-                    title: "Bluetooth devices",
-                    caption: "A keyboard, mouse, controller or headphones connecting, with the charge when it reports one. AirPods keep their own banner.",
-                    enabled: .bluetoothLiveActivity, style: .bluetoothBannerStyle)
+                    title: "AirPods",
+                    caption: "A pair connecting, with each ear's and the case's level.",
+                    enabled: .airPodsSneakPeek, style: .bluetoothBannerStyle)
                 BannerChoice(
                     title: "Personal Hotspot",
                     caption: "As the Mac joins a phone's hotspot, then how long it has been on.",
@@ -507,14 +507,6 @@ struct IndicatorsSettings: View {
                 .font(.caption)
             }
             Section {
-                Defaults.Toggle(key: .airPodsSneakPeek) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Announce AirPods connecting")
-                        Text("Shows the name and levels in the closed notch for a few seconds.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
                 Defaults.Toggle(key: .showAirPodsWidget) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Show AirPods on the home page")
