@@ -28,10 +28,6 @@ struct AlbumArtView: View {
     @Default(.trackChangeAnimation) private var trackChangeAnimation
     @Default(.albumArtSwipeGesture) private var swipeToSkip
     @Default(.enableGestures) private var gesturesEnabled
-    /// Swipes over the cover so far, and whether the last went back: the
-    /// cover leans into a swipe the moment it lands. Buttons do not count.
-    @State private var swipeCount = 0
-    @State private var swipedBack = false
     @ObservedObject var musicManager = MusicManager.shared
     @ObservedObject var vm: VornyxViewModel
     let albumArtNamespace: Namespace.ID
@@ -85,8 +81,6 @@ struct AlbumArtView: View {
                     case .right: musicManager.previousTrack()
                     default: return
                     }
-                    swipedBack = direction == .right
-                    swipeCount += 1
                     if Defaults[.enableHaptics] {
                         NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
                     }
@@ -126,8 +120,6 @@ struct AlbumArtView: View {
             case .flip:
                 FlippingArtwork(
                     image: musicManager.albumArt,
-                    skipCount: swipeCount,
-                    skipsBack: swipedBack,
                     cornerRadius: AlbumArtStyle.openCornerRadius)
             }
         }
@@ -285,8 +277,68 @@ struct MusicControlsView: View {
     }
 
     /// The line being sung, under the artist. A press opens the lyrics panel
-    /// below the notch, and another closes it.
+    /// below the notch, and another closes it. While the panel is open the
+    /// lyrics are there, so this line shows the album instead of the same
+    /// words twice.
     private func lyricsLine(width: CGFloat) -> some View {
+        Group {
+            if vm.isLyricsExpanded {
+                albumLine(width: width)
+                    .transition(.opacity)
+            } else {
+                lyricsTicker(width: width)
+                    .transition(.opacity)
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            withAnimation(VornyxViewCoordinator.tabChangeAnimation) {
+                vm.isLyricsExpanded.toggle()
+            }
+        }
+        .help(vm.isLyricsExpanded ? "Hide lyrics" : "Show lyrics")
+    }
+
+    /// The album, where it says something the title does not - a single's
+    /// album is the title again, "Self Aware - Single" under "Self Aware" -
+    /// and otherwise what a press on this line does now.
+    @ViewBuilder
+    private func albumLine(width: CGFloat) -> some View {
+        if Self.albumAddsSomething(musicManager.album, to: musicManager.songTitle) {
+            LyricLine(line: musicManager.album, width: width) {
+                MarqueeText(
+                    .constant(musicManager.album),
+                    font: .subheadline,
+                    nsFont: .subheadline,
+                    textColor: .gray,
+                    frameWidth: width)
+            }
+        } else {
+            HStack(spacing: 4) {
+                Image(systemName: "chevron.up")
+                    .font(.system(size: 9, weight: .bold))
+                Text("Hide lyrics")
+            }
+            .font(.subheadline)
+            .foregroundStyle(.gray.opacity(0.8))
+            .frame(width: width, alignment: .leading)
+        }
+    }
+
+    /// Whether the album's name is more than the title with "- Single",
+    /// "- EP" or the like after it.
+    private static func albumAddsSomething(_ album: String, to title: String) -> Bool {
+        func key(_ text: String) -> String {
+            text.replacingOccurrences(of: #"\s*[-–—]\s*(single|ep)\s*$"#, with: "",
+                                      options: [.regularExpression, .caseInsensitive])
+                .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
+                .filter { $0.isLetter || $0.isNumber }
+        }
+        let albumKey = key(album)
+        return !albumKey.isEmpty && albumKey != key(title)
+    }
+
+    private func lyricsTicker(width: CGFloat) -> some View {
         // Sixty times a second while playing: the words light up continuously.
         LyricsTicker(isRunning: musicManager.isPlaying) { now in
             let elapsed = musicManager.smoothedElapsed(at: now)
@@ -331,15 +383,8 @@ struct MusicControlsView: View {
                     }
                 }
             }
-            .opacity(musicManager.isPlaying || vm.isLyricsExpanded ? 1 : 0)
+            .opacity(musicManager.isPlaying ? 1 : 0)
         }
-        .contentShape(Rectangle())
-        .onTapGesture {
-            withAnimation(VornyxViewCoordinator.tabChangeAnimation) {
-                vm.isLyricsExpanded.toggle()
-            }
-        }
-        .help(vm.isLyricsExpanded ? "Hide lyrics" : "Show lyrics")
     }
 
     private var musicSlider: some View {
@@ -833,10 +878,6 @@ private extension AnyTransition {
 /// squashing one way then the other as it settles.
 private struct FlippingArtwork: View {
     let image: NSImage
-    /// Bumped the moment a swipe over the cover skips; the cover answers at
-    /// once.
-    let skipCount: Int
-    let skipsBack: Bool
     let cornerRadius: CGFloat
 
     @State private var current: NSImage
@@ -850,16 +891,9 @@ private struct FlippingArtwork: View {
     /// 0 is loose enough to swing past it a few times.
     @State private var jelly: Double = 0
     @State private var choreography: Task<Void, Never>?
-    /// The lean the cover makes the moment a skip is asked for, towards the
-    /// side it was swept to.
-    @State private var nudge: CGFloat = 0
-    /// Puts the cover back if the skip never brings a new one.
-    @State private var anticipationTimeout: Task<Void, Never>?
 
-    init(image: NSImage, skipCount: Int, skipsBack: Bool, cornerRadius: CGFloat) {
+    init(image: NSImage, cornerRadius: CGFloat) {
         self.image = image
-        self.skipCount = skipCount
-        self.skipsBack = skipsBack
         self.cornerRadius = cornerRadius
         _current = State(initialValue: image)
         _previous = State(initialValue: image)
@@ -872,35 +906,10 @@ private struct FlippingArtwork: View {
                 angle: angle, jelly: jelly, turns: turns,
                 current: current, previous: previous, cornerRadius: cornerRadius))
             .scaleEffect(scale)
-            .offset(x: nudge)
             .onChange(of: ObjectIdentifier(image)) { _, _ in turn(to: image) }
-            .onChange(of: skipCount) { _, _ in anticipate() }
-    }
-
-    /// The start of the turn, the moment a skip is asked for: the player
-    /// takes a beat to send the new track, and a cover that only moved then
-    /// read as late - most of all after a swipe, which is over by the time.
-    /// It sinks a little and leans the way it was swept; the turn picks up
-    /// from there when the new cover comes.
-    private func anticipate() {
-        withAnimation(.spring(response: 0.22, dampingFraction: 0.8)) {
-            scale = 0.88
-            nudge = skipsBack ? 10 : -10
-        }
-        anticipationTimeout?.cancel()
-        anticipationTimeout = Task { @MainActor in
-            try? await Task.sleep(for: .seconds(1.5))
-            guard !Task.isCancelled else { return }
-            withAnimation(.spring(response: 0.45, dampingFraction: 0.6)) {
-                scale = 1
-                nudge = 0
-            }
-        }
     }
 
     private func turn(to next: NSImage) {
-        anticipationTimeout?.cancel()
-        withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) { nudge = 0 }
         // Swapped before the angle moves: until it passes the edge, the angle
         // still says "previous", so there is no frame of the new cover early.
         previous = current

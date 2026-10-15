@@ -455,6 +455,7 @@ class MusicManager: ObservableObject {
             return
         }
 
+        let fromAppleMusic = bundleIdentifier?.contains("com.apple.Music") == true
         Task { @MainActor in
             self.isFetchingLyrics = true
             self.currentLyrics = ""
@@ -469,21 +470,48 @@ class MusicManager: ObservableObject {
                 return
             }
 
-            if let bundleIdentifier, bundleIdentifier.contains("com.apple.Music"),
-               let text = await self.appleMusicLyrics(), isCurrentLookup(generation) {
+            // Every source asked at once, each answer shown the moment it
+            // comes if it beats what is up: asked one after another, a slow
+            // source held up all the rest.
+            var textRank = 0
+            var linesRank = 0
+            await withTaskGroup(of: FoundLyrics?.self) { group in
+                if fromAppleMusic {
+                    group.addTask { await self.appleMusicLyrics().map { .text($0, rank: 3) } }
+                }
+                group.addTask {
+                    guard let found = await self.lrclibLyrics(title: title, artist: artist) else { return nil }
+                    return .both(found.plain, rank: 2, lines: found.lines)
+                }
+                group.addTask { await self.netEaseLyrics(title: title, artist: artist).map { .lines($0) } }
+
+                for await found in group {
+                    guard let found, isCurrentLookup(generation) else { continue }
+                    let (text, rankOfText, lines): (String, Int, [TimedLyric]) = {
+                        switch found {
+                        case .text(let text, let rank): return (text, rank, [])
+                        case .lines(let lines): return ("", 0, lines)
+                        case .both(let text, let rank, let lines): return (text, rank, lines)
+                        }
+                    }()
+                    if !lines.isEmpty, Self.rank(of: lines) > linesRank {
+                        linesRank = Self.rank(of: lines)
+                        self.syncedLyrics = lines
+                    }
+                    if !text.isEmpty, rankOfText > textRank {
+                        textRank = rankOfText
+                        self.currentLyrics = text
+                    }
+                    if self.currentLyrics.isEmpty, !self.syncedLyrics.isEmpty {
+                        self.currentLyrics = self.syncedLyrics.map(\.text).joined(separator: "\n")
+                    }
+                    if !self.currentLyrics.isEmpty { self.isFetchingLyrics = false }
+                }
+            }
+
+            if self.currentLyrics.isEmpty, self.syncedLyrics.isEmpty, isCurrentLookup(generation),
+               let text = await self.geniusLyrics(title: title, artist: artist), isCurrentLookup(generation) {
                 self.currentLyrics = text
-                self.isFetchingLyrics = false
-                // Apple Music's own lyrics carry no timings; LRCLIB's may.
-                await self.fetchSyncedLyricsFromWeb(title: title, artist: artist, generation: generation)
-            }
-            if self.currentLyrics.isEmpty, isCurrentLookup(generation) {
-                await self.fetchLyricsFromWeb(title: title, artist: artist, generation: generation)
-            }
-            if isCurrentLookup(generation) {
-                await self.fetchWordTimedLyrics(title: title, artist: artist, generation: generation)
-            }
-            if self.currentLyrics.isEmpty, self.syncedLyrics.isEmpty, isCurrentLookup(generation) {
-                await self.fetchLyricsFromGenius(title: title, artist: artist, generation: generation)
             }
             guard isCurrentLookup(generation) else { return }
             self.isFetchingLyrics = false
@@ -493,10 +521,10 @@ class MusicManager: ObservableObject {
             if self.syncedLyrics.isEmpty {
                 try? await Task.sleep(for: .seconds(15))
                 guard isCurrentLookup(generation) else { return }
-                await self.fetchSyncedLyricsFromWeb(title: title, artist: artist, generation: generation)
-                if self.syncedLyrics.isEmpty {
-                    await self.fetchWordTimedLyrics(title: title, artist: artist, generation: generation)
-                }
+                var lines = await self.lrclibLyrics(title: title, artist: artist)?.lines ?? []
+                if lines.isEmpty { lines = await self.netEaseLyrics(title: title, artist: artist) ?? [] }
+                guard isCurrentLookup(generation), !lines.isEmpty else { return }
+                self.syncedLyrics = lines
             }
             if isCurrentLookup(generation), !self.syncedLyrics.isEmpty {
                 await Self.cacheLyrics(
@@ -504,6 +532,19 @@ class MusicManager: ObservableObject {
                     title: title, artist: artist)
             }
         }
+    }
+
+    /// What one source found: words, timed lines, or both.
+    private enum FoundLyrics: Sendable {
+        case text(String, rank: Int)
+        case lines([TimedLyric])
+        case both(String, rank: Int, lines: [TimedLyric])
+    }
+
+    /// How good a set of timed lines is: timed by the word beats timed by the
+    /// line with the words guessed.
+    private static func rank(of lines: [TimedLyric]) -> Int {
+        lines.contains { !$0.wordsEstimated && !$0.words.isEmpty } ? 2 : 1
     }
 
     // MARK: Lyrics kept on disk
@@ -587,7 +628,7 @@ class MusicManager: ObservableObject {
     /// deal that no lyrics service times, fresh Russian rap included. Found by
     /// its search, read off the song's page.
     @MainActor
-    private func fetchLyricsFromGenius(title: String, artist: String, generation: Int) async {
+    private func geniusLyrics(title: String, artist: String) async -> String? {
         let bare = Self.bareTitle(title)
         var components = URLComponents(string: "https://genius.com/api/search/song")
         components?.queryItems = [.init(name: "q", value: "\(Self.firstArtist(artist)) \(bare)")]
@@ -595,7 +636,7 @@ class MusicManager: ObservableObject {
               let data = await Self.webData(url),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let sections = (json["response"] as? [String: Any])?["sections"] as? [[String: Any]]
-        else { return }
+        else { return nil }
 
         let wantedTitle = Self.matchKey(bare)
         let wantedArtist = Self.matchKey(artist)
@@ -608,11 +649,9 @@ class MusicManager: ObservableObject {
             return !key.isEmpty && (wantedArtist.contains(key) || key.contains(wantedArtist))
         }
         guard let path = song?["url"] as? String, let page = URL(string: path),
-              let html = await Self.webData(page).flatMap({ String(data: $0, encoding: .utf8) }),
-              let text = Self.geniusLyrics(in: html), isCurrentLookup(generation)
-        else { return }
-        self.currentLyrics = text
-        self.isFetchingLyrics = false
+              let html = await Self.webData(page).flatMap({ String(data: $0, encoding: .utf8) })
+        else { return nil }
+        return Self.geniusLyrics(in: html)
     }
 
     /// The lyrics off a Genius song page: the text of its lyrics containers,
@@ -717,12 +756,11 @@ class MusicManager: ObservableObject {
     // MARK: Word-timed lyrics
 
     /// NetEase Cloud Music times each word for a good part of its catalogue,
-    /// Western music included, in its own "yrc" format. Asked after the usual
-    /// lyrics are already showing, so a slow or missing answer costs nothing:
-    /// when it has the song, its lines replace the line-timed ones. It is not
-    /// a public API, so any failure just leaves the lyrics as they were.
+    /// Western music included, in its own "yrc" format; where it does not, it
+    /// often times the lines. It is not a public API, so any failure is just
+    /// nothing found.
     @MainActor
-    private func fetchWordTimedLyrics(title: String, artist: String, generation: Int) async {
+    private func netEaseLyrics(title: String, artist: String) async -> [TimedLyric]? {
         var components = URLComponents(string: "https://music.163.com/api/cloudsearch/pc")
         components?.queryItems = [
             .init(name: "s", value: normalizedQuery("\(Self.bareTitle(title)) \(artist)")),
@@ -732,7 +770,7 @@ class MusicManager: ObservableObject {
         guard let url = components?.url,
               let search = await Self.netEaseJSON(url),
               let songs = (search["result"] as? [String: Any])?["songs"] as? [[String: Any]]
-        else { return }
+        else { return nil }
 
         let wantedTitle = Self.matchKey(Self.bareTitle(title))
         let wantedArtist = Self.matchKey(artist)
@@ -755,21 +793,13 @@ class MusicManager: ObservableObject {
                   let lyrics = await Self.netEaseJSON(url)
             else { continue }
             var lines = ((lyrics["yrc"] as? [String: Any])?["lyric"] as? String).map(Self.parseYRC) ?? []
-            // No word timings: its line timings, for a song nothing else
-            // has timed.
-            if lines.isEmpty, self.syncedLyrics.isEmpty,
-               let lrc = (lyrics["lrc"] as? [String: Any])?["lyric"] as? String {
+            // No word timings: its line timings.
+            if lines.isEmpty, let lrc = (lyrics["lrc"] as? [String: Any])?["lyric"] as? String {
                 lines = self.parseLRC(lrc)
             }
-            guard !lines.isEmpty else { continue }
-            guard isCurrentLookup(generation) else { return }
-            self.syncedLyrics = lines
-            if self.currentLyrics.isEmpty {
-                self.currentLyrics = lines.map(\.text).joined(separator: "\n")
-            }
-            self.isFetchingLyrics = false
-            return
+            if !lines.isEmpty { return lines }
         }
+        return nil
     }
 
     private static func netEaseJSON(_ url: URL) async -> [String: Any]? {
@@ -851,15 +881,6 @@ class MusicManager: ObservableObject {
             .replacingOccurrences(of: "\u{FFFD}", with: "")
     }
 
-    /// Only the timed lines, for a track whose text came from somewhere else.
-    /// Dropped if the track has changed by the time they arrive.
-    @MainActor
-    private func fetchSyncedLyricsFromWeb(title: String, artist: String, generation: Int) async {
-        guard let results = await lrclibSearch(title: title, artist: artist),
-              let synced = bestSyncedLyrics(in: results), isCurrentLookup(generation) else { return }
-        self.syncedLyrics = self.parseLRC(synced)
-    }
-
     /// LRCLIB's matches for a track, trying looser searches when a strict one
     /// finds nothing: the title stripped of "(feat. …)" and the like, then
     /// only the first of several artists - "greyrock, tewiq & madk1d" is often
@@ -881,18 +902,18 @@ class MusicManager: ObservableObject {
 
         var answered = false
         for items in searches {
-            guard let results = await lrclibRequest(items) else { continue }
+            guard let results = await lrclibRequest("search", items) as? [[String: Any]] else { continue }
             answered = true
             if !results.isEmpty { return results }
         }
         return answered ? [] : nil
     }
 
-    /// One LRCLIB search, asked again a couple of times when the server is
-    /// busy - it answers 503 often enough at busy hours that the lyrics went
-    /// missing for songs it has.
-    private func lrclibRequest(_ items: [URLQueryItem]) async -> [[String: Any]]? {
-        var components = URLComponents(string: "https://lrclib.net/api/search")
+    /// One LRCLIB request, asked again when the server is busy - it answers
+    /// 503 often enough at busy hours that the lyrics went missing for songs
+    /// it has. `endpoint` is "search" or "get".
+    private func lrclibRequest(_ endpoint: String, _ items: [URLQueryItem]) async -> Any? {
+        var components = URLComponents(string: "https://lrclib.net/api/\(endpoint)")
         components?.queryItems = items.map { .init(name: $0.name, value: $0.value.map(normalizedQuery)) }
         // URLComponents leaves "+" alone, which a server reads as a space.
         let query = components?.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
@@ -914,7 +935,7 @@ class MusicManager: ObservableObject {
                 continue
             }
             if http.statusCode == 200 {
-                return (try? JSONSerialization.jsonObject(with: data)) as? [[String: Any]]
+                return try? JSONSerialization.jsonObject(with: data)
             }
             // Busy or rate limited is worth another go; anything else is not.
             guard http.statusCode == 429 || http.statusCode >= 500, attempt < backoff.count else { return nil }
@@ -940,20 +961,31 @@ class MusicManager: ObservableObject {
         return (pool.first { $0.timesWords } ?? pool.first)?.text
     }
 
-    /// LRCLIB's text and timings. Leaves the lyrics empty, and the lookup
-    /// running, when it has neither - the next source is asked.
+    /// LRCLIB's text and timings, or nil when it has neither. The exact
+    /// lookup first - title, artist and length, one quick answer - and the
+    /// searches only when that finds nothing.
     @MainActor
-    private func fetchLyricsFromWeb(title: String, artist: String, generation: Int) async {
-        let results = await lrclibSearch(title: title, artist: artist) ?? []
-        guard isCurrentLookup(generation),
-              let first = results.first(where: { ($0["plainLyrics"] as? String)?.isEmpty == false })
+    private func lrclibLyrics(title: String, artist: String) async -> (plain: String, lines: [TimedLyric])? {
+        var results: [[String: Any]] = []
+        if songDuration > 0,
+           let exact = await lrclibRequest("get", [
+               .init(name: "track_name", value: title),
+               .init(name: "artist_name", value: artist),
+               .init(name: "duration", value: String(Int(songDuration.rounded()))),
+           ]) as? [String: Any] {
+            results = [exact]
+        }
+        if results.isEmpty {
+            results = await lrclibSearch(title: title, artist: artist) ?? []
+        }
+        guard let first = results.first(where: { ($0["plainLyrics"] as? String)?.isEmpty == false })
                 ?? results.first
-        else { return }
+        else { return nil }
         let plain = (first["plainLyrics"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let synced = bestSyncedLyrics(in: results) ?? ""
-        self.syncedLyrics = synced.isEmpty ? [] : self.parseLRC(synced)
-        self.currentLyrics = plain.isEmpty ? self.syncedLyrics.map(\.text).joined(separator: "\n") : plain
-        if !self.currentLyrics.isEmpty { self.isFetchingLyrics = false }
+        let lines = synced.isEmpty ? [] : parseLRC(synced)
+        guard !plain.isEmpty || !lines.isEmpty else { return nil }
+        return (plain, lines)
     }
 
     // MARK: - Synced lyrics helpers

@@ -615,10 +615,12 @@ private struct LyricColumn: Layout {
     }
 }
 
-/// The glow around the lyrics panel: the cover blurred to soft-edged
-/// colour, larger than the panel and drifting slowly behind it. Blurred once
-/// per cover into a bitmap; only the finished bitmap moves, which costs next
-/// to nothing - blurring live every frame is what slowed the lock screen.
+/// The cover's colours as a living glow: the cover blurred to soft-edged
+/// colour, larger than the view, drifting, swelling, turning and shimmering
+/// on cycles that never line up - so it wanders rather than loops, like the
+/// glow behind the album art. Blurred once per cover into a bitmap; only the
+/// finished bitmap moves, which costs next to nothing - blurring live every
+/// frame is what slowed the lock screen.
 private struct PanelGlow: View {
     let image: NSImage?
     let isActive: Bool
@@ -628,7 +630,11 @@ private struct PanelGlow: View {
     /// How far past the view's edges the glow reaches.
     var bleed: CGFloat = 34
 
-    @State private var drift = false
+    @State private var swayX = false
+    @State private var swayY = false
+    @State private var swell = false
+    @State private var turn = false
+    @State private var shimmer = false
 
     var body: some View {
         let intensity = self.intensity ?? (NotchGlass.isActive ? 0.95 : 0.6)
@@ -638,17 +644,27 @@ private struct PanelGlow: View {
                     Image(nsImage: image)
                         .resizable()
                         .interpolation(.high)
-                        .scaleEffect(x: drift ? 1.08 : 0.98, y: drift ? 1.0 : 1.12)
-                        .offset(x: drift ? 18 : -18, y: drift ? -6 : 6)
                         .transition(.opacity)
                 }
             }
+            // The motion is on the frame, which is there from the start, not
+            // on the image, which arrives once the cover is blurred: an image
+            // added after the animations began never joined them, and the
+            // glow sat still.
+            .scaleEffect(x: swell ? 1.14 : 0.94, y: swell ? 0.96 : 1.16)
+            .rotationEffect(.degrees(turn ? 9 : -9))
+            .offset(x: swayX ? 26 : -26, y: swayY ? 9 : -9)
             .padding(-bleed)
-            .opacity(isActive ? intensity : 0)
+            .opacity(isActive ? intensity * (shimmer ? 1 : 0.72) : 0)
             .animation(.easeInOut(duration: 0.6), value: isActive)
             .allowsHitTesting(false)
             .onAppear {
-                withAnimation(.easeInOut(duration: 5.3).repeatForever(autoreverses: true)) { drift = true }
+                // Periods that share no common multiple.
+                withAnimation(.easeInOut(duration: 5.3).repeatForever(autoreverses: true)) { swayX = true }
+                withAnimation(.easeInOut(duration: 4.1).repeatForever(autoreverses: true)) { swayY = true }
+                withAnimation(.easeInOut(duration: 6.7).repeatForever(autoreverses: true)) { swell = true }
+                withAnimation(.easeInOut(duration: 8.9).repeatForever(autoreverses: true)) { turn = true }
+                withAnimation(.easeInOut(duration: 3.7).repeatForever(autoreverses: true)) { shimmer = true }
             }
     }
 
