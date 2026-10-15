@@ -26,6 +26,12 @@ struct MusicPlayerView: View {
 
 struct AlbumArtView: View {
     @Default(.trackChangeAnimation) private var trackChangeAnimation
+    @Default(.albumArtSwipeGesture) private var swipeToSkip
+    @Default(.enableGestures) private var gesturesEnabled
+    /// Swipes over the cover so far, and whether the last went back: the
+    /// cover leans into a swipe the moment it lands. Buttons do not count.
+    @State private var swipeCount = 0
+    @State private var swipedBack = false
     @ObservedObject var musicManager = MusicManager.shared
     @ObservedObject var vm: VornyxViewModel
     let albumArtNamespace: Namespace.ID
@@ -68,6 +74,24 @@ struct AlbumArtView: View {
             }
             // No brightness: the artwork's glow is drawn from it, and would flash.
             .springyTile(hoverScale: 1.03, pressScale: 0.96, hoverBrightness: 0)
+            // Leans to the pointer, wobbles back when it leaves.
+            .hoverJelly()
+            // Two fingers across the cover change the track: left for the
+            // next, right for the previous.
+            .conditionalModifier(swipeToSkip && gesturesEnabled) { view in
+                view.horizontalSwipe(threshold: 40, byFingers: true) { direction in
+                    switch direction {
+                    case .left: musicManager.nextTrack()
+                    case .right: musicManager.previousTrack()
+                    default: return
+                    }
+                    swipedBack = direction == .right
+                    swipeCount += 1
+                    if Defaults[.enableHaptics] {
+                        NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
+                    }
+                }
+            }
             .scaleEffect(musicManager.isPlaying ? 1 : 0.85)
             
             albumArtDarkOverlay
@@ -102,6 +126,8 @@ struct AlbumArtView: View {
             case .flip:
                 FlippingArtwork(
                     image: musicManager.albumArt,
+                    skipCount: swipeCount,
+                    skipsBack: swipedBack,
                     cornerRadius: AlbumArtStyle.openCornerRadius)
             }
         }
@@ -253,35 +279,67 @@ struct MusicControlsView: View {
             )
             .fontWeight(.medium)
             if Defaults[.enableLyrics] {
-                TimelineView(.animation(minimumInterval: 0.1)) { timeline in
-                    let currentElapsed: Double = {
-                        guard musicManager.isPlaying else { return musicManager.elapsedTime }
-                        let delta = timeline.date.timeIntervalSince(musicManager.timestampDate)
-                        let progressed = musicManager.elapsedTime + (delta * musicManager.playbackRate)
-                        return min(max(progressed, 0), musicManager.songDuration)
-                    }()
-                    let line: String = {
-                        if musicManager.isFetchingLyrics { return "Loading lyrics…" }
-                        if !musicManager.syncedLyrics.isEmpty {
-                            return musicManager.lyricLine(at: currentElapsed + MusicManager.lyricsLead)
-                        }
-                        let trimmed = musicManager.currentLyrics.trimmingCharacters(in: .whitespacesAndNewlines)
-                        return trimmed.isEmpty ? "No lyrics found" : trimmed.replacingOccurrences(of: "\n", with: " ")
-                    }()
-                    let isPersian = line.unicodeScalars.contains { scalar in
-                        let v = scalar.value
-                        return v >= 0x0600 && v <= 0x06FF
-                    }
-                    LyricLine(
-                        line: line,
-                        color: musicManager.isFetchingLyrics ? .gray.opacity(0.7) : .gray,
-                        font: isPersian ? .custom("Vazirmatn-Regular", size: NSFont.preferredFont(forTextStyle: .subheadline).pointSize) : .subheadline,
-                        width: width
-                    )
-                    .opacity(musicManager.isPlaying ? 1 : 0)
-                }
+                lyricsLine(width: width)
             }
         }
+    }
+
+    /// The line being sung, under the artist. A press opens the lyrics panel
+    /// below the notch, and another closes it.
+    private func lyricsLine(width: CGFloat) -> some View {
+        // Sixty times a second while playing: the words light up continuously.
+        LyricsTicker(isRunning: musicManager.isPlaying) { now in
+            let elapsed = musicManager.smoothedElapsed(at: now)
+            let index = musicManager.isFetchingLyrics
+                ? nil : musicManager.activeLyricIndex(at: elapsed)
+            let text: String = {
+                if musicManager.isFetchingLyrics { return "Loading lyrics…" }
+                if let index { return musicManager.syncedLyrics[index].text }
+                let trimmed = musicManager.currentLyrics.trimmingCharacters(in: .whitespacesAndNewlines)
+                return trimmed.isEmpty ? "No lyrics found" : trimmed.replacingOccurrences(of: "\n", with: " ")
+            }()
+            let isPersian = text.unicodeScalars.contains { scalar in
+                let v = scalar.value
+                return v >= 0x0600 && v <= 0x06FF
+            }
+            let size = NSFont.preferredFont(forTextStyle: .subheadline).pointSize
+            let nsFont = isPersian
+                ? NSFont(name: "Vazirmatn-Regular", size: size) ?? .preferredFont(forTextStyle: .subheadline)
+                : .preferredFont(forTextStyle: .subheadline)
+            let font: Font = isPersian ? .custom("Vazirmatn-Regular", size: size) : .subheadline
+            Group {
+                if let index {
+                    LyricLine(line: text, width: width) {
+                        SyncedLyricStrip(
+                            line: musicManager.syncedLyrics[index],
+                            elapsed: elapsed + MusicManager.wordLead,
+                            end: musicManager.lyricEnd(at: index),
+                            font: font,
+                            nsFont: nsFont,
+                            width: width)
+                    }
+                } else {
+                    LyricLine(line: text, width: width) {
+                        MarqueeText(
+                            .constant(text),
+                            font: .subheadline,
+                            nsFont: .subheadline,
+                            textColor: musicManager.isFetchingLyrics ? .gray.opacity(0.7) : .gray,
+                            frameWidth: width
+                        )
+                        .font(font)
+                    }
+                }
+            }
+            .opacity(musicManager.isPlaying || vm.isLyricsExpanded ? 1 : 0)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            withAnimation(VornyxViewCoordinator.tabChangeAnimation) {
+                vm.isLyricsExpanded.toggle()
+            }
+        }
+        .help(vm.isLyricsExpanded ? "Hide lyrics" : "Show lyrics")
     }
 
     private var musicSlider: some View {
@@ -775,6 +833,10 @@ private extension AnyTransition {
 /// squashing one way then the other as it settles.
 private struct FlippingArtwork: View {
     let image: NSImage
+    /// Bumped the moment a swipe over the cover skips; the cover answers at
+    /// once.
+    let skipCount: Int
+    let skipsBack: Bool
     let cornerRadius: CGFloat
 
     @State private var current: NSImage
@@ -788,9 +850,16 @@ private struct FlippingArtwork: View {
     /// 0 is loose enough to swing past it a few times.
     @State private var jelly: Double = 0
     @State private var choreography: Task<Void, Never>?
+    /// The lean the cover makes the moment a skip is asked for, towards the
+    /// side it was swept to.
+    @State private var nudge: CGFloat = 0
+    /// Puts the cover back if the skip never brings a new one.
+    @State private var anticipationTimeout: Task<Void, Never>?
 
-    init(image: NSImage, cornerRadius: CGFloat) {
+    init(image: NSImage, skipCount: Int, skipsBack: Bool, cornerRadius: CGFloat) {
         self.image = image
+        self.skipCount = skipCount
+        self.skipsBack = skipsBack
         self.cornerRadius = cornerRadius
         _current = State(initialValue: image)
         _previous = State(initialValue: image)
@@ -803,10 +872,35 @@ private struct FlippingArtwork: View {
                 angle: angle, jelly: jelly, turns: turns,
                 current: current, previous: previous, cornerRadius: cornerRadius))
             .scaleEffect(scale)
+            .offset(x: nudge)
             .onChange(of: ObjectIdentifier(image)) { _, _ in turn(to: image) }
+            .onChange(of: skipCount) { _, _ in anticipate() }
+    }
+
+    /// The start of the turn, the moment a skip is asked for: the player
+    /// takes a beat to send the new track, and a cover that only moved then
+    /// read as late - most of all after a swipe, which is over by the time.
+    /// It sinks a little and leans the way it was swept; the turn picks up
+    /// from there when the new cover comes.
+    private func anticipate() {
+        withAnimation(.spring(response: 0.22, dampingFraction: 0.8)) {
+            scale = 0.88
+            nudge = skipsBack ? 10 : -10
+        }
+        anticipationTimeout?.cancel()
+        anticipationTimeout = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1.5))
+            guard !Task.isCancelled else { return }
+            withAnimation(.spring(response: 0.45, dampingFraction: 0.6)) {
+                scale = 1
+                nudge = 0
+            }
+        }
     }
 
     private func turn(to next: NSImage) {
+        anticipationTimeout?.cancel()
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) { nudge = 0 }
         // Swapped before the angle moves: until it passes the edge, the angle
         // still says "previous", so there is no frame of the new cover early.
         previous = current
@@ -1085,35 +1179,38 @@ private struct ArtworkClip: Shape {
 /// One line of the lyrics under the artist, rolling up to the next the way
 /// Apple Music's do: the old line lifts away blurring out as the new one rises
 /// into its place and comes into focus.
-private struct LyricLine: View {
+private struct LyricLine<Content: View>: View {
     let line: String
-    let color: Color
-    let font: Font
     let width: CGFloat
+    @ViewBuilder let content: () -> Content
 
     var body: some View {
         ZStack(alignment: .leading) {
-            MarqueeText(
-                .constant(line),
-                font: .subheadline,
-                nsFont: .subheadline,
-                textColor: color,
-                frameWidth: width
-            )
-            .font(font)
-            .lineLimit(1)
-            .id(line)
-            .transition(.asymmetric(
-                insertion: .modifier(
-                    active: LyricRoll(offset: 12, blur: 4, opacity: 0, scale: 0.96),
-                    identity: LyricRoll(offset: 0, blur: 0, opacity: 1, scale: 1)),
-                removal: .modifier(
-                    active: LyricRoll(offset: -12, blur: 4, opacity: 0, scale: 0.96),
-                    identity: LyricRoll(offset: 0, blur: 0, opacity: 1, scale: 1))))
+            content()
+                .lineLimit(1)
+                .id(line)
+                .transition(.asymmetric(
+                    insertion: .modifier(
+                        active: LyricRoll(offset: 12, blur: 4, opacity: 0, scale: 0.96),
+                        identity: LyricRoll(offset: 0, blur: 0, opacity: 1, scale: 1)),
+                    removal: .modifier(
+                        active: LyricRoll(offset: -12, blur: 4, opacity: 0, scale: 0.96),
+                        identity: LyricRoll(offset: 0, blur: 0, opacity: 1, scale: 1))))
         }
         .frame(width: width, alignment: .leading)
-        .clipped()
+        // Cut at the sides only: above and below, the sung words' glow fades
+        // out on its own instead of ending at the line's edge.
+        .clipShape(VerticalBleed(bleed: 16))
         .animation(.spring(response: 0.38, dampingFraction: 0.86), value: line)
+    }
+}
+
+/// The view's own width, and `bleed` more than its height above and below.
+private struct VerticalBleed: Shape {
+    let bleed: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        Path(rect.insetBy(dx: 0, dy: -bleed))
     }
 }
 

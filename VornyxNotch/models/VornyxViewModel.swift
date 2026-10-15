@@ -38,7 +38,18 @@ class VornyxViewModel: NSObject, ObservableObject {
     @Published var closedNotchSize: CGSize = getClosedNotchSize()
     
     let webcamManager = WebcamManager.shared
-    @Published var isCameraExpanded: Bool = false
+    @Published var isCameraExpanded: Bool = false {
+        didSet {
+            // The big-screen mirror and the lyrics panel take the same place
+            // under the notch; the one opened last gets it.
+            if isCameraExpanded, Defaults[.showMirror], Defaults[.mirrorDisplayMode] == .bigScreen {
+                isLyricsExpanded = false
+            }
+        }
+    }
+    /// The lyrics panel under the open notch, opened and closed from the
+    /// line under the artist. Closes with the notch.
+    @Published var isLyricsExpanded: Bool = false
     @Published var isRequestingAuthorization: Bool = false
     
     deinit {
@@ -231,6 +242,7 @@ class VornyxViewModel: NSObject, ObservableObject {
         self.notchSize = getClosedNotchSize(screenUUID: self.screenUUID)
         self.closedNotchSize = self.notchSize
         self.notchState = .closed
+        self.isLyricsExpanded = false
         self.isBatteryPopoverActive = false
         self.coordinator.sneakPeek.show = false
         self.edgeAutoOpenActive = false

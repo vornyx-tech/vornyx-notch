@@ -669,6 +669,16 @@ struct ContentView: View {
                 )
             }
 
+            if showsLyricsPanel {
+                NotchLyricsPanel(height: lyricsPanelHeight)
+                    .environment(\.notchScrollableHover, $pointerOverContent)
+                    .transition(
+                        .move(edge: .top)
+                            .combined(with: .opacity)
+                            .combined(with: .scale(scale: 0.96, anchor: .top))
+                    )
+            }
+
             if showsLocalSendStrip {
                 LocalSendStrip()
                     .environmentObject(vm)
@@ -680,10 +690,12 @@ struct ContentView: View {
             }
         }
         .animation(VornyxViewCoordinator.tabChangeAnimation, value: showsBigScreenMirror)
+        .animation(VornyxViewCoordinator.tabChangeAnimation, value: showsLyricsPanel)
         .animation(VornyxViewCoordinator.tabChangeAnimation, value: showsLocalSendStrip)
         // Here rather than on `NotchLayout`: both only matter while the notch
         // is open, and that modifier chain is already at the type checker's limit.
         .onChange(of: showsLocalSendStrip) { _, _ in holdOpenAfterResize() }
+        .onChange(of: showsLyricsPanel) { _, _ in holdOpenAfterResize() }
         .onChange(of: vm.anyDropZoneTargeting) { _, dragging in updateLocalSendDragPin(dragging: dragging) }
         // A pair connecting or going widens or narrows the home page.
         .onChange(of: pods.widgetShowing) { _, _ in holdOpenAfterResize() }
@@ -948,6 +960,7 @@ struct ContentView: View {
             + (showsBigScreenMirror
                ? mirrorBigScreenHeight.clamped(to: mirrorBigScreenHeightRange) + 8
                : 0)
+            + (showsLyricsPanel ? lyricsPanelHeight + 8 : 0)
             + (showsLocalSendStrip ? localSendStripHeight + coordinator.localSendComposeGrowth + 8 : 0)
     }
 
@@ -982,7 +995,12 @@ struct ContentView: View {
     /// The mirror panel that stretches the notch downwards, shown under any tab.
     private var showsBigScreenMirror: Bool {
         showMirror && mirrorDisplayMode == .bigScreen && vm.isCameraExpanded
-            && webcamManager.cameraAvailable
+            && webcamManager.cameraAvailable && !vm.isLyricsExpanded
+    }
+
+    /// The lyrics panel that stretches the notch downwards, shown under any tab.
+    private var showsLyricsPanel: Bool {
+        vm.isLyricsExpanded && vm.notchState == .open && Defaults[.enableLyrics]
     }
 
     /// Whether LocalSend has a transfer that needs to be seen.

@@ -90,6 +90,15 @@ var mirrorBigScreenReservedHeight: CGFloat {
     return Defaults[.mirrorBigScreenHeight].clamped(to: mirrorBigScreenHeightRange)
 }
 
+/// The lyrics panel under the open notch.
+let lyricsPanelHeight: CGFloat = 210
+
+/// Room the window keeps for the lyrics panel, spacing included. The panel
+/// and the big-screen mirror never show together, so they share the room.
+var lyricsPanelReservedHeight: CGFloat {
+    Defaults[.enableLyrics] ? lyricsPanelHeight + 8 : 0
+}
+
 /// The LocalSend strip under the open notch's page.
 let localSendStripHeight: CGFloat = 84
 
@@ -124,7 +133,7 @@ var openNotchSize: CGSize {
         height: max(
             defaultOpenNotchSize.height + (Defaults[.localSendEnabled] ? localSendComposeMaxGrowth : 0),
             dashboardNotchMaxHeight, clipboardMaxHeight)
-            + mirrorBigScreenReservedHeight
+            + max(mirrorBigScreenReservedHeight, lyricsPanelReservedHeight)
             + localSendReservedHeight
             + openNotchHoverSlack
     )

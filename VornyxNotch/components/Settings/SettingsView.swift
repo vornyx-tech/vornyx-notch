@@ -309,6 +309,14 @@ struct GeneralSettings: View {
                 Defaults.Toggle(key: .mediaSwipeGesture) {
                     Text("Change media with horizontal gestures")
                 }
+                Defaults.Toggle(key: .albumArtSwipeGesture) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Swipe on the album art to change tracks")
+                        Text("With the notch open, two fingers left over the cover for the next track, right for the previous.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 Defaults.Toggle(key: .closeGestureEnabled) {
                     Text("Close gesture")
                 }

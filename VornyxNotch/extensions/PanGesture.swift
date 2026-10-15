@@ -151,16 +151,22 @@ extension View {
     /// `panGesture` it sits behind buttons without swallowing their taps -
     /// which matters in the notch header, where the free space between the
     /// icons is the natural place to swipe.
+    ///
+    /// - Parameter byFingers: Report the way the fingers moved - `.left` for
+    ///   fingers swept left - whatever the scrolling direction is set to. By
+    ///   default it reports the page the scroll reveals, which flips with it.
     func horizontalSwipe(
         threshold: CGFloat = 30,
+        byFingers: Bool = false,
         action: @escaping (PanDirection) -> Void
     ) -> some View {
-        background(HorizontalSwipeMonitor(threshold: threshold, action: action))
+        background(HorizontalSwipeMonitor(threshold: threshold, byFingers: byFingers, action: action))
     }
 }
 
 private struct HorizontalSwipeMonitor: NSViewRepresentable {
     let threshold: CGFloat
+    let byFingers: Bool
     let action: (PanDirection) -> Void
 
     func makeNSView(context: Context) -> NSView {
@@ -178,11 +184,12 @@ private struct HorizontalSwipeMonitor: NSViewRepresentable {
     }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(threshold: threshold, action: action)
+        Coordinator(threshold: threshold, byFingers: byFingers, action: action)
     }
 
     @MainActor final class Coordinator: NSObject {
         private let threshold: CGFloat
+        private let byFingers: Bool
         var action: (PanDirection) -> Void
         private var monitor: Any?
         private weak var hostView: NSView?
@@ -191,8 +198,9 @@ private struct HorizontalSwipeMonitor: NSViewRepresentable {
         private var fired = false
         private var idleTask: Task<Void, Never>?
 
-        init(threshold: CGFloat, action: @escaping (PanDirection) -> Void) {
+        init(threshold: CGFloat, byFingers: Bool, action: @escaping (PanDirection) -> Void) {
             self.threshold = threshold
+            self.byFingers = byFingers
             self.action = action
         }
 
@@ -255,7 +263,10 @@ private struct HorizontalSwipeMonitor: NSViewRepresentable {
                 return
             }
 
-            let dx = event.scrollingDeltaX
+            // With natural scrolling the delta already runs the fingers' way;
+            // without it, the other way.
+            let dx = byFingers && !event.isDirectionInvertedFromDevice
+                ? -event.scrollingDeltaX : event.scrollingDeltaX
             let dy = event.scrollingDeltaY
             // Ignore anything that is mostly a vertical scroll: the notch already
             // uses up/down swipes to open and close.
@@ -277,8 +288,12 @@ private struct HorizontalSwipeMonitor: NSViewRepresentable {
 
             guard !fired, abs(accumulated) >= threshold else { return }
             fired = true
-            // Natural scrolling: swiping content left reveals the page to its right.
-            action(accumulated < 0 ? .right : .left)
+            if byFingers {
+                action(accumulated < 0 ? .left : .right)
+            } else {
+                // Natural scrolling: swiping content left reveals the page to its right.
+                action(accumulated < 0 ? .right : .left)
+            }
         }
     }
 }

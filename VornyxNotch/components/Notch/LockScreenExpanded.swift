@@ -611,11 +611,6 @@ private struct LockScreenLyrics: View {
     }
 
     private func activeIndex(at date: Date) -> Int {
-        var elapsed = music.elapsedTime
-        if music.isPlaying {
-            elapsed += date.timeIntervalSince(music.timestampDate) * music.playbackRate
-        }
-        elapsed += MusicManager.lyricsLead
-        return music.syncedLyrics.lastIndex { $0.time <= elapsed } ?? 0
+        music.activeLyricIndex(at: music.elapsed(at: date)) ?? 0
     }
 }
