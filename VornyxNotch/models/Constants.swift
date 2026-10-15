@@ -401,6 +401,11 @@ extension Defaults.Keys {
     static let quickShareProvider = Key<String>("quickShareProvider", default: QuickShareProvider.defaultProvider.id)
     static let copyOnDrag = Key<Bool>("copyOnDrag", default: false)
     static let autoRemoveShelfItems = Key<Bool>("autoRemoveShelfItems", default: false)
+    /// New screenshots are put on the shelf as they are taken.
+    static let screenshotsToShelf = Key<Bool>("screenshotsToShelf", default: false)
+    /// The folder they are saved to, as a security-scoped bookmark: the
+    /// sandbox only sees a folder the user has pointed at.
+    static let screenshotsFolderBookmark = Key<Data?>("screenshotsFolderBookmark", default: nil)
     static let expandedDragDetection = Key<Bool>("expandedDragDetection", default: true)
 
     // MARK: LocalSend

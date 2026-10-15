@@ -26,7 +26,8 @@ enum LyricText {
         var text = Text("")
         for word in line.words {
             text = text + Text(word.text.trimmingCharacters(in: .whitespaces))
-                .customAttribute(WordTiming(start: word.start, end: word.end))
+                .customAttribute(WordTiming(start: word.start, end: word.end,
+                                            text: word.text.trimmingCharacters(in: .whitespaces)))
             if word.text.last?.isWhitespace == true { text = text + Text(" ") }
         }
         return text
@@ -44,6 +45,10 @@ struct KaraokeText: View {
     var dim: Double = 0.32
     /// Width of the wipe's soft edge, in points.
     var softness: CGFloat = 22
+    /// Each word swells a little from its middle as it is sung - the font to
+    /// raster the words in for that. Nil under the artist, where the line
+    /// is too small for it.
+    var growsIn: NSFont? = nil
     /// How strongly the sung part shows: 1 on the line being sung, 0 on the
     /// others. Animated, so a line handing over fades its light out rather
     /// than losing it at once.
@@ -54,7 +59,8 @@ struct KaraokeText: View {
             LyricText.text(line)
                 .font(font)
                 .foregroundStyle(.white)
-                .textRenderer(KaraokeRenderer(elapsed: elapsed, dim: dim, strength: strength, softness: softness))
+                .textRenderer(KaraokeRenderer(
+                    elapsed: elapsed, dim: dim, strength: strength, softness: softness, rasterFont: growsIn))
         } else {
             LyricText.text(line)
                 .font(font)
@@ -67,6 +73,7 @@ struct KaraokeText: View {
 private struct WordTiming: TextAttribute {
     let start: Double
     let end: Double
+    let text: String
 }
 
 /// Draws the line dim, then again bright through a mask: solid up to where
@@ -80,6 +87,9 @@ private struct KaraokeRenderer: TextRenderer {
     var dim: Double
     var strength: Double
     let softness: CGFloat
+    /// Set when the words grow as they are sung: each is then drawn as one
+    /// picture, rastered once in this font, and the picture is what grows.
+    let rasterFont: NSFont?
 
     var animatableData: AnimatablePair<Double, Double> {
         get { AnimatablePair(dim, strength) }
@@ -124,7 +134,7 @@ private struct KaraokeRenderer: TextRenderer {
         for (row, line) in layout.enumerated() {
             var base = context
             base.opacity = dim
-            base.draw(line)
+            drawWords(of: line, in: base)
 
             guard row <= litRow, strength > 0.001 else { continue }
             let bounds = line.typographicBounds.rect.insetBy(dx: -softness, dy: -4)
@@ -145,11 +155,45 @@ private struct KaraokeRenderer: TextRenderer {
                             endPoint: CGPoint(x: solid + softness, y: 0)))
                 }
             }
-            bright.draw(line)
+            drawWords(of: line, in: bright)
 
             for glow in glows where glow.row == row && glow.amount > 0.01 {
                 drawGlow(line, at: glow.x, amount: glow.amount * strength, bounds: bounds, in: context)
             }
+        }
+    }
+
+    /// How much bigger a word is once sung, and how long it takes to get
+    /// there from the moment the light reaches it.
+    private static let growth: CGFloat = 0.03
+    private static let growTime = 0.6
+
+    /// The row's words one by one. Where they grow, each is drawn as one
+    /// picture - the word rastered once - and the picture zooms up from its
+    /// own middle over a short ease, stays so while the line is sung, and
+    /// comes back down as the line's light fades. A picture scales as one
+    /// thing, smoothly; the glyphs themselves, redrawn at each size, each
+    /// settled onto the pixel grid on their own and the word shivered.
+    /// Drawn under whatever clip the context already has, so the light's
+    /// mask stays where it was.
+    private func drawWords(of line: Text.Layout.Line, in context: GraphicsContext) {
+        for run in line {
+            guard let rasterFont, let word = run[WordTiming.self] else {
+                context.draw(run)
+                continue
+            }
+            guard let picture = WordPictures.shared.picture(of: word.text, in: rasterFont) else {
+                context.draw(run)
+                continue
+            }
+            let amount = Self.ease((elapsed - word.start) / Self.growTime) * strength
+            let scale = 1 + Self.growth * CGFloat(amount)
+            let bounds = run.typographicBounds.rect
+            let size = CGSize(width: picture.size.width * scale, height: picture.size.height * scale)
+            context.draw(
+                Image(nsImage: picture).interpolation(.high),
+                in: CGRect(x: bounds.midX - size.width / 2, y: bounds.midY - size.height / 2,
+                           width: size.width, height: size.height))
         }
     }
 
@@ -227,6 +271,54 @@ private struct KaraokeRenderer: TextRenderer {
         let t = x.clamped(to: 0...1)
         return t * t * (3 - 2 * t)
     }
+
+    /// Smoother still: no change of pace at either end, so a slow motion
+    /// has no corner to catch the eye.
+    private static func ease(_ x: Double) -> Double {
+        let t = x.clamped(to: 0...1)
+        return t * t * t * (t * (t * 6 - 15) + 10)
+    }
+}
+
+/// Each word of the lyrics as a picture, rastered once per word and font at
+/// three times the point size, so it scales down crisp and scales up a touch
+/// without softening.
+private final class WordPictures {
+    static let shared = WordPictures()
+    private let cache = NSCache<NSString, NSImage>()
+    private static let oversample: CGFloat = 3
+
+    init() { cache.countLimit = 600 }
+
+    func picture(of word: String, in font: NSFont) -> NSImage? {
+        let key = "\(font.fontName)|\(font.pointSize)|\(word)" as NSString
+        if let picture = cache.object(forKey: key) { return picture }
+        guard let picture = Self.raster(word, in: font) else { return nil }
+        cache.setObject(picture, forKey: key)
+        return picture
+    }
+
+    private static func raster(_ word: String, in font: NSFont) -> NSImage? {
+        let attributed = NSAttributedString(string: word, attributes: [.font: font, .foregroundColor: NSColor.white])
+        let bounds = attributed.boundingRect(with: CGSize(width: 10_000, height: 10_000), options: [.usesLineFragmentOrigin])
+        let size = CGSize(width: ceil(bounds.width), height: ceil(bounds.height))
+        guard size.width > 0, size.height > 0,
+              let rep = NSBitmapImageRep(
+                bitmapDataPlanes: nil,
+                pixelsWide: Int(size.width * oversample), pixelsHigh: Int(size.height * oversample),
+                bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+                colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)
+        else { return nil }
+        rep.size = size
+        NSGraphicsContext.saveGraphicsState()
+        defer { NSGraphicsContext.restoreGraphicsState() }
+        guard let context = NSGraphicsContext(bitmapImageRep: rep) else { return nil }
+        NSGraphicsContext.current = context
+        attributed.draw(with: CGRect(origin: .zero, size: size), options: [.usesLineFragmentOrigin])
+        let image = NSImage(size: size)
+        image.addRepresentation(rep)
+        return image
+    }
 }
 
 // MARK: - The line under the artist
@@ -297,6 +389,11 @@ struct NotchLyricsPanel: View {
     private var cornerRadius: CGFloat { innerPanelCornerRadius }
     private static let fontSize: CGFloat = 21
     private static let font = Font.system(size: fontSize, weight: .bold, design: .rounded)
+    /// The same face for AppKit, to raster the words that grow.
+    private static let nsFont: NSFont = {
+        let base = NSFont.systemFont(ofSize: fontSize, weight: .bold)
+        return base.fontDescriptor.withDesign(.rounded).flatMap { NSFont(descriptor: $0, size: fontSize) } ?? base
+    }()
     private static let spacing: CGFloat = 12
     /// Average brightness, 0 to 1, past which a cover counts as pale.
     private static let paleLuminance = 0.62
@@ -432,7 +529,8 @@ struct NotchLyricsPanel: View {
                     clock: distance == 0 ? .shared : .idle,
                     isActive: distance == 0,
                     idle: max(0.16, 0.32 - Double(min(abs(distance), 4)) * 0.04),
-                    font: Self.font)
+                    font: Self.font,
+                    nsFont: Self.nsFont)
                 .onTapGesture { music.seek(to: lines[index].time) }
             }
         }
@@ -464,6 +562,7 @@ private struct LyricRow: View {
     let isActive: Bool
     let idle: Double
     let font: Font
+    let nsFont: NSFont
 
     /// Where the song was when this line stopped being sung. Drawn at that
     /// moment while its light fades, so its glow fades with it - drawn as
@@ -478,6 +577,7 @@ private struct LyricRow: View {
                 : leftAt ?? resting,
             font: font,
             dim: isActive ? 0.32 : idle,
+            growsIn: nsFont,
             strength: isActive ? 1 : 0)
         .multilineTextAlignment(.leading)
         .fixedSize(horizontal: false, vertical: true)
@@ -497,36 +597,40 @@ private struct LyricRow: View {
     }
 }
 
-/// The time for the lyrics' animation, sixty times a second, from one
-/// timer however many views follow it - and only while one does. A plain
-/// timer rather than TimelineView(.animation), for the reason the album
-/// art's glow gives: the notch is a non-activating panel, where the
-/// display-link schedule cannot be relied on to keep firing.
+/// The time for the lyrics' animation, once per screen refresh, from one
+/// display link however many views follow it - and only while one does. A
+/// display link rather than a timer: a timer at sixty a second beat against
+/// the screen's own rate - a hundred and twenty on ProMotion - and every so
+/// often a frame was skipped or doubled, which read as a wobble in anything
+/// moving slowly, like a word growing.
 @MainActor
-final class LyricsClock: ObservableObject {
+final class LyricsClock: NSObject, ObservableObject {
     static let shared = LyricsClock()
     /// Never ticks: what the lines not being sung follow.
     static let idle = LyricsClock()
 
     @Published private(set) var now = Date()
-    private var timer: Timer?
+    private var link: CADisplayLink?
     private var followers = 0
 
     func follow() {
         followers += 1
-        guard timer == nil, self !== Self.idle else { return }
-        let timer = Timer(timeInterval: 1 / 60, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated { self?.now = Date() }
-        }
-        RunLoop.main.add(timer, forMode: .common)
-        self.timer = timer
+        guard link == nil, self !== Self.idle else { return }
+        let link = (NSScreen.main ?? NSScreen.screens.first)?.displayLink(target: self, selector: #selector(tick))
+            ?? NSView().displayLink(target: self, selector: #selector(tick))
+        link.add(to: .main, forMode: .common)
+        self.link = link
     }
 
     func unfollow() {
         followers = max(0, followers - 1)
         guard followers == 0 else { return }
-        timer?.invalidate()
-        timer = nil
+        link?.invalidate()
+        link = nil
+    }
+
+    @objc private func tick(_ link: CADisplayLink) {
+        now = Date()
     }
 }
 

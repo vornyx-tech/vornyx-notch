@@ -1081,6 +1081,8 @@ struct Shelf: View {
     @Default(.shelfTapToOpen) var shelfTapToOpen: Bool
     @Default(.quickShareProvider) var quickShareProvider
     @Default(.expandedDragDetection) var expandedDragDetection: Bool
+    @Default(.screenshotsToShelf) var screenshotsToShelf: Bool
+    @Default(.screenshotsFolderBookmark) var screenshotsFolderBookmark: Data?
     @StateObject private var quickShareService = QuickShareService.shared
 
     private var selectedProvider: QuickShareProvider? {
@@ -1120,6 +1122,30 @@ struct Shelf: View {
                 HStack {
                     Text("General")
                 }
+            }
+
+            Section {
+                Defaults.Toggle(key: .screenshotsToShelf) {
+                    Text("Put new screenshots on the shelf")
+                }
+                .onChange(of: screenshotsToShelf) { _, on in
+                    // Turned on with no folder yet: ask for it now.
+                    if on, ScreenshotWatcher.shared.folderURL == nil { ScreenshotWatcher.shared.chooseFolder() }
+                    if on, ScreenshotWatcher.shared.folderURL == nil { screenshotsToShelf = false }
+                }
+                HStack {
+                    Text("Folder")
+                    Spacer()
+                    Text(ScreenshotWatcher.shared.folderURL?.lastPathComponent ?? "Not chosen")
+                        .foregroundStyle(.secondary)
+                    Button("Choose…") { ScreenshotWatcher.shared.chooseFolder() }
+                }
+            } header: {
+                Text("Screenshots")
+            } footer: {
+                Text("Each screenshot or screen recording saved to this folder lands on the shelf and the notch opens to show it. Screenshots go to the Desktop unless you changed that in System Settings.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
             
             Section {

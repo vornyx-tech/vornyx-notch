@@ -342,6 +342,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         AudioDeviceManager.shared.start()
         // Follows its own setting: nothing touches the network until it is on.
         LocalSendManager.shared.activate()
+        // Follows its own setting too: no folder is watched until one is chosen.
+        ScreenshotWatcher.shared.start()
 
         NotificationCenter.default.addObserver(
             self,
@@ -800,7 +802,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 extension Notification.Name {
     static let selectedScreenChanged = Notification.Name("SelectedScreenChanged")
     static let notchHeightChanged = Notification.Name("NotchHeightChanged")
-    /// Files from LocalSend have landed on the shelf: open it to show them.
+    /// Files have landed on the shelf - from LocalSend, or a screenshot just
+    /// taken: open it to show them.
     static let localSendRevealShelf = Notification.Name("LocalSendRevealShelf")
     static let showOnAllDisplaysChanged = Notification.Name("showOnAllDisplaysChanged")
     static let automaticallySwitchDisplayChanged = Notification.Name("automaticallySwitchDisplayChanged")
